@@ -1,0 +1,86 @@
+\documentclass[a4paper,english,10pt,NET]{tumarticle}
+
+% TUM packages
+\usepackage{tumfonts}
+\usepackage{tumarticle}
+\usepackage{tumlocale}
+\usepackage{tumcmd}
+
+\usepackage{graphicx} % Required for inserting images
+\usepackage{csquotes}
+\usepackage{hyperref}
+\usepackage{xspace}
+\usepackage{booktabs}
+\usepackage{siunitx}
+\usepackage{todo}
+
+\renewcommand{\eg}{e.g.\xspace} % already defined in tumcmd but without xspace
+\renewcommand{\ie}{i.e.\xspace} % already defined in tumcmd but without xspace
+\newcommand{\cf}{c.f.\xspace}
+\newcommand{\tos}{$\to$\xspace}
+
+% Set document title. If no language is supplied, the document language is
+% assumed.
+\title{P2Psec Project -- Initial Report}
+\author{Fabio Gaiba, Lukas Heindl}
+\date{May 21st, 2024}
+
+\begin{document}
+
+\maketitle
+\todo{expect something arround \numrange{1}{2}~Pages, no bullet points}
+\thispagestyle{tumarticle}
+
+\section{Introduction}
+\begin{itemize}
+	\item Fabio Gaiba
+	\item Lukas Heindl
+	\item Gossip
+	\item \Todo{team name}
+\end{itemize}
+
+\section{First Decisions}
+\subsection{Ecosystem}
+\subsubsection{Language}
+\begin{itemize}
+	\item golang
+	\item works well with async
+	\item easy to develop in
+	\item \enquote{hipp xD}
+\end{itemize}
+
+\subsubsection{OS}
+\begin{itemize}
+	\item Linux \Todo{do they also mean/want the distribution? -- I hope not}
+\end{itemize}
+
+\subsubsection{Build-System}
+\begin{itemize}
+	\item golang includes the tool-chain, including how to build and dependency management
+\end{itemize}
+
+\subsubsection{Quality of Software}
+\begin{itemize}
+	\item write unit tests for functions
+	\item golang also includes (checking the) format(ting)
+	\item \Todo{familarize with code quality checking in golang}
+\end{itemize}
+
+\subsubsection{Libraries}
+\begin{itemize}
+	\item stdlib for stuff like logging, networking (tcp) and randomness \Todo{hashing/UUID maybe as well}
+	\item tint for nicer logging
+	\item \Todo{think about stuff like protobuf}
+\end{itemize}
+
+\section{Legal Matters}
+\begin{itemize}
+	\item \Todo{I suppose GPL or MIT/BSD @Fabio?}
+\end{itemize}
+
+\section{Workload}
+\Todo{do they mean something like a milestone plan?}
+
+\todos
+
+\end{document}
