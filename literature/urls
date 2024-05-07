@@ -1,0 +1,16 @@
+https://tonnykwon.github.io/blog/distributed/2019-01-08-Gossip%20Protocol/
+https://courses.engr.illinois.edu/cs425/fa2016/L5.FA16.pdf
+https://www.cs.cornell.edu/courses/cs5412/2021sp/slides/Lecture-12.pdf
+https://www.mitre.org/sites/default/files/pdf/11_5275.pdf
+https://manishyadav.dev/blog/gossip-push-sum-protocols/
+https://www.cs.cornell.edu/johannes/papers/2003/focs2003-gossip.pdf
+https://metatime.com/en/blog/what-is-the-gossip-protocol-what-are-its-types#!
+https://www.mitre.org/sites/default/files/pdf/11_5275.pdf
+https://systemdesign.one/gossip-protocol/
+https://dl-acm-org.eaccess.tum.edu/doi/pdf/10.1145/1317379.1317381
+https://dl-acm-org.eaccess.tum.edu/doi/pdf/10.1145/1317379.1317382
+
+https://dl.acm.org/doi/pdf/10.1145/43921.43922 # first use of gossip in distributed systems
+
+
+TODO: how do we represent the graph? Know neighbors? -- revisit networks and graphs lecture -- unstructured vs strucutred (tend to unstructured as we implement broadcast)
