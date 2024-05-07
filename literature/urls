@@ -14,3 +14,9 @@ https://dl.acm.org/doi/pdf/10.1145/43921.43922 # first use of gossip in distribu
 
 
 TODO: how do we represent the graph? Know neighbors? -- revisit networks and graphs lecture -- unstructured vs strucutred (tend to unstructured as we implement broadcast)
+
+on the security of gossip:
+https://arxiv.org/pdf/2212.05197v1
+https://dl.acm.org/doi/10.1145/3548606.3560638
+https://arxiv.org/pdf/1902.07138v1
+https://arxiv.org/pdf/2007.02754
