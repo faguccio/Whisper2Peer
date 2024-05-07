@@ -45,13 +45,13 @@
 \begin{itemize}
 	\item golang
 	\item works well with async
-	\item easy to develop in
-	\item \enquote{hipp xD}
+	\item easy to develop with
+	\item it's what the \enquote{cool kids (xD)} use
 \end{itemize}
 
 \subsubsection{OS}
 \begin{itemize}
-	\item Linux \Todo{do they also mean/want the distribution? -- I hope not}
+	\item Linux, Arch and NixOS
 \end{itemize}
 
 \subsubsection{Build-System}
@@ -68,8 +68,10 @@
 
 \subsubsection{Libraries}
 \begin{itemize}
-	\item stdlib for stuff like logging, networking (tcp) and randomness \Todo{hashing/UUID maybe as well}
-	\item tint for nicer logging
+	\item stdlib for stuff like \href{https://pkg.go.dev/log}{log}/\href{https://pkg.go.dev/log/slog@go1.22.2}{slog}, \href{https://pkg.go.dev/net}{networking} (tcp/udp) and \href{https://pkg.go.dev/crypto/rand}{randomness} \Todo{\href{crypto/sha256}{hashing}} % \href{https://github.com/google/uuid}{UUID} maybe as well
+	\item \href{github.com/lmittmann/tint}{tint} for nicer logging
+	\item ini parsing like \href{gopkg.in/ini.v1}{ini}
+	\item argument parser? -- like \href{https://github.com/alexflint/go-arg}{go-arg}
 	\item \Todo{think about stuff like protobuf}
 \end{itemize}
 
@@ -78,8 +80,9 @@
 	\item \Todo{I suppose GPL or MIT/BSD @Fabio?}
 \end{itemize}
 
-\section{Workload}
-\Todo{do they mean something like a milestone plan?}
+\section{Workload distribution}
+50:50 of course
+\Todo{\eg one focuses more on paper reading, the other one more on implementation -- maybe state something like that}
 
 \todos
 
