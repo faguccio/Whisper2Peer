@@ -10,7 +10,8 @@ OPT =
 
 $(MAIN).pdf: $(FILES)
 	test -d $(AUX) || mkdir $(AUX)
-	TEXINPUTS=$(shell pwd)/cmd: ./cluttex_teal --output-directory=$(AUX) --change-directory -e pdflatex $(OPT) "$<"
+	[[ "$$(whoami)" == "lukas" ]] && ./cluttex_teal --output-directory=$(AUX) --change-directory -e pdflatex $(OPT) "$<" || true
+	[[ "$$(whoami)" != "lukas" ]] && tectonic "$<" || true
 
 cont: $(FILES)
 	$(MAKE) OPT="--watch=inotifywait"
