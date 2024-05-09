@@ -1,0 +1,38 @@
+# You can copy and paste this template into a new `.gitlab-ci.yml` file.
+# You should not add this template to an existing `.gitlab-ci.yml` file by using the `include:` keyword.
+#
+# To contribute improvements to CI/CD templates, please follow the Development guide at:
+# https://docs.gitlab.com/ee/development/cicd/templates.html
+# This specific template is located at:
+# https://gitlab.com/gitlab-org/gitlab/-/blob/master/lib/gitlab/ci/templates/Go.gitlab-ci.yml
+
+image: golang:latest
+
+stages:
+  - test
+
+formatRegClient:
+  stage: test
+  only:
+    changes:
+      - p2p_reg/**
+  script:
+    - go install honnef.co/go/tools/cmd/staticcheck@latest
+    - cd p2p_reg
+    - go fmt $(go list ./... | grep -v /vendor/)
+    - go vet $(go list ./... | grep -v /vendor/)
+    - staticheck $(go list ./... | grep -v /vendor/)
+    - go test -race $(go list ./... | grep -v /vendor/)
+
+formatGossip:
+  stage: test
+  only:
+    changes:
+      - gossip/**
+  script:
+    - go install honnef.co/go/tools/cmd/staticcheck@latest
+    - cd gossip
+    - go fmt $(go list ./... | grep -v /vendor/)
+    - go vet $(go list ./... | grep -v /vendor/)
+    - staticheck $(go list ./... | grep -v /vendor/)
+    - go test -race $(go list ./... | grep -v /vendor/)
