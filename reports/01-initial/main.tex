@@ -32,34 +32,40 @@
 \thispagestyle{tumarticle}
 
 \section{Introduction}
-\begin{itemize}
-	\item Fabio Gaiba
-	\item Lukas Heindl
-	\item Gossip
-	\item \Todo{team name}
-\end{itemize}
+
+We decided to name the team \textbf{Peer2Whisper}, like the peers are whispering to each other to spread information in the network. The team members are Fabio Gaiba and Lukas Heindl.
+
+\Todo{Does the team name sound cool?}
+
+\Todo{They mention "which implementation" we chose, what's that? Gossip or somehting else?}
+
 
 \section{First Decisions}
 \subsection{Ecosystem}
 \subsubsection{Language}
-\begin{itemize}
-	\item golang
-	\item works well with async
-	\item easy to develop with
-	\item it's what the \enquote{cool kids (xD)} use
-\end{itemize}
+
+We opted to use Golang to develop the module for multiple reasons:
+
+\begin{enumerate}
+	\item The language has good native support for asynchronous programming 
+	\item It comes with a good set of developing tools (packet manager, code formatter/linter)
+	\item It is statically typed  
+	\item Lukas has good experience with it and Fabio is interested in learning it.
+	\item It's what the \enquote{cool kids (xD)} use
+\end{enumerate}
+
+\Todo{Check if correct (I think I can use bullet points this way)}
 
 \subsubsection{OS}
 % TODO Fabio/Lukas
 
-Fabio:
+We use Linux as it is the easier choice for developing (almost) any software. Moreover we find the UNIX philosophy very intuitive and we are fond of the free software principles in general. We believe that the open source nature of the Linux kernel makes it a more secure, reliable and efficient alternative than any proprietary OS.
 
-Lukas:
+He wanted to experiment with the declarative definition of the system, particularly in setting up a customized desktop environment in an easy-to-reproduce manner, and with the separation of developing packages from system packages. He is still very new to Nix's principles.
 
+Lukas' Distro:
 
-\begin{itemize}
-	\item Linux, Arch and NixOS
-\end{itemize}
+\Todo{Check (and adjust) the common statement about Linux}
 
 \subsubsection{Build-system}
 % TODO Lukas
@@ -70,12 +76,16 @@ Lukas:
 \subsubsection{Quality of software}
 % TODO Fabio
 
+Golang offers a built support for unit testing. To test \verb|example.go| it will be sufficient to write the unit test in \verb|example\_test.go| and then run \verb|go test| to run all unit tests. As far as how will those unit test be written, we want to take a simple approach with \textit{Black Box Testing} (so just looking at the input/output pairs) and use the \textit{AAA} pattern (Arrange, Act and Assert).
 
-\begin{itemize}
-	\item write unit tests for functions
-	\item golang also includes (checking the) format(ting)
-	\item \Todo{familarize with code quality checking in golang}
-\end{itemize}
+To ensure Code Quality, we will use built in go tools as \verb|go fmt| for formatting and \verb|go vet| as a static code checker. We will also take advantage of slightly more powerful static checker as \href{https://staticcheck.dev/}{staticcheck} and \href{https://github.com/golangci/golangci-lint}{golangci-lint}.
+
+We also think it would be interesting to look into git hooks to perform automatic local testing before pushing (or merging to main).
+
+\Todo{check git hooks part}
+
+% https://go.dev/doc/tutorial/add-a-test
+% https://git-scm.com/book/en/v2/Customizing-Git-Git-Hooks
 
 \subsubsection{Libraries}
 % TODO Lukas
