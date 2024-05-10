@@ -53,7 +53,7 @@ We opted to use Golang to develop the module for multiple reasons:
 	\item It's what the \enquote{cool kids (xD)} use
 \end{enumerate}
 
-\Todo{Check if correct (I think I can use bullet points this way) -- there is no built in linter, not sure if we should use an enumeration if they say no bullet points. Might look like we're stalling for space}
+\Todo{Check if correct (I think I can use bullet points this way) -- there is no built-in linter, not sure if we should use an enumeration if they say no bullet points. Might look like we're stalling for space}
 
 \subsubsection{OS}
 We use Linux as it is the easier choice for developing (almost) any software. Moreover we find the UNIX philosophy very intuitive and we are fond of the free software principles in general. We believe that the open source nature of the Linux kernel makes it a more secure, reliable and efficient alternative than any proprietary OS.
@@ -74,13 +74,14 @@ In case we need a more elaborate build-chain for \eg generating protobuf/capnpro
 \subsubsection{Quality of software}
 % TODO Fabio
 
-Golang offers a built support for unit testing. To test \verb|example.go| it will be sufficient to write the unit test in \verb|example\_test.go| and then run \verb|go test| to run all unit tests. As far as how will those unit test be written, we want to take a simple approach with \textit{Black Box Testing} (so just looking at the input/output pairs) and use the \textit{AAA} pattern (Arrange, Act and Assert).
+Golang offers a built-in support for unit testing. To test \verb|example.go| it will be sufficient to write the unit test in \verb|example\_test.go| and then run \verb|go test| to run all unit tests. As far as how will those unit test be written, we want to take a simple approach with \textit{Black Box Testing} (so just looking at the input/output pairs) and use the \textit{AAA} pattern (Arrange, Act and Assert).
 
-To ensure Code Quality, we will use built in go tools as \verb|go fmt| for formatting and \verb|go vet| as a static code checker. We will also take advantage of slightly more powerful static checker as \href{https://staticcheck.dev/}{staticcheck} and \href{https://github.com/golangci/golangci-lint}{golangci-lint}.
+To ensure Code Quality, we will use built-in go tools as \verb|go fmt| for formatting and \verb|go vet| as a static code checker. We will also take advantage of slightly more powerful static checker as \href{https://staticcheck.dev/}{staticcheck} and \href{https://github.com/golangci/golangci-lint}{golangci-lint}.
 
 We also think it would be interesting to look into git hooks to perform automatic local testing before pushing (or merging to main).
 
-\Todo{check git hooks part}
+\Todo{check git hooks part -- not sure if checking before merging is possible, need to revisit the git docs}
+\Todo{is golangci-lint a static checker?}
 
 % https://go.dev/doc/tutorial/add-a-test
 % https://git-scm.com/book/en/v2/Customizing-Git-Git-Hooks
