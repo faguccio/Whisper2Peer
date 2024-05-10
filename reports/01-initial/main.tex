@@ -28,16 +28,15 @@
 \begin{document}
 
 \maketitle
-\todo{expect something arround \numrange{1}{2}~Pages, no bullet points}
 \thispagestyle{tumarticle}
 
 \section{Introduction}
 
 We decided to name the team \textbf{Peer2Whisper}, like the peers are whispering to each other to spread information in the network. The team members are Fabio Gaiba and Lukas Heindl.
 
-\Todo{Does the team name sound cool?}
+\Todo{Does the team name sound cool? -- maybe Whisper2Peer? but both sound good for me}
 
-\Todo{They mention "which implementation" we chose, what's that? Gossip or somehting else?}
+\Todo{They mention "which implementation" we chose, what's that? Gossip or somehting else? -- yes I think they mean the module we are working on, "the module which we want to implement"}
 
 
 \section{First Decisions}
@@ -54,24 +53,23 @@ We opted to use Golang to develop the module for multiple reasons:
 	\item It's what the \enquote{cool kids (xD)} use
 \end{enumerate}
 
-\Todo{Check if correct (I think I can use bullet points this way)}
+\Todo{Check if correct (I think I can use bullet points this way) -- there is no built in linter, not sure if we should use an enumeration if they say no bullet points. Might look like we're stalling for space}
 
 \subsubsection{OS}
-% TODO Fabio/Lukas
-
 We use Linux as it is the easier choice for developing (almost) any software. Moreover we find the UNIX philosophy very intuitive and we are fond of the free software principles in general. We believe that the open source nature of the Linux kernel makes it a more secure, reliable and efficient alternative than any proprietary OS.
 
+Fabio's Distro:
 He wanted to experiment with the declarative definition of the system, particularly in setting up a customized desktop environment in an easy-to-reproduce manner, and with the separation of developing packages from system packages. He is still very new to Nix's principles.
 
 Lukas' Distro:
+Lukas will be using Arch Linux as distribution, as this is what he is using as day to day production system.
 
 \Todo{Check (and adjust) the common statement about Linux}
 
 \subsubsection{Build-system}
-% TODO Lukas
-\begin{itemize}
-	\item golang includes the tool-chain, including how to build and dependency management
-\end{itemize}
+With Golang the most natural decision for the build system is to simply use the utility that comes with Golang and is included in the Golang ecosystem.
+The tooling of Golang also already includes dependency management.
+In case we need a more elaborate build-chain for \eg generating protobuf/capnproto code before building the binary, we may use a simple \texttt{Makefile}.
 
 \subsubsection{Quality of software}
 % TODO Fabio
@@ -88,14 +86,28 @@ We also think it would be interesting to look into git hooks to perform automati
 % https://git-scm.com/book/en/v2/Customizing-Git-Git-Hooks
 
 \subsubsection{Libraries}
-% TODO Lukas
-\begin{itemize}
-	\item stdlib for stuff like \href{https://pkg.go.dev/log}{log}/\href{https://pkg.go.dev/log/slog@go1.22.2}{slog}, \href{https://pkg.go.dev/net}{networking} (tcp/udp) and \href{https://pkg.go.dev/crypto/rand}{randomness} \Todo{\href{crypto/sha256}{hashing}} % \href{https://github.com/google/uuid}{UUID} maybe as well
-	\item \href{github.com/lmittmann/tint}{tint} for nicer logging
-	\item ini parsing like \href{gopkg.in/ini.v1}{ini}
-	\item argument parser? -- like \href{https://github.com/alexflint/go-arg}{go-arg}
-	\item \Todo{think about stuff like protobuf}
-\end{itemize}
+The most important libraries, namely
+\href{https://pkg.go.dev/log}{log}
+/
+\href{https://pkg.go.dev/log/slog@go1.22.2}{slog},
+\href{https://pkg.go.dev/net}{networking} (tcp+udp)
+and
+\href{https://pkg.go.dev/crypto/rand}{cryptographic randomness},
+are already included in the stdlib of Golang.
+To get slightly nicer logging (mainly for the coloring) we plan to use \href{github.com/lmittmann/tint}{tint}.
+We also need to be able to parse a configuration file in the ini-format (like we already did in our client for the registration).
+For that we plan on using the library \href{gopkg.in/ini.v1}{ini} once again.
+The path to this configuration file is passed via a commandline argument.
+Using a library (\href{https://github.com/alexflint/go-arg}{go-arg}) for parsing the commandline arguments provides us with a very flexible way to parse commandline arguments.
+This way if we decide later on to add other commandline arguments, this will be an easy addition.
+
+Coding data (de)serialization by hand is cumbersome and error prone.
+For this reason there is a variety of (mostly language agnostic) formats/libraries like \href{https://protobuf.dev/}{protobuf}/\href{https://flatbuffers.dev/}{FlatBuffers} and \href{https://capnproto.org/}{capnproto} out there.
+Based on our current research, it looks like capnproto looks nice and also comes with with a better performance compared to the classical protobuf.
+Also the developers of capnproto state it is even safe to use with a malicious peer which makes it a perfect fit for our project.
+Nonetheless the developers of the Golang capnproto library note the capnproto specification is not fully finalized and the library should be considered beta software until then.
+Thus, we may switch to protobuf if capnproto does not work as expected.
+\Todo{think about stuff like protobuf}
 
 \section{Legal matters}
 % TODO Fabio
@@ -112,7 +124,8 @@ We use quite a lot of free software and appreciate a lot the open source communi
 
 Fabio has participated in the QUIC project for the Advanced Computer Network course, using Golang as the primary language. The project, while not extensive, involved implementing both a client and a server using the QUIC library developed in Go, as well as utilizing examples from the library. Additionally, he made several contributions to a \href{https://github.com/csunibo/polleg}{Go web server for a student project}.
 
-Lukas:
+Lukas has been participated in the same QUIC project using Golang as language of choice.
+In addition he has been working on multiple side-projects like a chat-bot for the Signal Messenger or gathering data from various smart-home-like devices using Golang in this projects.
 
 \Todo{We both did QUIC project, we could merge that}
 
