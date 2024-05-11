@@ -7,7 +7,7 @@
 \usepackage{tumcmd}
 
 \usepackage{graphicx} % Required for inserting images
-\usepackage{csquotes}
+\usepackage[style=american]{csquotes}
 \usepackage{hyperref}
 \usepackage{xspace}
 \usepackage{booktabs}
@@ -31,18 +31,11 @@
 \thispagestyle{tumarticle}
 
 \section{Introduction}
-
 We decided to implement the Gossip module, and to name the team \textbf{Whisper2Peer}, as if the peers are whispering to each other to spread information in the network. The team members are Fabio Gaiba and Lukas Heindl.
-
-\Todo{Does the team name sound cool? -- maybe Whisper2Peer? but both sound good for me}
-
-\Todo{They mention "which implementation" we chose, what's that? Gossip or somehting else? -- yes I think they mean the module we are working on, "the module which we want to implement"}
-
 
 \section{First Decisions}
 \subsection{Ecosystem}
 \subsubsection{Language}
-
 We opted to use Golang to develop the module for multiple reasons:
 
 \begin{enumerate}
@@ -68,8 +61,6 @@ The tooling of Golang also already includes dependency management.
 In case we need a more elaborate build-chain for \eg generating protobuf/capnproto code before building the binary, we may use a simple \texttt{Makefile}.
 
 \subsubsection{Quality of software}
-% TODO Fabio
-
 Golang offers a built-in support for unit testing. To test \verb|example.go| it will be sufficient to write the unit test in \verb|example_test.go| and then run \verb|go test| to run all unit tests. As far as how will those unit test be written, we want to take a simple approach with \textit{Black Box Testing} (so just looking at the input/output pairs) and use the \textit{AAA} pattern (Arrange, Act and Assert).
 
 To ensure Code Quality, we will use built-in go tools as \verb|go fmt| for formatting and \verb|go vet| as a static code checker. We will also take advantage of slightly more powerful static checker as \href{https://staticcheck.dev/}{staticcheck} and \href{https://github.com/golangci/golangci-lint}{golangci-lint}.
@@ -102,17 +93,11 @@ Nonetheless the developers of the Golang capnproto library note the capnproto sp
 Thus, we may switch to protobuf if capnproto does not work as expected.
 
 \section{Legal matters}
-% TODO Fabio
-
-\Todo{I don't know if we should cite. If yes, do you know if can use BibiTex?}
-
 We chose to use a \href{https://www.gnu.org/licenses/quick-guide-gplv3.html}{GPLv3} license.
 We use quite a lot of free software and appreciate a lot the open source community. We believe that software should be distributed with the right of using it as you want and modify it as you want. Moreover, we don't want free software to be used to produce proprietary software. A copyleft license is the best fit for our project, not necessarily because we anticipate real-world usage of it, but as a matter of principle.
 
 
-
 \section{Previous experience}
-
 Fabio has participated in the QUIC project for the Advanced Computer Network course, using Golang as the primary language. The project, while not extensive, involved implementing both a client and a server using the QUIC library developed in Go, as well as utilizing examples from the library. Additionally, he made several contributions to a \href{https://github.com/csunibo/polleg}{Go web server for a student project}.
 
 Lukas has been participated in the same QUIC project using Golang as language of choice.
@@ -120,8 +105,6 @@ In addition he has been working on multiple side-projects like a chat-bot for th
 
 
 \section{Workload distribution}
-% TODO Fabio
-
 The goal is to achieve an equal distribution of the workload between the two students. We take into account that Lukas is far more proficient in Golang, especially when it comes to using and interacting with libraries. Hence, we expect Fabio to write fewer lines of code within the same amount of time. Moreover, we anticipate Lukas being involved in peer programming sessions where he will assist Fabio, so his workload might be larger than what is visible. To balance this, Fabio will take on a larger role in report writing and in studying and designing the protocol. It's important to emphasize that this is just a forecast, and the actual workload distribution may be quite different in the end.
 
 \todos
