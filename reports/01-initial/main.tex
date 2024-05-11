@@ -74,17 +74,16 @@ In case we need a more elaborate build-chain for \eg generating protobuf/capnpro
 \subsubsection{Quality of software}
 % TODO Fabio
 
-Golang offers a built-in support for unit testing. To test \verb|example.go| it will be sufficient to write the unit test in \verb|example\_test.go| and then run \verb|go test| to run all unit tests. As far as how will those unit test be written, we want to take a simple approach with \textit{Black Box Testing} (so just looking at the input/output pairs) and use the \textit{AAA} pattern (Arrange, Act and Assert).
+Golang offers a built-in support for unit testing. To test \verb|example.go| it will be sufficient to write the unit test in \verb|example_test.go| and then run \verb|go test| to run all unit tests. As far as how will those unit test be written, we want to take a simple approach with \textit{Black Box Testing} (so just looking at the input/output pairs) and use the \textit{AAA} pattern (Arrange, Act and Assert).
 
 To ensure Code Quality, we will use built-in go tools as \verb|go fmt| for formatting and \verb|go vet| as a static code checker. We will also take advantage of slightly more powerful static checker as \href{https://staticcheck.dev/}{staticcheck} and \href{https://github.com/golangci/golangci-lint}{golangci-lint}.
 
-We also think it would be interesting to look into git hooks to perform automatic local testing before pushing (or merging to main).
+We also think it would be interesting to look into \href{https://git-scm.com/book/en/v2/Customizing-Git-Git-Hooks}{git} hooks to perform automatic local testing before pushing (or merging to main). We also looked into Gitlab CI to run automatic testing after pushing the repo but it does not seem to be enabled.  
 
 \Todo{check git hooks part -- not sure if checking before merging is possible, need to revisit the git docs}
 \Todo{is golangci-lint a static checker?}
 
 % https://go.dev/doc/tutorial/add-a-test
-% https://git-scm.com/book/en/v2/Customizing-Git-Git-Hooks
 
 \subsubsection{Libraries}
 The most important libraries, namely
