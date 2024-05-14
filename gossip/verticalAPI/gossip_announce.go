@@ -5,19 +5,24 @@ import (
 	"errors"
 )
 
-const GossipAnnounceType = 500
-
+// This type represents a GossipAnnounce packet in the verticalApi.
 type GossipAnnounce struct {
 	MessageHeader
 	TTL      uint8
 	Reserved uint8
-	DataType uint16
+	DataType GossipType
 	Data     []byte
 }
 
+// Unmarshals the GossipAnnounce packet from the provided buffer.
+//
+// Returns the number of bytes read from the buffer.
 func (e *GossipAnnounce) Unmarshal(buf []byte) (int, error) {
 	if e.MessageHeader.Type != GossipAnnounceType {
 		return 0, errors.New("wrong type")
+	}
+	if len(buf) < e.CalcSize()-e.MessageHeader.CalcSize() {
+		return 0, ErrNotEnoughData
 	}
 
 	idx := e.MessageHeader.CalcSize()
@@ -28,14 +33,24 @@ func (e *GossipAnnounce) Unmarshal(buf []byte) (int, error) {
 	e.Reserved = buf[idx]
 	idx += 1
 
-	e.DataType = binary.BigEndian.Uint16(buf[idx:])
+	e.DataType = GossipType(binary.BigEndian.Uint16(buf[idx:]))
 	idx += 2
 
 	// golang slices: [a:b] index b is excluded
 	e.Data = buf[idx:min(int(e.MessageHeader.Size), len(buf))]
+	idx += len(e.Data)
 
-	return 1 + 1 + 2 + len(e.Data), nil
+	return idx - e.MessageHeader.CalcSize(), nil
 }
+
+// Marshals the GossipAnnounce packet to the provided buffer.
+//
+// Not implemented for this message type, but needed to shadow the method from [MessageHeader].
+func (e *GossipAnnounce) Marshal(buf []byte) error {
+	return ErrMethodNotImplemented
+}
+
+// Returns the size of the GossipAnnounce packet.
 func (e *GossipAnnounce) CalcSize() int {
 	s := e.MessageHeader.CalcSize()
 	s += binary.Size(e.TTL)
