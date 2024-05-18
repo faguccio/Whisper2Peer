@@ -26,13 +26,15 @@ func (e *GossipNotification) Unmarshal(buf []byte) (int, error) {
 // Marshals the GossipNotification packet to the provided buffer.
 //
 // If the provided buffer is too small, this function will just grow it.
+// FABIO: we both return and modify the buffer?
 func (e *GossipNotification) Marshal(buf []byte) ([]byte, error) {
 	if e.MessageHeader.Type != GossipNotificationType {
 		return nil, errors.New("wrong type")
 	}
 
-	buf = slices.Grow(buf, e.CalcSize()+3*2)
-	buf = buf[:e.CalcSize()+3*2]
+	buf = slices.Grow(buf, e.CalcSize())
+	buf = buf[:e.CalcSize()]
+
 	if err := e.MessageHeader.Marshal(buf); err != nil {
 		return nil, err
 	}

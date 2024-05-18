@@ -3,7 +3,6 @@ package verticalapi
 import (
 	"encoding/binary"
 	"errors"
-	"fmt"
 )
 
 // This type represents a GossipValidation packet in the verticalApi.
@@ -19,8 +18,6 @@ type GossipValidation struct {
 //
 // Returns the number of bytes read from the buffer.
 func (e *GossipValidation) Unmarshal(buf []byte) (int, error) {
-	e.MessageHeader.Unmarshal(buf)
-
 	if e.MessageHeader.Type != GossipValidationType {
 		return 0, errors.New("wrong type")
 	}
@@ -28,8 +25,7 @@ func (e *GossipValidation) Unmarshal(buf []byte) (int, error) {
 	idx := e.MessageHeader.CalcSize()
 
 	//Either I did not understand or the function was faulty
-	fmt.Println(e.CalcSize()-e.MessageHeader.CalcSize(), len(buf[idx:]))
-	if len(buf[idx:]) < e.CalcSize()-e.MessageHeader.CalcSize() {
+	if len(buf) < e.CalcSize() {
 		return 0, ErrNotEnoughData
 	}
 
@@ -42,7 +38,7 @@ func (e *GossipValidation) Unmarshal(buf []byte) (int, error) {
 	// just for conveniance
 	e.valid = e.Bitfield&0x1 == 0x1
 
-	return idx - e.MessageHeader.CalcSize(), nil
+	return idx, nil
 }
 
 // Marshals the GossipValidation packet to the provided buffer.
@@ -54,6 +50,5 @@ func (e *GossipValidation) Marshal(buf []byte) error {
 
 // Returns the size of the GossipValidation packet.
 func (e *GossipValidation) CalcSize() int {
-	//FABIO deleted the boolean
-	return binary.Size(e) - 1
+	return binary.Size(e) - binary.Size(e.valid)
 }

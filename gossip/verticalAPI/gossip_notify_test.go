@@ -4,28 +4,17 @@ import (
 	"testing"
 )
 
-func TestMarshalGossipVal(t *testing.T) {
-	var e GossipValidation
-	sample := make([]byte, 10)
-	err := e.Marshal(sample)
-	if err == nil {
-		t.Fatalf("Function should not be implemented")
-	}
-}
-
-func TestUnmarshalGossipVal(t *testing.T) {
-	result := GossipValidation{
-		MessageHeader{33795, MessageType(503)},
+func TestUnmarshalGossipNotify(t *testing.T) {
+	result := GossipNotify{
+		MessageHeader{33795, MessageType(501)},
 		31543,
-		17477,
-		// only for ease of use we extract this from the bitfield on Unmarshal
-		true,
+		GossipType(17477),
 	}
 	//In python list((integer).to_bytes(4, byteorder = 'big'))
-	sample := []byte{132, 3, 1, 247, 123, 55, 68, 69}
+	sample := []byte{132, 3, 1, 245, 123, 55, 68, 69}
 	wrongType := []byte{132, 3, 2, 247, 123, 55, 43, 2}
-	smallBuf := []byte{132, 3, 1, 247, 123, 55, 43}
-	var e GossipValidation
+	smallBuf := []byte{132, 3, 1, 245, 123, 55, 43}
+	var e GossipNotify
 
 	e.MessageHeader.Unmarshal(wrongType)
 	_, err := e.Unmarshal(wrongType)
@@ -49,5 +38,14 @@ func TestUnmarshalGossipVal(t *testing.T) {
 
 	if result != e {
 		t.Fatal("Unmarshal result different than expected")
+	}
+}
+
+func TestMarshalGossipNotify(t *testing.T) {
+	var e GossipValidation
+	sample := make([]byte, 10)
+	err := e.Marshal(sample)
+	if err == nil {
+		t.Fatalf("Function should not be implemented")
 	}
 }

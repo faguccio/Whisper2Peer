@@ -20,7 +20,7 @@ func (e *GossipNotify) Unmarshal(buf []byte) (int, error) {
 		return 0, errors.New("wrong type")
 	}
 
-	if len(buf) < e.CalcSize()-e.MessageHeader.CalcSize() {
+	if len(buf) < e.CalcSize() {
 		return 0, ErrNotEnoughData
 	}
 
@@ -32,7 +32,7 @@ func (e *GossipNotify) Unmarshal(buf []byte) (int, error) {
 	e.DataType = GossipType(binary.BigEndian.Uint16(buf[idx:]))
 	idx += 2
 
-	return idx - e.MessageHeader.CalcSize(), nil
+	return idx, nil
 }
 
 // Marshals the GossipNotify packet to the provided buffer.

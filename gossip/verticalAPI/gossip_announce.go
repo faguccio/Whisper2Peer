@@ -21,7 +21,8 @@ func (e *GossipAnnounce) Unmarshal(buf []byte) (int, error) {
 	if e.MessageHeader.Type != GossipAnnounceType {
 		return 0, errors.New("wrong type")
 	}
-	if len(buf) < e.CalcSize()-e.MessageHeader.CalcSize() {
+
+	if len(buf) < e.CalcSize() {
 		return 0, ErrNotEnoughData
 	}
 
@@ -37,10 +38,11 @@ func (e *GossipAnnounce) Unmarshal(buf []byte) (int, error) {
 	idx += 2
 
 	// golang slices: [a:b] index b is excluded
+	// FABIO: do we accept smaller data frame than expected???
 	e.Data = buf[idx:min(int(e.MessageHeader.Size), len(buf))]
 	idx += len(e.Data)
 
-	return idx - e.MessageHeader.CalcSize(), nil
+	return idx, nil
 }
 
 // Marshals the GossipAnnounce packet to the provided buffer.
