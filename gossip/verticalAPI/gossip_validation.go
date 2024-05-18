@@ -3,6 +3,7 @@ package verticalapi
 import (
 	"encoding/binary"
 	"errors"
+	"fmt"
 )
 
 // This type represents a GossipValidation packet in the verticalApi.
@@ -18,15 +19,19 @@ type GossipValidation struct {
 //
 // Returns the number of bytes read from the buffer.
 func (e *GossipValidation) Unmarshal(buf []byte) (int, error) {
+	e.MessageHeader.Unmarshal(buf)
+
 	if e.MessageHeader.Type != GossipValidationType {
 		return 0, errors.New("wrong type")
 	}
 
-	if len(buf) < e.CalcSize()-e.MessageHeader.CalcSize() {
+	idx := e.MessageHeader.CalcSize()
+
+	//Either I did not understand or the function was faulty
+	fmt.Println(e.CalcSize()-e.MessageHeader.CalcSize(), len(buf[idx:]))
+	if len(buf[idx:]) < e.CalcSize()-e.MessageHeader.CalcSize() {
 		return 0, ErrNotEnoughData
 	}
-
-	idx := e.MessageHeader.CalcSize()
 
 	e.MessageId = binary.BigEndian.Uint16(buf[idx:])
 	idx += 2
@@ -49,5 +54,6 @@ func (e *GossipValidation) Marshal(buf []byte) error {
 
 // Returns the size of the GossipValidation packet.
 func (e *GossipValidation) CalcSize() int {
-	return binary.Size(e)
+	//FABIO deleted the boolean
+	return binary.Size(e) - 1
 }
