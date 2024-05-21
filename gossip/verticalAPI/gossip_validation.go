@@ -22,11 +22,12 @@ func (e *GossipValidation) Unmarshal(buf []byte) (int, error) {
 		return 0, errors.New("wrong type")
 	}
 
-	if len(buf) < e.CalcSize()-e.MessageHeader.CalcSize() {
+	idx := e.MessageHeader.CalcSize()
+
+	//Either I did not understand or the function was faulty
+	if len(buf) < e.CalcSize() {
 		return 0, ErrNotEnoughData
 	}
-
-	idx := e.MessageHeader.CalcSize()
 
 	e.MessageId = binary.BigEndian.Uint16(buf[idx:])
 	idx += 2
@@ -37,7 +38,7 @@ func (e *GossipValidation) Unmarshal(buf []byte) (int, error) {
 	// just for conveniance
 	e.valid = e.Bitfield&0x1 == 0x1
 
-	return idx - e.MessageHeader.CalcSize(), nil
+	return idx, nil
 }
 
 // Marshals the GossipValidation packet to the provided buffer.
@@ -49,5 +50,5 @@ func (e *GossipValidation) Marshal(buf []byte) error {
 
 // Returns the size of the GossipValidation packet.
 func (e *GossipValidation) CalcSize() int {
-	return binary.Size(e)
+	return binary.Size(e) - binary.Size(e.valid)
 }

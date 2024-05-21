@@ -31,8 +31,9 @@ func (e *GossipNotification) Marshal(buf []byte) ([]byte, error) {
 		return nil, errors.New("wrong type")
 	}
 
-	buf = slices.Grow(buf, e.CalcSize()+3*2)
-	buf = buf[:e.CalcSize()+3*2]
+	buf = slices.Grow(buf, e.CalcSize())
+	buf = buf[:e.CalcSize()]
+
 	if err := e.MessageHeader.Marshal(buf); err != nil {
 		return nil, err
 	}
