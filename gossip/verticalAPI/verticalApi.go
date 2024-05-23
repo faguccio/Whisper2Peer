@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net"
 	"slices"
+	"sync"
 )
 
 // This struct represents the vertical api and is the main interface to/from
@@ -31,6 +32,8 @@ type VerticalApi struct {
 	vertToMainChans VertToMainChans
 	// logging for this module
 	log *slog.Logger
+	// waitgroup to wait for all goroutines to terminate in the end
+	wg sync.WaitGroup
 }
 
 // Use this function to instanciate the vertical api
@@ -60,23 +63,25 @@ func NewVerticalApi(log *slog.Logger, vertToMainChans VertToMainChans) *Vertical
 // This function spawns a new goroutine accepting new connections and
 // terminates afterwards.
 func (v *VerticalApi) Listen(addr string) (err error) {
-	ln, err := net.Listen("tcp", addr)
+	v.ln, err = net.Listen("tcp", addr)
 	if err != nil {
 		return fmt.Errorf("listen to port for vertical API: %w", err)
 	}
 
 	// accept all connections on this port
+	v.wg.Add(1)
 	go func() {
+		defer v.wg.Done()
 		for {
-			conn, err := ln.Accept()
+			conn, err := v.ln.Accept()
 			if err != nil {
 				// check if shall terminate
 				select {
 				case <-v.ctx.Done():
-					break
+					return
 				default:
+					v.log.Error("Accept for vertical API failed", "err", err)
 				}
-				slog.Error("Accept for vertical API failed", "err", err)
 				continue
 			}
 
@@ -87,6 +92,7 @@ func (v *VerticalApi) Listen(addr string) (err error) {
 				MainToVert: mainToVert,
 			}
 
+			v.wg.Add(2)
 			go v.handleConnection(conn, regMod)
 			go v.writeToConnection(conn, mainToVert)
 		}
@@ -99,6 +105,7 @@ func (v *VerticalApi) Listen(addr string) (err error) {
 // Parses the message header and body. Then sends the message via the
 // respective channel to the main package.
 func (v *VerticalApi) handleConnection(conn net.Conn, regMod RegisteredModule) {
+	defer v.wg.Done()
 	var err error
 	var nRead int
 
@@ -127,7 +134,7 @@ func (v *VerticalApi) handleConnection(conn net.Conn, regMod RegisteredModule) {
 				return
 			default:
 			}
-			slog.Error("Read on vertical API failed", "err", err)
+			v.log.Error("Read on vertical API failed", "err", err)
 			continue
 		}
 		// it is save that the complete buffer is completely populated at this point
@@ -135,12 +142,13 @@ func (v *VerticalApi) handleConnection(conn net.Conn, regMod RegisteredModule) {
 		// parse the message header
 		_, err = msgHdr.Unmarshal(buf)
 		if err != nil {
-			slog.Warn("Invalid header read", "err", err)
+			v.log.Warn("Invalid header read", "err", err)
 			continue
 		}
 
 		// allocate space for the message body
 		buf = slices.Grow(buf, int(msgHdr.Size)-nRead)
+		buf = buf[0:int(msgHdr.Size)]
 
 		// read the message body
 		_, err = io.ReadFull(conn, buf[nRead:])
@@ -151,18 +159,21 @@ func (v *VerticalApi) handleConnection(conn net.Conn, regMod RegisteredModule) {
 				return
 			default:
 			}
-			slog.Error("Read on vertical API failed", "err", err)
+			v.log.Error("Read on vertical API failed", "err", err)
 			continue
 		}
 		// it is save that the complete buffer is completely populated at this point
+
+		v.log.Debug("received buffer", "buf", buf)
 
 		switch msgHdr.Type {
 
 		case vertTypes.GossipAnnounceType:
 			var ga vertTypes.GossipAnnounce
+			ga.MessageHeader = msgHdr
 			_, err = ga.Unmarshal(buf)
 			if err != nil {
-				slog.Warn("Invalid GossipAnnounce read", "err", err)
+				v.log.Warn("Invalid GossipAnnounce read", "err", err)
 				continue
 			} else {
 				v.vertToMainChans.Anounce <- VertToMainAnnounce{
@@ -172,9 +183,10 @@ func (v *VerticalApi) handleConnection(conn net.Conn, regMod RegisteredModule) {
 
 		case vertTypes.GossipNotifyType:
 			var gn vertTypes.GossipNotify
+			gn.MessageHeader = msgHdr
 			_, err = gn.Unmarshal(buf)
 			if err != nil {
-				slog.Warn("Invalid GossipNotify read", "err", err)
+				v.log.Warn("Invalid GossipNotify read", "err", err)
 				continue
 			} else {
 				v.vertToMainChans.Register <- VertToMainRegister{
@@ -185,9 +197,10 @@ func (v *VerticalApi) handleConnection(conn net.Conn, regMod RegisteredModule) {
 
 		case vertTypes.GossipValidationType:
 			var gv vertTypes.GossipValidation
+			gv.MessageHeader = msgHdr
 			_, err = gv.Unmarshal(buf)
 			if err != nil {
-				slog.Warn("Invalid GossipValidation read", "err", err)
+				v.log.Warn("Invalid GossipValidation read", "err", err)
 				continue
 			} else {
 				v.vertToMainChans.Validation <- VertToMainValidation{
@@ -196,7 +209,7 @@ func (v *VerticalApi) handleConnection(conn net.Conn, regMod RegisteredModule) {
 			}
 
 		default:
-			slog.Warn("vertical API received an unexpected message type", "type", msgHdr.Type)
+			v.log.Warn("vertical API received an unexpected message type", "type", msgHdr.Type)
 		}
 	}
 }
@@ -205,6 +218,7 @@ func (v *VerticalApi) handleConnection(conn net.Conn, regMod RegisteredModule) {
 //
 // Writes all messages sent to he mainToVert channel to the connection
 func (v *VerticalApi) writeToConnection(conn net.Conn, mainToVert <-chan MainToVertNotification) {
+	defer v.wg.Done()
 	var err error
 	var nWritten int
 	buf := make([]byte, 0, 4096)
@@ -212,7 +226,7 @@ func (v *VerticalApi) writeToConnection(conn net.Conn, mainToVert <-chan MainToV
 	for msg := range mainToVert {
 		buf, err = msg.Data.Marshal(buf)
 		if err != nil {
-			slog.Warn("Failed to marshal GossipNotification", "err", err)
+			v.log.Warn("Failed to marshal GossipNotification", "err", err)
 			continue
 		}
 
@@ -224,7 +238,7 @@ func (v *VerticalApi) writeToConnection(conn net.Conn, mainToVert <-chan MainToV
 				return
 			default:
 			}
-			slog.Warn("Failed to send GossipNotification", "err", err)
+			v.log.Warn("Failed to send GossipNotification", "err", err)
 			continue
 		}
 		_ = nWritten
@@ -248,5 +262,6 @@ func (v *VerticalApi) Close() (err error) {
 			err = e
 		}
 	}
+	v.wg.Wait()
 	return err
 }
