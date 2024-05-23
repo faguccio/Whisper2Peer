@@ -92,7 +92,7 @@ func TestHandleConnection(test *testing.T) {
 			cVert, cTest := net.Pipe()
 			vertToMainChans := VertToMainChans{
 				Register:   make(chan VertToMainRegister, 1),
-				Anounce:    make(chan VertToMainAnnounce, 1),
+				Announce:   make(chan VertToMainAnnounce, 1),
 				Validation: make(chan VertToMainValidation, 1),
 			}
 			// create the vertical api with above setup values
@@ -131,7 +131,7 @@ func TestHandleConnection(test *testing.T) {
 				if !reflect.DeepEqual(x.Data, *t) {
 					test.Fatalf("handler didn't receive the sent message correctly. Was %+v should %+v", x.Data, *t)
 				}
-			case x := <-vertToMainChans.Anounce:
+			case x := <-vertToMainChans.Announce:
 				t, ok := t.msg.(*vertTypes.GossipAnnounce)
 				if !ok {
 					test.Fatalf("handler sent to wrong channel")
@@ -153,7 +153,7 @@ func TestHandleConnection(test *testing.T) {
 			}
 
 			// check if the handler also sent additional messages
-			if len(vertToMainChans.Anounce) != 0 || len(vertToMainChans.Register) != 0 || len(vertToMainChans.Validation) != 0 {
+			if len(vertToMainChans.Announce) != 0 || len(vertToMainChans.Register) != 0 || len(vertToMainChans.Validation) != 0 {
 				test.Fatalf("handler sent to many messages on the vertToMain channels")
 			}
 
@@ -179,7 +179,7 @@ func TestWriteToConnection(test *testing.T) {
 		cVert, cTest := net.Pipe()
 		vertToMainChans := VertToMainChans{
 			Register:   make(chan VertToMainRegister, 1),
-			Anounce:    make(chan VertToMainAnnounce, 1),
+			Announce:   make(chan VertToMainAnnounce, 1),
 			Validation: make(chan VertToMainValidation, 1),
 		}
 		// create the vertical api with above setup values
@@ -205,7 +205,7 @@ func TestWriteToConnection(test *testing.T) {
 
 		// allow the message arrive within 5 seconds to avoid hanging up the test
 		// TODO are 5 seconds too long? (makes these tests a bit slow)
-		if err := cTest.SetReadDeadline(time.Now().Add(5*time.Second)); err != nil {
+		if err := cTest.SetReadDeadline(time.Now().Add(5 * time.Second)); err != nil {
 			test.Fatalf("Setting readDeadline failed: %v", err)
 		}
 		// receive the message sent on the network
@@ -220,11 +220,11 @@ func TestWriteToConnection(test *testing.T) {
 		}
 
 		// check if an additional message was sent
-		if err := cTest.SetReadDeadline(time.Now().Add(5*time.Second)); err != nil {
+		if err := cTest.SetReadDeadline(time.Now().Add(5 * time.Second)); err != nil {
 			test.Fatalf("Setting readDeadline failed: %v", err)
 		}
 		buf = make([]byte, 1)
-		if n,err := cTest.Read(buf); err == nil || !errors.Is(err, os.ErrDeadlineExceeded) || n != 0 {
+		if n, err := cTest.Read(buf); err == nil || !errors.Is(err, os.ErrDeadlineExceeded) || n != 0 {
 			test.Fatalf("There shouldn't be any data left on the socket: %v", err)
 		}
 	})
@@ -238,7 +238,7 @@ func TestVerticalApi(test *testing.T) {
 	var testLog *slog.Logger = slogt.New(test)
 	vertToMainChans := VertToMainChans{
 		Register:   make(chan VertToMainRegister, 1),
-		Anounce:    make(chan VertToMainAnnounce, 1),
+		Announce:   make(chan VertToMainAnnounce, 1),
 		Validation: make(chan VertToMainValidation, 1),
 	}
 	// create the vertical api with above setup values
@@ -295,8 +295,8 @@ func TestVerticalApi(test *testing.T) {
 		test.Fatalf("handler didn't pass a message to the right vertToMain channel")
 	}
 	// check if additional/other messages got sent as well
-	if len(vertToMainChans.Anounce) != 0 || len(vertToMainChans.Register) != 0 || len(vertToMainChans.Validation) != 0 {
-		test.Fatalf("handler sent to many messages on the vertToMain channels %d %d %d", len(vertToMainChans.Anounce), len(vertToMainChans.Register), len(vertToMainChans.Validation))
+	if len(vertToMainChans.Announce) != 0 || len(vertToMainChans.Register) != 0 || len(vertToMainChans.Validation) != 0 {
+		test.Fatalf("handler sent to many messages on the vertToMain channels %d %d %d", len(vertToMainChans.Announce), len(vertToMainChans.Register), len(vertToMainChans.Validation))
 	}
 
 	// send a message on the newly established channel and check if it is
@@ -317,7 +317,7 @@ func TestVerticalApi(test *testing.T) {
 
 	// allow the message arrive within 5 seconds to avoid hanging up the test
 	// TODO are 5 seconds too long? (makes these tests a bit slow)
-	if err := cTest.SetReadDeadline(time.Now().Add(5*time.Second)); err != nil {
+	if err := cTest.SetReadDeadline(time.Now().Add(5 * time.Second)); err != nil {
 		test.Fatalf("Setting readDeadline failed: %v", err)
 	}
 	// receive the message sent on the network
@@ -333,11 +333,11 @@ func TestVerticalApi(test *testing.T) {
 	}
 
 	// check if additional messages also get send
-	if err := cTest.SetReadDeadline(time.Now().Add(5*time.Second)); err != nil {
+	if err := cTest.SetReadDeadline(time.Now().Add(5 * time.Second)); err != nil {
 		test.Fatalf("Setting readDeadline failed: %v", err)
 	}
 	buf = make([]byte, 1)
-	if n,err := cTest.Read(buf); err == nil || !errors.Is(err, os.ErrDeadlineExceeded) || n != 0 {
+	if n, err := cTest.Read(buf); err == nil || !errors.Is(err, os.ErrDeadlineExceeded) || n != 0 {
 		test.Fatalf("There shouldn't be any data left on the socket: %v", err)
 	}
 

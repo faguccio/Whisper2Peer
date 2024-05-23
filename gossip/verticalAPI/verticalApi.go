@@ -108,6 +108,7 @@ func (v *VerticalApi) handleConnection(conn net.Conn, regMod RegisteredModule) {
 	defer v.wg.Done()
 	var err error
 	var nRead int
+	fmt.Println("handle")
 
 	// if this read routine terminates, make sure the connection is cleaned up
 	// properly
@@ -176,7 +177,7 @@ func (v *VerticalApi) handleConnection(conn net.Conn, regMod RegisteredModule) {
 				v.log.Warn("Invalid GossipAnnounce read", "err", err)
 				continue
 			} else {
-				v.vertToMainChans.Anounce <- VertToMainAnnounce{
+				v.vertToMainChans.Announce <- VertToMainAnnounce{
 					Data: ga,
 				}
 			}
