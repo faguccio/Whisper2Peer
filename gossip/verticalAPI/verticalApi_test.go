@@ -170,8 +170,12 @@ func TestWriteToConnection(test *testing.T) {
 		}
 		bufReal := []byte{0x0, 0x0a, 0x01, 0xf6, 0x05, 0x39, 0x0, 0x2a, 0x50, 0x20}
 
-		time.Sleep(5 * time.Second)
-
+		// allow the message arrive within 5 seconds to avoid hanging up the test
+		// TODO are 5 seconds too long? (makes these tests a bit slow)
+		if err := cTest.SetReadDeadline(time.Now().Add(5*time.Second)); err != nil {
+			test.Fatalf("Setting readDeadline failed: %v", err)
+		}
+		// receive the message sent on the network
 		buf := make([]byte, len(bufReal))
 		if n, err := io.ReadFull(cTest, buf); err != nil {
 			test.Fatalf("Error reading from network. %v", err)
@@ -264,8 +268,12 @@ func TestVerticalApi(test *testing.T) {
 	}
 	bufReal := []byte{0x0, 0x0a, 0x01, 0xf6, 0x05, 0x39, 0x0, 0x2a, 0x50, 0x20}
 
-	time.Sleep(5 * time.Second)
-
+	// allow the message arrive within 5 seconds to avoid hanging up the test
+	// TODO are 5 seconds too long? (makes these tests a bit slow)
+	if err := cTest.SetReadDeadline(time.Now().Add(5*time.Second)); err != nil {
+		test.Fatalf("Setting readDeadline failed: %v", err)
+	}
+	// receive the message sent on the network
 	buf := make([]byte, len(bufReal))
 	if n, err := io.ReadFull(cTest, buf); err != nil {
 		test.Fatalf("Error reading from network. %v", err)
