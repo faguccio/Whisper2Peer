@@ -1,10 +1,12 @@
 package verticalapi
 
 import (
+	"errors"
 	vertTypes "gossip/verticalAPI/types"
 	"io"
 	"log/slog"
 	"net"
+	"os"
 	"reflect"
 	"testing"
 	"time"
@@ -179,7 +181,14 @@ func TestWriteToConnection(test *testing.T) {
 		if !reflect.DeepEqual(buf, bufReal) {
 			test.Fatalf("Sent buffer is wrong. was: %v should: %v", buf, bufReal)
 		}
-		// TODO read with timeout to ensure nothing else is being sent
+
+		if err := cTest.SetReadDeadline(time.Now().Add(5*time.Second)); err != nil {
+			test.Fatalf("Setting readDeadline failed: %v", err)
+		}
+		buf = make([]byte, 1)
+		if n,err := cTest.Read(buf); err == nil || !errors.Is(err, os.ErrDeadlineExceeded) || n != 0 {
+			test.Fatalf("There shouldn't be any data left on the socket: %v", err)
+		}
 	})
 }
 
@@ -265,6 +274,14 @@ func TestVerticalApi(test *testing.T) {
 	}
 	if !reflect.DeepEqual(buf, bufReal) {
 		test.Fatalf("Sent buffer is wrong. was: %v should: %v", buf, bufReal)
+	}
+
+	if err := cTest.SetReadDeadline(time.Now().Add(5*time.Second)); err != nil {
+		test.Fatalf("Setting readDeadline failed: %v", err)
+	}
+	buf = make([]byte, 1)
+	if n,err := cTest.Read(buf); err == nil || !errors.Is(err, os.ErrDeadlineExceeded) || n != 0 {
+		test.Fatalf("There shouldn't be any data left on the socket: %v", err)
 	}
 
 	defer func() {
