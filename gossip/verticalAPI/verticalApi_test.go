@@ -29,9 +29,13 @@ type tester struct {
 	name string
 }
 
+// test for internal handleConnection function
+// idea is to simulate the network via a net.Pipe -> isolated -> tests can run
+// in parallel
 func TestHandleConnection(test *testing.T) {
 	test.Parallel()
 	// use table driven testing: https://go.dev/wiki/TableDrivenTests
+	// define the messages that should be received via the socket
 	ts := []tester{
 		{
 			&vertTypes.GossipAnnounce{
@@ -74,34 +78,50 @@ func TestHandleConnection(test *testing.T) {
 			"validation",
 		},
 	}
+
+	// run one test for each message that should be received -> those can run
+	// in parallel -> speedup for the tests
 	for _, t := range ts {
 		t := t // NOTE: /wiki/CommonMistakes#using-goroutines-on-loop-iterator-variables
 		test.Run(t.name, func(test *testing.T) {
 			test.Parallel()
+			// use this for logging so that messages are not shown in general,
+			// only if the test fails
 			var testLog *slog.Logger = slogt.New(test)
+			// create the network pipe
 			cVert, cTest := net.Pipe()
 			vertToMainChans := VertToMainChans{
 				Register:   make(chan VertToMainRegister, 1),
 				Anounce:    make(chan VertToMainAnnounce, 1),
 				Validation: make(chan VertToMainValidation, 1),
 			}
+			// create the vertical api with above setup values
 			vert := NewVerticalApi(testLog, vertToMainChans)
 
+			// pretend the connection just got established and all the channels
+			// have been created
 			vert.conns[cVert] = struct{}{}
 			mainToVert := make(chan MainToVertNotification)
 			regMod := RegisteredModule{
 				MainToVert: mainToVert,
 			}
+			// start the handler
 			go vert.handleConnection(cVert, regMod)
 
+			// write the message to the socket
 			if n, err := cTest.Write(t.buf); err != nil {
 				test.Fatalf("failed sending: %v %+v", err, t)
 			} else if n != len(t.buf) {
 				test.Fatalf("buffer wasn't sent completely (might need to adjust the test) %v", t)
 			}
 
+			// sleep to make sure the message had time to arrive
+			// TODO are 5 seconds too long? (makes these tests a bit slow)
 			time.Sleep(5 * time.Second)
 
+			// check all channels on which unmarshaled messages could be sent
+			// to by the handler
+			// then check if that is the right channel and if the message contains the right information
 			select {
 			case x := <-vertToMainChans.Validation:
 				t, ok := t.msg.(*vertTypes.GossipValidation)
@@ -128,11 +148,15 @@ func TestHandleConnection(test *testing.T) {
 					test.Fatalf("handler didn't receive the sent message correctly. Was %+v should %+v", x.Data, *t)
 				}
 			default:
+				// nothing did arrive
 				test.Fatalf("handler didn't pass a message to any vertToMain channel")
 			}
+
+			// check if the handler also sent additional messages
 			if len(vertToMainChans.Anounce) != 0 || len(vertToMainChans.Register) != 0 || len(vertToMainChans.Validation) != 0 {
 				test.Fatalf("handler sent to many messages on the vertToMain channels")
 			}
+
 			// close would pannic because the listener isn't setup correctly -> skip it
 			// if err := vert.Close(); err != nil {
 			// 	test.Fatalf("failed to close vertical api: %v", err)
@@ -141,22 +165,31 @@ func TestHandleConnection(test *testing.T) {
 	}
 }
 
+// test the writeHandler in an isolated way
+// again as with the other handler, we're using net.Pipe as network stub which
+// allows for isolation and run in parallel
 func TestWriteToConnection(test *testing.T) {
 	test.Parallel()
 	test.Run("notification", func(test *testing.T) {
 		test.Parallel()
+		// use this for logging so that messages are not shown in general,
+		// only if the test fails
 		var testLog *slog.Logger = slogt.New(test)
+		// create the network pipe
 		cVert, cTest := net.Pipe()
 		vertToMainChans := VertToMainChans{
 			Register:   make(chan VertToMainRegister, 1),
 			Anounce:    make(chan VertToMainAnnounce, 1),
 			Validation: make(chan VertToMainValidation, 1),
 		}
+		// create the vertical api with above setup values
 		vert := NewVerticalApi(testLog, vertToMainChans)
 
+		// start the handler
 		mainToVert := make(chan MainToVertNotification, 1)
 		go vert.writeToConnection(cVert, mainToVert)
 
+		// send a message to the handler which shall be sent on the network
 		mainToVert <- MainToVertNotification{
 			Data: vertTypes.GossipNotification{
 				MessageHeader: vertTypes.MessageHeader{
@@ -186,6 +219,7 @@ func TestWriteToConnection(test *testing.T) {
 			test.Fatalf("Sent buffer is wrong. was: %v should: %v", buf, bufReal)
 		}
 
+		// check if an additional message was sent
 		if err := cTest.SetReadDeadline(time.Now().Add(5*time.Second)); err != nil {
 			test.Fatalf("Setting readDeadline failed: %v", err)
 		}
@@ -199,22 +233,29 @@ func TestWriteToConnection(test *testing.T) {
 // mostly a combined version of the other two tests which also tests the tcp
 // server and has a more black-box approach
 func TestVerticalApi(test *testing.T) {
+	// use this for logging so that messages are not shown in general,
+	// only if the test fails
 	var testLog *slog.Logger = slogt.New(test)
 	vertToMainChans := VertToMainChans{
 		Register:   make(chan VertToMainRegister, 1),
 		Anounce:    make(chan VertToMainAnnounce, 1),
 		Validation: make(chan VertToMainValidation, 1),
 	}
+	// create the vertical api with above setup values
 	vert := NewVerticalApi(testLog, vertToMainChans)
-	if err := vert.Listen("0.0.0.0:13377"); err != nil {
+	// start the server on localhost:13377
+	if err := vert.Listen("localhost:13377"); err != nil {
 		test.Fatalf("Error starting server: %v", err)
 	}
 
+	// establish a connection to the server
 	cTest, err := net.Dial("tcp", "localhost:13377")
 	if err != nil {
 		test.Fatalf("Error connecting to server: %v", err)
 	}
 
+	// send a notify message to register to the server and get the mainToVert
+	// channel in return
 	t := tester{
 		&vertTypes.GossipNotify{
 			MessageHeader: vertTypes.MessageHeader{
@@ -228,14 +269,18 @@ func TestVerticalApi(test *testing.T) {
 		"notify",
 	}
 
+	// write the message to the network
 	if n, err := cTest.Write(t.buf); err != nil {
 		test.Fatalf("failed sending: %v %+v", err, t)
 	} else if n != len(t.buf) {
 		test.Fatalf("buffer wasn't sent completely (might need to adjust the test) %v", t)
 	}
 
+	// sleep to make sure the message had time to arrive
+	// TODO are 5 seconds too long? (makes these tests a bit slow)
 	time.Sleep(5 * time.Second)
 
+	// read the message sent to the mainModule
 	var reg VertToMainRegister
 	select {
 	case reg = <-vertToMainChans.Register:
@@ -249,12 +294,14 @@ func TestVerticalApi(test *testing.T) {
 	default:
 		test.Fatalf("handler didn't pass a message to the right vertToMain channel")
 	}
+	// check if additional/other messages got sent as well
 	if len(vertToMainChans.Anounce) != 0 || len(vertToMainChans.Register) != 0 || len(vertToMainChans.Validation) != 0 {
 		test.Fatalf("handler sent to many messages on the vertToMain channels %d %d %d", len(vertToMainChans.Anounce), len(vertToMainChans.Register), len(vertToMainChans.Validation))
 	}
 
+	// send a message on the newly established channel and check if it is
+	// written to the network
 	mainToVert := reg.Module.MainToVert
-
 	mainToVert <- MainToVertNotification{
 		Data: vertTypes.GossipNotification{
 			MessageHeader: vertTypes.MessageHeader{
@@ -280,10 +327,12 @@ func TestVerticalApi(test *testing.T) {
 	} else if n != len(buf) {
 		test.Fatalf("read too few bytes from the line. was: %d should: %d", n, len(buf))
 	}
+	// check if it is the right message
 	if !reflect.DeepEqual(buf, bufReal) {
 		test.Fatalf("Sent buffer is wrong. was: %v should: %v", buf, bufReal)
 	}
 
+	// check if additional messages also get send
 	if err := cTest.SetReadDeadline(time.Now().Add(5*time.Second)); err != nil {
 		test.Fatalf("Setting readDeadline failed: %v", err)
 	}
@@ -292,6 +341,7 @@ func TestVerticalApi(test *testing.T) {
 		test.Fatalf("There shouldn't be any data left on the socket: %v", err)
 	}
 
+	// terminate the server (this time the server got properly setup)
 	defer func() {
 		if err := vert.Close(); err != nil {
 			test.Fatalf("Failed to close server: %v", err)
