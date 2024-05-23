@@ -10,3 +10,7 @@ test:
 
 staticcheck:
 	-staticcheck ./...
+
+test_coverage:
+	go test -coverprofile=.cover -cover ./...
+	go tool cover -html=.cover
