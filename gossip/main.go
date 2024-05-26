@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	horizontalapi "gossip/horizontalAPI"
 	verticalapi "gossip/verticalAPI"
 	"log/slog"
 	"os"
@@ -19,16 +20,26 @@ func logInit() *slog.Logger {
 	}))
 }
 
-func handleTypeRegistration() {
-	fmt.Println()
+// Handle incoming Gossip Registration (Notify) Messages
+func handleTypeRegistration(msg verticalapi.VertToMainRegister) {
+	registration_data := msg.Data
+	fmt.Println(registration_data)
 }
 
-func handleGossipNotification() {
-	fmt.Println("Handle Notification")
+// Handle incoming Gossip Validation messages.
+func handleGossipValidation(msg verticalapi.VertToMainValidation) {
+	validation_data := msg.Data
+	fmt.Println(validation_data)
 }
 
-func handleGossipAnnounce() {
-	fmt.Println("Handle Announce")
+// Handle incoming Gossip Announce messages.
+func handleGossipAnnounce(msg verticalapi.VertToMainAnnounce, targetChan chan horizontalapi.MainToHorzAnnounce) {
+	// TODO: check that the type is one we have received a NOTIFY for
+	announce_data := msg.Data
+	enriched_announce := horizontalapi.MainToHorzAnnounce{
+		Data: announce_data,
+	}
+	targetChan <- enriched_announce
 }
 
 func main() {
@@ -47,19 +58,24 @@ func main() {
 	// just skip the ini parsing etc for now and only start/listen on the vertical api using constants as address
 	// then later if you want to maybe extract those from the ini config (at a fixed path to skip the argument parsing stuff for now)
 
-	fmt.Println("MAIN ABOUT TO WAIT")
-	select {
-	case x := <-vertToMain.Validation:
-		fmt.Println(x)
-		fmt.Println("Handle Validation???")
-	case x := <-vertToMain.Announce:
-		handleGossipAnnounce()
-		fmt.Println(x)
-	case x := <-vertToMain.Register:
-		fmt.Println(x)
-		handleTypeRegistration()
-
+	horzToMain := horizontalapi.MainToHorzChans{
+		RelayAnnounce: make(chan horizontalapi.MainToHorzAnnounce),
 	}
+	ha := horizontalapi.NewHorizontalApi(slog.With("module", "horzAPI"), horzToMain)
+	ha.SpreadMessages()
+
+	for {
+
+		select {
+		case x := <-vertToMain.Validation:
+			handleGossipValidation(x)
+		case x := <-vertToMain.Announce:
+			handleGossipAnnounce(x, horzToMain.RelayAnnounce)
+		case x := <-vertToMain.Register:
+			handleTypeRegistration(x)
+		}
+	}
+
 	fmt.Println("FINISHED")
 	va.Close()
 }

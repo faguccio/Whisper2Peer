@@ -1,18 +1,20 @@
-# Project Ideas
-
-## Project Layout
+# Project Notes
 
 - Vertical API
     - Spawn a Thread per Connection
     - Thread is sync with MAIN using two channel (incoming, outcoming) messages
 
 ### Main
+Is the entryPoint of GOSSIP MODULE. It has 3 main threads:
+
+1. Relaying messages that come through either a Gossip Announce message or the Horizontal API
+
 - 3 threads, list of (connection, types pair)
 - Register types (GOSSIP NOTIFY)
 - GOSSIP NOTIFY
 - Relay messages (horizantal)
 
-Is the entryPoint of GOSSIP MODULE
+
 
 ```go
 struct {
@@ -31,5 +33,7 @@ struct {
     - Endorse messages
 
 
-## Distribute Workload
+## Current commit changes
+
+Created the horizontalapi package with a dummy interface.
 
