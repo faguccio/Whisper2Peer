@@ -25,7 +25,7 @@ type tester struct {
 	name string
 }
 
-// Test main
+// Test main. This is not a proper Unit Testing, more of a simulation for me to actually see how the main is working
 func TestMain(test *testing.T) {
 	// use table driven testing: https://go.dev/wiki/TableDrivenTests
 	// define the messages that should be received via the socket
@@ -57,18 +57,18 @@ func TestMain(test *testing.T) {
 			"notify",
 		},
 		{
-			&vertTypes.GossipValidation{
+			&vertTypes.GossipAnnounce{
 				MessageHeader: vertTypes.MessageHeader{
-					Size: 8,
-					Type: vertTypes.GossipValidationType,
+					Size: 8 + 2,
+					Type: vertTypes.GossipAnnounceType,
 				},
-				MessageId: 1337,
-				// setting to 0b..1 does not work since the valid flag is not
-				// imported (-> or do not use reflect.DeepEqual later)
-				Bitfield: 0,
+				TTL:      32,
+				Reserved: 0,
+				DataType: 42,
+				Data:     []byte{0x20, 0x50},
 			},
-			[]byte{0x0, 0x08, 0x01, 0xf7, 0x05, 0x39, 0, 0},
-			"validation",
+			[]byte{0x0, 0x0a, 0x01, 0xf4, 32, 0, 0x0, 0x2a, 0x20, 0x50},
+			"announce",
 		},
 	}
 
@@ -83,6 +83,18 @@ func TestMain(test *testing.T) {
 	defer conn.Close()
 
 	_, err = conn.Write(ts[0].buf)
+	if err != nil {
+		fmt.Println("Error sending data:", err)
+		return
+	}
+
+	_, err = conn.Write(ts[1].buf)
+	if err != nil {
+		fmt.Println("Error sending data:", err)
+		return
+	}
+
+	_, err = conn.Write(ts[2].buf)
 	if err != nil {
 		fmt.Println("Error sending data:", err)
 		return

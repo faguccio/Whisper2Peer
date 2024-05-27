@@ -1,9 +1,12 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	horizontalapi "gossip/horizontalAPI"
 	verticalapi "gossip/verticalAPI"
+	vertTypes "gossip/verticalAPI/types"
+
 	"log/slog"
 	"os"
 	"time"
@@ -21,9 +24,12 @@ func logInit() *slog.Logger {
 }
 
 // Handle incoming Gossip Registration (Notify) Messages
-func handleTypeRegistration(msg verticalapi.VertToMainRegister) {
-	registration_data := msg.Data
-	fmt.Println(registration_data)
+func handleTypeRegistration(msg verticalapi.VertToMainRegister, storage *notifyMap) {
+	typeToRegister := vertTypes.GossipType(msg.Data.DataType)
+	// I think we are missing a (multiple?) channel mainToVert. This is a useless placeholder
+	newMainToVert := NotificationChannel{NotificationChannel: make(chan string)}
+	storage.AddChannelToType(typeToRegister, newMainToVert)
+	//fmt.Printf("Just registered: %d with val %v\n", typeToRegister, storage.Load(typeToRegister))
 }
 
 // Handle incoming Gossip Validation messages.
@@ -33,13 +39,19 @@ func handleGossipValidation(msg verticalapi.VertToMainValidation) {
 }
 
 // Handle incoming Gossip Announce messages.
-func handleGossipAnnounce(msg verticalapi.VertToMainAnnounce, targetChan chan horizontalapi.MainToHorzAnnounce) {
-	// TODO: check that the type is one we have received a NOTIFY for
+func handleGossipAnnounce(msg verticalapi.VertToMainAnnounce, targetChan chan horizontalapi.MainToHorzAnnounce, storage *notifyMap) error {
+	typeToCheck := vertTypes.GossipType(msg.Data.DataType)
+	res := storage.Load(typeToCheck)
+	//fmt.Printf("Just checked: %d with val %v\n", typeToCheck, storage.Load(typeToCheck))
+	if len(res) == 0 {
+		return errors.New("Gossip Type not registered, cannot accept message.")
+	}
 	announce_data := msg.Data
 	enriched_announce := horizontalapi.MainToHorzAnnounce{
 		Data: announce_data,
 	}
 	targetChan <- enriched_announce
+	return nil
 }
 
 func main() {
@@ -64,18 +76,19 @@ func main() {
 	ha := horizontalapi.NewHorizontalApi(slog.With("module", "horzAPI"), horzToMain)
 	ha.SpreadMessages()
 
-	for {
+	typeStorage := NewNotifyMap()
 
+	for {
 		select {
 		case x := <-vertToMain.Validation:
 			handleGossipValidation(x)
 		case x := <-vertToMain.Announce:
-			handleGossipAnnounce(x, horzToMain.RelayAnnounce)
+			_ = handleGossipAnnounce(x, horzToMain.RelayAnnounce, typeStorage)
+			//fmt.Println(res)
 		case x := <-vertToMain.Register:
-			handleTypeRegistration(x)
+			handleTypeRegistration(x, typeStorage)
 		}
 	}
 
-	fmt.Println("FINISHED")
 	va.Close()
 }
