@@ -3,7 +3,6 @@ package horizontalapi
 import (
 	"context"
 	"errors"
-	"fmt"
 	vertTypes "gossip/verticalAPI/types"
 	"log/slog"
 	"sync"
@@ -62,10 +61,18 @@ func (hz *HorizontalApi) SpreadMessages() (err error) {
 	go func() {
 		defer hz.wg.Done()
 		for {
+
 			msg := <-hz.mainToHorzChans.RelayAnnounce
-			fmt.Println("Spreading announce messages: ", msg.Data)
+			hz.log.Debug("Spreading announce messages:", "msg", msg.Data)
 		}
 	}()
 
+	return nil
+}
+
+// Empty Close function, clean up connection still has to be done since there are no connection yer :)
+func (hz *HorizontalApi) Close() (err error) {
+	hz.cancel()
+	hz.wg.Wait()
 	return nil
 }

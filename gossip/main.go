@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	"fmt"
 	horizontalapi "gossip/horizontalAPI"
 	verticalapi "gossip/verticalAPI"
 	vertTypes "gossip/verticalAPI/types"
@@ -17,7 +16,7 @@ import (
 
 func logInit() *slog.Logger {
 	return slog.New(tint.NewHandler(os.Stderr, &tint.Options{
-		Level:      slog.LevelInfo,
+		Level:      slog.LevelDebug,
 		TimeFormat: time.RFC3339,
 		NoColor:    false,
 	}))
@@ -35,7 +34,7 @@ func handleTypeRegistration(msg verticalapi.VertToMainRegister, storage *notifyM
 // Handle incoming Gossip Validation messages.
 func handleGossipValidation(msg verticalapi.VertToMainValidation) {
 	validation_data := msg.Data
-	fmt.Println(validation_data)
+	mainLogger.Debug("Validation data handled: ", "msg", validation_data)
 }
 
 // Handle incoming Gossip Announce messages.
@@ -53,6 +52,8 @@ func handleGossipAnnounce(msg verticalapi.VertToMainAnnounce, targetChan chan ho
 	targetChan <- enriched_announce
 	return nil
 }
+
+var mainLogger *slog.Logger
 
 func main() {
 	// var err error
@@ -77,6 +78,7 @@ func main() {
 	ha.SpreadMessages()
 
 	typeStorage := NewNotifyMap()
+	mainLogger = slog.With("module", "main")
 
 	for {
 		select {
@@ -84,7 +86,6 @@ func main() {
 			handleGossipValidation(x)
 		case x := <-vertToMain.Announce:
 			_ = handleGossipAnnounce(x, horzToMain.RelayAnnounce, typeStorage)
-			//fmt.Println(res)
 		case x := <-vertToMain.Register:
 			handleTypeRegistration(x, typeStorage)
 		}

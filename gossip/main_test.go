@@ -1,12 +1,14 @@
 package main
 
 import (
-	"fmt"
 	vertTypes "gossip/verticalAPI/types"
+	"log/slog"
 	"net"
+	"os"
 	"testing"
 	"time"
 
+	"github.com/lmittmann/tint"
 	_ "gopkg.in/ini.v1"
 )
 
@@ -27,6 +29,12 @@ type tester struct {
 
 // Test main. This is not a proper Unit Testing, more of a simulation for me to actually see how the main is working
 func TestMain(test *testing.T) {
+	var testLog *slog.Logger = slog.New(tint.NewHandler(os.Stderr, &tint.Options{
+		Level:      slog.LevelDebug,
+		TimeFormat: time.RFC3339,
+		NoColor:    false,
+	}))
+
 	// use table driven testing: https://go.dev/wiki/TableDrivenTests
 	// define the messages that should be received via the socket
 	ts := []tester{
@@ -70,35 +78,40 @@ func TestMain(test *testing.T) {
 			[]byte{0x0, 0x0a, 0x01, 0xf4, 32, 0, 0x0, 0x2a, 0x20, 0x50},
 			"announce",
 		},
+		{
+			&vertTypes.GossipValidation{
+				MessageHeader: vertTypes.MessageHeader{
+					Size: 8,
+					Type: vertTypes.GossipValidationType,
+				},
+				MessageId: 1337,
+				// setting to 0b..1 does not work since the valid flag is not
+				// imported (-> or do not use reflect.DeepEqual later)
+				Bitfield: 0,
+			},
+			[]byte{0x0, 0x08, 0x01, 0xf7, 0x05, 0x39, 0, 0},
+			"validation",
+		},
 	}
 
 	go main()
-	fmt.Println("CIAO")
+	testLog.Debug("START MAIN TRY (NOT A REAL TEST)")
 
 	conn, err := net.Dial("tcp", "localhost:13379")
 	if err != nil {
-		fmt.Println("Error connecting, should not happen:", err)
+		testLog.Error("Error connecting, should not happen:", err)
 		return
 	}
 	defer conn.Close()
 
-	_, err = conn.Write(ts[0].buf)
-	if err != nil {
-		fmt.Println("Error sending data:", err)
-		return
+	for _, t := range ts {
+
+		_, err = conn.Write(t.buf)
+		if err != nil {
+			testLog.Error("Error sending data:", err)
+			return
+		}
 	}
 
-	_, err = conn.Write(ts[1].buf)
-	if err != nil {
-		fmt.Println("Error sending data:", err)
-		return
-	}
-
-	_, err = conn.Write(ts[2].buf)
-	if err != nil {
-		fmt.Println("Error sending data:", err)
-		return
-	}
-
-	time.Sleep(3 * time.Second)
+	time.Sleep(1 * time.Second)
 }
