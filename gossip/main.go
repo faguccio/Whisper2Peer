@@ -25,10 +25,9 @@ func logInit() *slog.Logger {
 // Handle incoming Gossip Registration (Notify) Messages
 func handleTypeRegistration(msg verticalapi.VertToMainRegister, storage *notifyMap) {
 	typeToRegister := vertTypes.GossipType(msg.Data.DataType)
-	// I think we are missing a (multiple?) channel mainToVert. This is a useless placeholder
-	newMainToVert := NotificationChannel{NotificationChannel: make(chan string)}
-	storage.AddChannelToType(typeToRegister, newMainToVert)
-	//fmt.Printf("Just registered: %d with val %v\n", typeToRegister, storage.Load(typeToRegister))
+	listeningModule := msg.Module
+	storage.AddChannelToType(typeToRegister, listeningModule)
+	//mainLogger.Debug("Just registered: %d with val %v\n", "msg", typeToRegister, storage.Load(typeToRegister))
 }
 
 // Handle incoming Gossip Validation messages.
@@ -41,7 +40,6 @@ func handleGossipValidation(msg verticalapi.VertToMainValidation) {
 func handleGossipAnnounce(msg verticalapi.VertToMainAnnounce, targetChan chan horizontalapi.MainToHorzAnnounce, storage *notifyMap) error {
 	typeToCheck := vertTypes.GossipType(msg.Data.DataType)
 	res := storage.Load(typeToCheck)
-	//fmt.Printf("Just checked: %d with val %v\n", typeToCheck, storage.Load(typeToCheck))
 	if len(res) == 0 {
 		return errors.New("Gossip Type not registered, cannot accept message.")
 	}
@@ -67,6 +65,7 @@ func main() {
 	}
 	va := verticalapi.NewVerticalApi(slog.With("module", "vertAPI"), vertToMain)
 	va.Listen("localhost:13379")
+	defer va.Close()
 
 	// just skip the ini parsing etc for now and only start/listen on the vertical api using constants as address
 	// then later if you want to maybe extract those from the ini config (at a fixed path to skip the argument parsing stuff for now)
@@ -91,5 +90,4 @@ func main() {
 		}
 	}
 
-	va.Close()
 }

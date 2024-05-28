@@ -61,9 +61,13 @@ func (hz *HorizontalApi) SpreadMessages() (err error) {
 	go func() {
 		defer hz.wg.Done()
 		for {
+			select {
+			case msg := <-hz.mainToHorzChans.RelayAnnounce:
+				hz.log.Debug("Spreading announce messages:", "msg", msg.Data)
+			case <-hz.ctx.Done():
+				return
+			}
 
-			msg := <-hz.mainToHorzChans.RelayAnnounce
-			hz.log.Debug("Spreading announce messages:", "msg", msg.Data)
 		}
 	}()
 
