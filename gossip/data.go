@@ -10,7 +10,7 @@ import (
 
 type notifyMap struct {
 	data map[vertTypes.GossipType][]*verticalapi.RegisteredModule
-	mu   sync.Mutex
+	sync.RWMutex
 }
 
 func NewNotifyMap() *notifyMap {
@@ -20,17 +20,16 @@ func NewNotifyMap() *notifyMap {
 }
 
 func (nm *notifyMap) Load(gossip_type vertTypes.GossipType) []*verticalapi.RegisteredModule {
-	nm.mu.Lock()
-	defer nm.mu.Unlock()
+	nm.RLock()
+	defer nm.RUnlock()
 	res := nm.data[gossip_type]
-	// if res == nil {
-	// 	return []*verticalapi.RegisteredModule{}
-	// }
 	return res
 }
 
 func (nm *notifyMap) AddChannelToType(gossip_type vertTypes.GossipType, new_channel *verticalapi.RegisteredModule) {
+	nm.Lock()
+	defer nm.Unlock()
 	current_channels := nm.data[gossip_type]
-	new_channels := append(current_channels, new_channel)
-	nm.data[gossip_type] = new_channels
+	current_channels = append(current_channels, new_channel)
+	nm.data[gossip_type] = current_channels
 }
