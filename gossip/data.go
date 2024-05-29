@@ -1,0 +1,35 @@
+package main
+
+import (
+	verticalapi "gossip/verticalAPI"
+	vertTypes "gossip/verticalAPI/types"
+	"sync"
+)
+
+// This struct is a dummy channel for specifying MainToVert channels where I can instruct the verticalapi module to send a Gossip Notification message
+
+type notifyMap struct {
+	data map[vertTypes.GossipType][]*verticalapi.RegisteredModule
+	sync.RWMutex
+}
+
+func NewNotifyMap() *notifyMap {
+	return &notifyMap{
+		data: make(map[vertTypes.GossipType]([]*verticalapi.RegisteredModule)),
+	}
+}
+
+func (nm *notifyMap) Load(gossip_type vertTypes.GossipType) []*verticalapi.RegisteredModule {
+	nm.RLock()
+	defer nm.RUnlock()
+	res := nm.data[gossip_type]
+	return res
+}
+
+func (nm *notifyMap) AddChannelToType(gossip_type vertTypes.GossipType, new_channel *verticalapi.RegisteredModule) {
+	nm.Lock()
+	defer nm.Unlock()
+	current_channels := nm.data[gossip_type]
+	current_channels = append(current_channels, new_channel)
+	nm.data[gossip_type] = current_channels
+}

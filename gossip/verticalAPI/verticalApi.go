@@ -176,7 +176,7 @@ func (v *VerticalApi) handleConnection(conn net.Conn, regMod RegisteredModule) {
 				v.log.Warn("Invalid GossipAnnounce read", "err", err)
 				continue
 			} else {
-				v.vertToMainChans.Anounce <- VertToMainAnnounce{
+				v.vertToMainChans.Announce <- VertToMainAnnounce{
 					Data: ga,
 				}
 			}

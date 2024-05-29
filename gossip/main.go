@@ -1,7 +1,11 @@
 package main
 
 import (
+	"errors"
+	horizontalapi "gossip/horizontalAPI"
 	verticalapi "gossip/verticalAPI"
+	vertTypes "gossip/verticalAPI/types"
+
 	"log/slog"
 	"os"
 	"time"
@@ -12,11 +16,42 @@ import (
 
 func logInit() *slog.Logger {
 	return slog.New(tint.NewHandler(os.Stderr, &tint.Options{
-		Level:      slog.LevelInfo,
+		Level:      slog.LevelDebug,
 		TimeFormat: time.RFC3339,
 		NoColor:    false,
 	}))
 }
+
+// Handle incoming Gossip Registration (Notify) Messages
+func handleTypeRegistration(msg verticalapi.VertToMainRegister, storage *notifyMap) {
+	typeToRegister := vertTypes.GossipType(msg.Data.DataType)
+	listeningModule := msg.Module
+	storage.AddChannelToType(typeToRegister, listeningModule)
+	//mainLogger.Debug("Just registered: %d with val %v\n", "msg", typeToRegister, storage.Load(typeToRegister))
+}
+
+// Handle incoming Gossip Validation messages.
+func handleGossipValidation(msg verticalapi.VertToMainValidation) {
+	validation_data := msg.Data
+	mainLogger.Debug("Validation data handled: ", "msg", validation_data)
+}
+
+// Handle incoming Gossip Announce messages.
+func handleGossipAnnounce(msg verticalapi.VertToMainAnnounce, targetChan chan horizontalapi.MainToHorzAnnounce, storage *notifyMap) error {
+	typeToCheck := vertTypes.GossipType(msg.Data.DataType)
+	res := storage.Load(typeToCheck)
+	if len(res) == 0 {
+		return errors.New("Gossip Type not registered, cannot accept message.")
+	}
+	announce_data := msg.Data
+	enriched_announce := horizontalapi.MainToHorzAnnounce{
+		Data: announce_data,
+	}
+	targetChan <- enriched_announce
+	return nil
+}
+
+var mainLogger *slog.Logger
 
 func main() {
 	// var err error
@@ -25,13 +60,34 @@ func main() {
 
 	vertToMain := verticalapi.VertToMainChans{
 		Register:   make(chan verticalapi.VertToMainRegister),
-		Anounce:    make(chan verticalapi.VertToMainAnnounce),
+		Announce:   make(chan verticalapi.VertToMainAnnounce),
 		Validation: make(chan verticalapi.VertToMainValidation),
 	}
 	va := verticalapi.NewVerticalApi(slog.With("module", "vertAPI"), vertToMain)
 	va.Listen("localhost:13379")
-	va.Close()
+	defer va.Close()
 
 	// just skip the ini parsing etc for now and only start/listen on the vertical api using constants as address
 	// then later if you want to maybe extract those from the ini config (at a fixed path to skip the argument parsing stuff for now)
+
+	horzToMain := horizontalapi.MainToHorzChans{
+		RelayAnnounce: make(chan horizontalapi.MainToHorzAnnounce),
+	}
+	ha := horizontalapi.NewHorizontalApi(slog.With("module", "horzAPI"), horzToMain)
+	ha.SpreadMessages()
+
+	typeStorage := NewNotifyMap()
+	mainLogger = slog.With("module", "main")
+
+	for {
+		select {
+		case x := <-vertToMain.Validation:
+			handleGossipValidation(x)
+		case x := <-vertToMain.Announce:
+			_ = handleGossipAnnounce(x, horzToMain.RelayAnnounce, typeStorage)
+		case x := <-vertToMain.Register:
+			handleTypeRegistration(x, typeStorage)
+		}
+	}
+
 }

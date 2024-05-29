@@ -34,6 +34,6 @@ type MainToVertNotification struct {
 // This struct is a collection of channels needed for the communication vert > main
 type VertToMainChans struct {
 	Register   chan VertToMainRegister
-	Anounce    chan VertToMainAnnounce
+	Announce   chan VertToMainAnnounce
 	Validation chan VertToMainValidation
 }
