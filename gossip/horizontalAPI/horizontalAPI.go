@@ -7,6 +7,8 @@ import (
 	"log/slog"
 	"net"
 	"sync"
+
+	"capnproto.org/go/capnp/v3"
 )
 
 var (
@@ -16,11 +18,43 @@ var (
 
 //go:generate capnp compile -I $HOME/programme/go-capnp/std -ogo:./ types/core.capnp
 
-type FromHoriz interface{}
-type ToHoriz interface{}
+// interfaces to implement union-like behavior
+// unions diectly are sadly not provided in golang, see: https://go.dev/doc/faq#variant_types
+type FromHz interface {
+	// add a function to the interface to avoid that arbitrary types can be
+	// passed (accidentally) as FromHz
+	canFromHz()
+}
+
+type ToHz interface {
+	// add a function to the interface to avoid that arbitrary types can be
+	// passed (accidentally) as ToHz
+	canToHz()
+}
+
+type Push struct {
+	HzType uint16
+	TTL    uint16
+	// TODO use same type as in verticalAPI
+	GossipType uint16
+	MessageID  uint16
+	Payload    []byte
+}
+
+// mark this type as being sendable via FromHz channels
+func (p Push) canFromHz() {}
+
+// mark this type as being sendable via ToHz channels
+func (p Push) canToHz() {}
 
 // This struct represents the horizontal api and is the main interface to/from
-// the vertical api.
+// the horizontal api.
+//
+// The struct contains various internal fields, thus it should only be created
+// by using the [NewHorizontalApi] function!
+//
+// To close and cleanup the HorizontalApi, the [HorizontalApi.Close] method shall be called
+// exactly once.
 type HorizontalApi struct {
 	// internally uses a context to signal when the goroutines shall terminate
 	cancel context.CancelFunc
@@ -29,7 +63,7 @@ type HorizontalApi struct {
 	// store all open connections so that they can be closed in the end
 	conns map[net.Conn]struct{}
 	// channel on which data which was received is being passed
-	fromHorizChan chan<- FromHoriz
+	fromHzChan chan<- FromHz
 	// logging for this module
 	log *slog.Logger
 	// waitgroup to wait for all goroutines to terminate in the end
@@ -37,21 +71,29 @@ type HorizontalApi struct {
 }
 
 // Use this function to instantiate the horizontal api
-func NewHorizontalApi(log *slog.Logger, fromHoriz chan<- FromHoriz) *HorizontalApi {
+//
+// The fromHz serve as backchannel. The horizontalapi will send all messages
+// read to this channel.
+//
+// The methods of this module all will use the logger passed here. You can use
+// the [pkg/log/slog.With] function or [pkg/log/slog.Logger.With] on a
+// slog-logger to set a field for all logged entries (like "module"="hzAPI").
+func NewHorizontalApi(log *slog.Logger, fromHz chan<- FromHz) *HorizontalApi {
 	// context is only used internally -> no need to pass it to the constructor
 	ctx, cancel := context.WithCancel(context.Background())
 	return &HorizontalApi{
 		cancel:        cancel,
 		ctx:           ctx,
 		conns:         make(map[net.Conn]struct{}, 0),
-		fromHorizChan: fromHoriz,
+		fromHzChan: fromHz,
 		log:           log,
 	}
 }
 
-func (hz *HorizontalApi) AddNeighbors(addrs ...string) ([]chan<-ToHoriz, error) {
-	var ret []chan<-ToHoriz
-	for _,a := range addrs {
+// TODO
+func (hz *HorizontalApi) AddNeighbors(addrs ...string) ([]chan<- ToHz, error) {
+	var ret []chan<- ToHz
+	for _, a := range addrs {
 		conn, err := net.Dial("tcp", a)
 		if err != nil {
 			return nil, err
@@ -59,18 +101,24 @@ func (hz *HorizontalApi) AddNeighbors(addrs ...string) ([]chan<-ToHoriz, error) 
 
 		hz.conns[conn] = struct{}{}
 
-		toHoriz := make(chan ToHoriz)
-		ret = append(ret, toHoriz)
+		toHz := make(chan ToHz)
+		ret = append(ret, toHz)
 
 		hz.wg.Add(2)
-		go hz.handleConnection(conn, toHoriz)
-		go hz.writeToConnection(conn, toHoriz)
+		go hz.handleConnection(conn, toHz)
+		go hz.writeToConnection(conn, toHz)
 	}
 	return ret, nil
 }
 
-// only needs toHoriz so that it can close it when the connection is closed
-func (hz *HorizontalApi) handleConnection(conn net.Conn, toHoriz chan<- ToHoriz) {
+// Handle an incoming connection -- read
+//
+// Parses incoming messages with the help of capnproto and converts them into
+// [FromHz] structs. Currently these are: [Push]. These are then sent on the
+// hz.fromHzChan channel.
+//
+// only needs toHz so that it can close it when the connection is closed
+func (hz *HorizontalApi) handleConnection(conn net.Conn, toHz chan<- ToHz) {
 	defer hz.wg.Done()
 	var err error
 	_ = err
@@ -81,31 +129,93 @@ func (hz *HorizontalApi) handleConnection(conn net.Conn, toHoriz chan<- ToHoriz)
 	defer delete(hz.conns, conn)
 	// close the > hz channel to signal the connection is closed
 	// also this causes the write routine to terminate
-	defer close(toHoriz)
+	defer close(toHz)
 	// close the connection
 	defer conn.Close()
 
+	decoder := capnp.NewDecoder(conn)
 	for {
-		var msg hzTypes.PushMsg
-		// TODO capnp proto stuff here for reading from connection
-		hz.fromHorizChan <- msg
+		msg, err := decoder.Decode()
+		if err != nil {
+			// TODO check for ctx Done
+			continue
+		}
+		push, err := hzTypes.ReadRootPushMsg(msg)
+		if err != nil {
+			// TODO
+			continue
+		}
+		p := Push{
+			HzType:     push.HorizontalType(),
+			TTL:        push.Ttl(),
+			GossipType: push.GossipType(),
+			MessageID:  push.MessageID(),
+		}
+		p.Payload, err = push.Payload()
+		if err != nil {
+			// TODO
+			continue
+		}
+		hz.fromHzChan <- p
 	}
 }
 
-func (hz *HorizontalApi) writeToConnection(conn net.Conn, toHoriz <-chan ToHoriz) {
+// Write messages to the connection
+//
+// Writes all messages sent to he toHz channel to the connection (via capnproto)
+func (hz *HorizontalApi) writeToConnection(conn net.Conn, toHz <-chan ToHz) {
 	defer hz.wg.Done()
 	var err error
 	_ = err
 
-	for msg := range toHoriz {
-		_ = msg
-		// TODO capnp proto stuff here for writing to the connection
+	encoder := capnp.NewEncoder(conn)
+	arena := capnp.SingleSegment(nil)
+	for msg := range toHz {
+		m, seg, err := capnp.NewMessage(arena)
+		if err != nil {
+			// TODO
+			continue
+		}
+		switch msg := msg.(type) {
+		case Push:
+			push, err := hzTypes.NewRootPushMsg(seg)
+			if err != nil {
+				// TODO
+				continue
+			}
+			push.SetHorizontalType(msg.HzType)
+			push.SetTtl(msg.TTL)
+			push.SetGossipType(msg.GossipType)
+			push.SetMessageID(msg.MessageID)
+			if err := push.SetPayload(msg.Payload); err != nil {
+				// TODO
+				continue
+			}
+		}
+		if err := encoder.Encode(m); err != nil {
+			// TODO check for ctx Done
+			continue
+		}
 	}
 }
 
-// Empty Close function, clean up connection still has to be done since there are no connection yer :)
-func (hz *HorizontalApi) Close() (err error) {
+// Close the horizontal api
+//
+// Always tries to close all the connections. If multiple
+// fail, this function only returns the last error.
+func (hz *HorizontalApi) Close() error {
+	var err error
+
+	// signal to connection goroutines that they should terminate
 	hz.cancel()
+
+	for c := range hz.conns {
+		// interrupt read of the connection routine
+		if e := c.Close(); e != nil {
+			err = e
+		}
+	}
+
 	hz.wg.Wait()
-	return nil
+	return err
 }
