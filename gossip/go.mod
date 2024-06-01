@@ -10,7 +10,7 @@ require (
 
 require (
 	github.com/stretchr/testify v1.9.0 // indirect
-	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9 // indirect
+	golang.org/x/sync v0.7.0 // indirect
 )
 
 replace capnproto.org/go/capnp/v3 => github.com/capnproto/go-capnp/v3 v3.0.0-alpha.30.0.20240430165919-f68dd6e12692

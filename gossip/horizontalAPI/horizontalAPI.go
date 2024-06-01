@@ -84,15 +84,19 @@ func NewHorizontalApi(log *slog.Logger, fromHz chan<- FromHz) *HorizontalApi {
 	// context is only used internally -> no need to pass it to the constructor
 	ctx, cancel := context.WithCancel(context.Background())
 	return &HorizontalApi{
-		cancel:        cancel,
-		ctx:           ctx,
-		conns:         make(map[net.Conn]struct{}, 0),
+		cancel:     cancel,
+		ctx:        ctx,
+		conns:      make(map[net.Conn]struct{}, 0),
 		fromHzChan: fromHz,
-		log:           log,
+		log:        log,
 	}
 }
 
-// TODO
+// Use this function to add neighbor connections to the horizontalApi
+//
+// Returns a slice of channels (same ordering like the address-slice parameter)
+// on which the horizontalApi will send incoming packets on the connection to
+// the respective neighbor.
 func (hz *HorizontalApi) AddNeighbors(addrs ...string) ([]chan<- ToHz, error) {
 	var ret []chan<- ToHz
 	for _, a := range addrs {
@@ -139,26 +143,36 @@ func (hz *HorizontalApi) handleConnection(conn net.Conn, toHz chan<- ToHz) {
 	for {
 		msg, err := decoder.Decode()
 		if err != nil {
-			// TODO check for ctx Done
-			continue
+			select {
+			case <- hz.ctx.Done():
+				break
+			default:
+			}
+			hz.log.Error("decoding the message failed", "err", err)
+			goto continue_read
 		}
-		push, err := hzTypes.ReadRootPushMsg(msg)
-		if err != nil {
-			// TODO
-			continue
+		// scoping needed for goto continue_read to ensure p or push isn't used
+		// after goto
+		{
+			push, err := hzTypes.ReadRootPushMsg(msg)
+			if err != nil {
+				hz.log.Error("read the push message failed", "err", err)
+				goto continue_read
+			}
+			p := Push{
+				HzType:     push.HorizontalType(),
+				TTL:        push.Ttl(),
+				GossipType: push.GossipType(),
+				MessageID:  push.MessageID(),
+			}
+			p.Payload, err = push.Payload()
+			if err != nil {
+				hz.log.Error("obtaining the payload failed", "err", err)
+				goto continue_read
+			}
+			hz.fromHzChan <- p
 		}
-		p := Push{
-			HzType:     push.HorizontalType(),
-			TTL:        push.Ttl(),
-			GossipType: push.GossipType(),
-			MessageID:  push.MessageID(),
-		}
-		p.Payload, err = push.Payload()
-		if err != nil {
-			// TODO
-			continue
-		}
-		hz.fromHzChan <- p
+		continue_read:
 	}
 }
 
@@ -175,29 +189,37 @@ func (hz *HorizontalApi) writeToConnection(conn net.Conn, toHz <-chan ToHz) {
 	for msg := range toHz {
 		m, seg, err := capnp.NewMessage(arena)
 		if err != nil {
-			// TODO
-			continue
+			hz.log.Error("creating new message failed", "err", err)
+			goto continue_write
 		}
 		switch msg := msg.(type) {
 		case Push:
 			push, err := hzTypes.NewRootPushMsg(seg)
 			if err != nil {
-				// TODO
-				continue
+				hz.log.Error("creating new push message failed", "err", err)
+				goto continue_write
 			}
 			push.SetHorizontalType(msg.HzType)
 			push.SetTtl(msg.TTL)
 			push.SetGossipType(msg.GossipType)
 			push.SetMessageID(msg.MessageID)
 			if err := push.SetPayload(msg.Payload); err != nil {
-				// TODO
-				continue
+				hz.log.Error("setting the payload for the push message failed", "err", err)
+				goto continue_write
 			}
 		}
 		if err := encoder.Encode(m); err != nil {
-			// TODO check for ctx Done
-			continue
+			select {
+			case <- hz.ctx.Done():
+				break
+			default:
+			}
+			hz.log.Error("encoding the message failed", "err", err)
+			goto continue_write
 		}
+		continue_write:
+		// reset the arena to free memory used by the last encoded message
+		m.Release()
 	}
 }
 
