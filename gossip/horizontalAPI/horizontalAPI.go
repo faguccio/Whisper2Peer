@@ -2,18 +2,12 @@ package horizontalapi
 
 import (
 	"context"
-	"errors"
 	hzTypes "gossip/horizontalAPI/types"
 	"log/slog"
 	"net"
 	"sync"
 
 	"capnproto.org/go/capnp/v3"
-)
-
-var (
-	// Developing reasons
-	Err = errors.New("")
 )
 
 //go:generate capnp compile -I $HOME/programme/go-capnp/std -ogo:./ types/message.capnp types/push.capnp

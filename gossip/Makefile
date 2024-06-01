@@ -15,7 +15,7 @@ generate:
 	-go generate ./...
 
 checkUnion:
-	go-sumtype $(go list ./... | grep -v vendor)
+	go-sumtype $$(go list ./... | grep -v vendor)
 
 test_coverage:
 	go test -coverprofile=.cover -cover ./...

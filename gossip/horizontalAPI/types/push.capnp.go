@@ -7,6 +7,7 @@ import (
 	text "capnproto.org/go/capnp/v3/encoding/text"
 )
 
+// Represents a push message on the horizontalApi.
 type PushMsg capnp.Struct
 
 // PushMsg_TypeID is the unique identifier for the type PushMsg.
