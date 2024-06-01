@@ -1,7 +1,7 @@
 using Go = import "/go.capnp";
 @0xb58493dca0c0699d;
-$Go.package("horizontalAPI");
-$Go.import("gossip/horizontalAPI");
+$Go.package("types");
+$Go.import("gossip/horizontalAPI/types");
 
 enum HorizontalTypes {
 	push @0;
