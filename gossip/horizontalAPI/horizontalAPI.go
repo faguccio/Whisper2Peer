@@ -16,7 +16,7 @@ var (
 	Err = errors.New("")
 )
 
-//go:generate capnp compile -I $HOME/programme/go-capnp/std -ogo:./ types/core.capnp
+//go:generate capnp compile -I $HOME/programme/go-capnp/std -ogo:./ types/message.capnp types/push.capnp
 
 // interfaces to implement union-like behavior
 // unions diectly are sadly not provided in golang, see: https://go.dev/doc/faq#variant_types
@@ -35,8 +35,7 @@ type ToHz interface {
 }
 
 type Push struct {
-	HzType uint16
-	TTL    uint16
+	TTL uint16
 	// TODO use same type as in verticalAPI
 	GossipType uint16
 	MessageID  uint16
@@ -126,8 +125,6 @@ func (hz *HorizontalApi) AddNeighbors(addrs ...string) ([]chan<- ToHz, error) {
 // only needs toHz so that it can close it when the connection is closed
 func (hz *HorizontalApi) handleConnection(conn net.Conn, toHz chan<- ToHz) {
 	defer hz.wg.Done()
-	var err error
-	_ = err
 
 	// if this read routine terminates, make sure the connection is cleaned up
 	// properly
@@ -139,12 +136,17 @@ func (hz *HorizontalApi) handleConnection(conn net.Conn, toHz chan<- ToHz) {
 	// close the connection
 	defer conn.Close()
 
+	// one global decoder suffices
 	decoder := capnp.NewDecoder(conn)
+	// the following loop uses goto continue_read instead of continue so that
+	// some cleanup can be done before actually continuing
 	for {
-		msg, err := decoder.Decode()
+		// wait for new message
+		cmsg, err := decoder.Decode()
 		if err != nil {
+			// error might be because the connection has closed -> check if should terminate
 			select {
-			case <- hz.ctx.Done():
+			case <-hz.ctx.Done():
 				break
 			default:
 			}
@@ -154,25 +156,48 @@ func (hz *HorizontalApi) handleConnection(conn net.Conn, toHz chan<- ToHz) {
 		// scoping needed for goto continue_read to ensure p or push isn't used
 		// after goto
 		{
-			push, err := hzTypes.ReadRootPushMsg(msg)
+			// read the actual message
+			msg, err := hzTypes.ReadRootMessage(cmsg)
 			if err != nil {
-				hz.log.Error("read the push message failed", "err", err)
+				hz.log.Error("read the message failed", "err", err)
 				goto continue_read
 			}
-			p := Push{
-				HzType:     push.HorizontalType(),
-				TTL:        push.Ttl(),
-				GossipType: push.GossipType(),
-				MessageID:  push.MessageID(),
-			}
-			p.Payload, err = push.Payload()
-			if err != nil {
-				hz.log.Error("obtaining the payload failed", "err", err)
+			// check of which type the message is
+			// using msg.Body().Which() might be more efficient...?
+			switch {
+			case msg.Body().HasPush():
+				// retrieve the push message
+				push, err := msg.Body().Push()
+				if err != nil {
+					hz.log.Error("read the push message failed", "err", err)
+					goto continue_read
+				}
+				// copy the capnproto push message to an internal
+				// representation to make the handling in other packages easier
+				// retrieving scalar values can be done without the possibility
+				// of an error
+				p := Push{
+					TTL:        push.Ttl(),
+					GossipType: push.GossipType(),
+					MessageID:  push.MessageID(),
+				}
+				// payload is no scalar type -> retrival might error
+				p.Payload, err = push.Payload()
+				if err != nil {
+					hz.log.Error("obtaining the payload failed", "err", err)
+					goto continue_read
+				}
+				// send the push message to the channel
+				hz.fromHzChan <- p
+			// TODO(horizontal types) add new ones here
+			default:
+				hz.log.Error("no valid message was sent", "type was", msg.Body().Which().String())
 				goto continue_read
 			}
-			hz.fromHzChan <- p
 		}
-		continue_read:
+	continue_read:
+		// reset the arena to free memory used by the last decoded message
+		cmsg.Release()
 	}
 }
 
@@ -181,45 +206,70 @@ func (hz *HorizontalApi) handleConnection(conn net.Conn, toHz chan<- ToHz) {
 // Writes all messages sent to he toHz channel to the connection (via capnproto)
 func (hz *HorizontalApi) writeToConnection(conn net.Conn, toHz <-chan ToHz) {
 	defer hz.wg.Done()
-	var err error
-	_ = err
 
+	// one global encoder and arena suffice
 	encoder := capnp.NewEncoder(conn)
 	arena := capnp.SingleSegment(nil)
-	for msg := range toHz {
-		m, seg, err := capnp.NewMessage(arena)
+	// the following loop uses goto continue_write instead of continue so that
+	// some cleanup can be done before actually continuing
+	for rmsg := range toHz {
+		// create a new capnproto message
+		cmsg, seg, err := capnp.NewMessage(arena)
 		if err != nil {
 			hz.log.Error("creating new message failed", "err", err)
 			goto continue_write
 		}
-		switch msg := msg.(type) {
-		case Push:
-			push, err := hzTypes.NewRootPushMsg(seg)
+		// scoping needed for goto continue_read to ensure hm isn't used
+		// after goto
+		{
+			// create the actual message
+			msg, err := hzTypes.NewRootMessage(seg)
 			if err != nil {
-				hz.log.Error("creating new push message failed", "err", err)
+				hz.log.Error("creating new sending message failed", "err", err)
 				goto continue_write
 			}
-			push.SetHorizontalType(msg.HzType)
-			push.SetTtl(msg.TTL)
-			push.SetGossipType(msg.GossipType)
-			push.SetMessageID(msg.MessageID)
-			if err := push.SetPayload(msg.Payload); err != nil {
-				hz.log.Error("setting the payload for the push message failed", "err", err)
-				goto continue_write
+			// check of which type the remote message actually is
+			switch rmsg := rmsg.(type) {
+			case Push:
+				// create the push message
+				push, err := hzTypes.NewPushMsg(seg)
+				if err != nil {
+					hz.log.Error("creating new sending message failed", "err", err)
+					goto continue_write
+				}
+				// populate the push message
+				// setting scalar value cannot error
+				push.SetTtl(rmsg.TTL)
+				push.SetGossipType(rmsg.GossipType)
+				push.SetMessageID(rmsg.MessageID)
+				// payload is no scalar type -> setting might error
+				if err := push.SetPayload(rmsg.Payload); err != nil {
+					hz.log.Error("setting the payload for the push message failed", "err", err)
+					goto continue_write
+				}
+				// combine push and the message
+				if err := msg.Body().SetPush(push); err != nil {
+					hz.log.Error("setting sending message to push failed", "err", err)
+					goto continue_write
+				}
+				// TODO(horizontal types) add new ones here
 			}
 		}
-		if err := encoder.Encode(m); err != nil {
+		// sent the message on the channel
+		if err := encoder.Encode(cmsg); err != nil {
+			// might error because the connection has closed -> check if should
+			// terminate
 			select {
-			case <- hz.ctx.Done():
+			case <-hz.ctx.Done():
 				break
 			default:
 			}
 			hz.log.Error("encoding the message failed", "err", err)
 			goto continue_write
 		}
-		continue_write:
+	continue_write:
 		// reset the arena to free memory used by the last encoded message
-		m.Release()
+		cmsg.Release()
 	}
 }
 
