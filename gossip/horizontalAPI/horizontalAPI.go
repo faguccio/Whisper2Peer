@@ -20,12 +20,14 @@ var (
 
 // interfaces to implement union-like behavior
 // unions diectly are sadly not provided in golang, see: https://go.dev/doc/faq#variant_types
+// go-sumtype:decl FromHz
 type FromHz interface {
 	// add a function to the interface to avoid that arbitrary types can be
 	// passed (accidentally) as FromHz
 	canFromHz()
 }
 
+// go-sumtype:decl ToHz
 type ToHz interface {
 	// add a function to the interface to avoid that arbitrary types can be
 	// passed (accidentally) as ToHz
