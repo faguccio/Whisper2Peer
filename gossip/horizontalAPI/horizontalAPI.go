@@ -30,6 +30,7 @@ type ToHz interface {
 	canToHz()
 }
 
+// Represents a push message from/to the horizontalApi
 type Push struct {
 	TTL uint16
 	// TODO use same type as in verticalAPI
@@ -114,7 +115,7 @@ func (hz *HorizontalApi) Listen(addr string, newConn chan<- NewConn) error {
 	var err error
 	hz.ln, err = net.Listen("tcp", addr)
 	if err != nil {
-		return fmt.Errorf("listen to port for vertical API: %w", err)
+		return fmt.Errorf("listen to port for horizontal API: %w", err)
 	}
 
 	// accept all connections on this port
@@ -129,7 +130,7 @@ func (hz *HorizontalApi) Listen(addr string, newConn chan<- NewConn) error {
 				case <-hz.ctx.Done():
 					return
 				default:
-					hz.log.Error("Accept for vertical API failed", "err", err)
+					hz.log.Error("Accept for horizontal API failed", "err", err)
 				}
 				continue
 			}
