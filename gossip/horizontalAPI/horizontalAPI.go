@@ -2,6 +2,7 @@ package horizontalapi
 
 import (
 	"context"
+	"fmt"
 	hzTypes "gossip/horizontalAPI/types"
 	"log/slog"
 	"net"
@@ -13,7 +14,7 @@ import (
 //go:generate capnp compile -I $HOME/programme/go-capnp/std -ogo:./ types/message.capnp types/push.capnp
 
 // interfaces to implement union-like behavior
-// unions diectly are sadly not provided in golang, see: https://go.dev/doc/faq#variant_types
+// unions directly are sadly not provided in golang, see: https://go.dev/doc/faq#variant_types
 // go-sumtype:decl FromHz
 type FromHz interface {
 	// add a function to the interface to avoid that arbitrary types can be
@@ -42,6 +43,19 @@ func (p Push) canFromHz() {}
 // mark this type as being sendable via ToHz channels
 func (p Push) canToHz() {}
 
+// This struct is a collection of some information about a new incoming
+// connection.
+//
+// It includes the remote address and a channel which can be used to write on
+// that connection.
+//
+// These structs are passed by the [HorizontalApi.Listen] function on the
+// proviced channel to signal that a new connection was established.
+type NewConn struct {
+	ToHz chan<- ToHz
+	Addr string
+}
+
 // This struct represents the horizontal api and is the main interface to/from
 // the horizontal api.
 //
@@ -55,6 +69,8 @@ type HorizontalApi struct {
 	cancel context.CancelFunc
 	// internally uses a context to signal when the goroutines shall terminate
 	ctx context.Context
+	// store the listener so that it can be closed in the end
+	ln net.Listener
 	// store all open connections so that they can be closed in the end
 	conns map[net.Conn]struct{}
 	// channel on which data which was received is being passed
@@ -79,10 +95,59 @@ func NewHorizontalApi(log *slog.Logger, fromHz chan<- FromHz) *HorizontalApi {
 	return &HorizontalApi{
 		cancel:     cancel,
 		ctx:        ctx,
+		ln:         nil,
 		conns:      make(map[net.Conn]struct{}, 0),
 		fromHzChan: fromHz,
 		log:        log,
 	}
+}
+
+// Listen on the specified address for incoming horizontal api connections.
+//
+// This function spawns a new goroutine accepting new connections and
+// terminates afterwards.
+//
+// On the channel passed as seccond argument, the horizontalApi advertises new
+// incoming connections
+func (hz *HorizontalApi) Listen(addr string, newConn chan<- NewConn) error {
+	var err error
+	hz.ln, err = net.Listen("tcp", addr)
+	if err != nil {
+		return fmt.Errorf("listen to port for vertical API: %w", err)
+	}
+
+	// accept all connections on this port
+	hz.wg.Add(1)
+	go func() {
+		defer hz.wg.Done()
+		for {
+			conn, err := hz.ln.Accept()
+			if err != nil {
+				// check if shall terminate
+				select {
+				case <-hz.ctx.Done():
+					return
+				default:
+					hz.log.Error("Accept for vertical API failed", "err", err)
+				}
+				continue
+			}
+
+			toHz := make(chan ToHz)
+			newConn <- NewConn{
+				ToHz: toHz,
+				Addr: conn.RemoteAddr().String(),
+			}
+
+			hz.conns[conn] = struct{}{}
+			hz.log.Info("Incoming connection from", "addr", conn.RemoteAddr().String())
+
+			hz.wg.Add(2)
+			go hz.handleConnection(conn, toHz)
+			go hz.writeToConnection(conn, toHz)
+		}
+	}()
+	return nil
 }
 
 // Use this function to add neighbor connections to the horizontalApi
@@ -99,6 +164,7 @@ func (hz *HorizontalApi) AddNeighbors(addrs ...string) ([]chan<- ToHz, error) {
 		}
 
 		hz.conns[conn] = struct{}{}
+		hz.log.Info("Added connection to", "addrArg", a, "addr", conn.RemoteAddr().String())
 
 		toHz := make(chan ToHz)
 		ret = append(ret, toHz)
@@ -122,7 +188,7 @@ func (hz *HorizontalApi) handleConnection(conn net.Conn, toHz chan<- ToHz) {
 
 	// if this read routine terminates, make sure the connection is cleaned up
 	// properly
-	// avoid double Close when the vertical api is being closed
+	// avoid double Close when the horizontal api is being closed
 	defer delete(hz.conns, conn)
 	// close the > hz channel to signal the connection is closed
 	// also this causes the write routine to terminate
@@ -276,6 +342,9 @@ func (hz *HorizontalApi) Close() error {
 
 	// signal to connection goroutines that they should terminate
 	hz.cancel()
+
+	// close the listener
+	hz.ln.Close()
 
 	for c := range hz.conns {
 		// interrupt read of the connection routine
