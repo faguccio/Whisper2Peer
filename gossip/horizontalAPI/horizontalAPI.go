@@ -6,6 +6,7 @@ import (
 	hzTypes "gossip/horizontalAPI/types"
 	"log/slog"
 	"net"
+	"slices"
 	"sync"
 
 	"capnproto.org/go/capnp/v3"
@@ -200,6 +201,7 @@ func (hz *HorizontalApi) handleConnection(conn net.Conn, toHz chan<- ToHz) {
 	decoder := capnp.NewDecoder(conn)
 	// the following loop uses goto continue_read instead of continue so that
 	// some cleanup can be done before actually continuing
+loop:
 	for {
 		// wait for new message
 		cmsg, err := decoder.Decode()
@@ -207,11 +209,11 @@ func (hz *HorizontalApi) handleConnection(conn net.Conn, toHz chan<- ToHz) {
 			// error might be because the connection has closed -> check if should terminate
 			select {
 			case <-hz.ctx.Done():
-				break
+				break loop
 			default:
 			}
 			hz.log.Error("decoding the message failed", "err", err)
-			goto continue_read
+			continue
 		}
 		// scoping needed for goto continue_read to ensure p or push isn't used
 		// after goto
@@ -247,6 +249,9 @@ func (hz *HorizontalApi) handleConnection(conn net.Conn, toHz chan<- ToHz) {
 					hz.log.Error("obtaining the payload failed", "err", err)
 					goto continue_read
 				}
+				// p.Payload is still a "pointer" into the capnproto message ->
+				// empty if memory is freeed => make a copy of it
+				p.Payload = slices.Clone(p.Payload)
 				// send the push message to the channel
 				hz.fromHzChan <- p
 			// TODO(horizontal types) add new ones here
@@ -272,7 +277,9 @@ func (hz *HorizontalApi) writeToConnection(conn net.Conn, toHz <-chan ToHz) {
 	arena := capnp.SingleSegment(nil)
 	// the following loop uses goto continue_write instead of continue so that
 	// some cleanup can be done before actually continuing
+loop:
 	for rmsg := range toHz {
+		hz.log.Debug("instructed to send", "msg", rmsg)
 		// create a new capnproto message
 		cmsg, seg, err := capnp.NewMessage(arena)
 		if err != nil {
@@ -321,7 +328,7 @@ func (hz *HorizontalApi) writeToConnection(conn net.Conn, toHz <-chan ToHz) {
 			// terminate
 			select {
 			case <-hz.ctx.Done():
-				break
+				break loop
 			default:
 			}
 			hz.log.Error("encoding the message failed", "err", err)
