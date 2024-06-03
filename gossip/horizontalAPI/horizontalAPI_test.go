@@ -15,8 +15,8 @@ func TestGorizontalApiWithPipe(test *testing.T) {
 	var testLog *slog.Logger = slogt.New(test)
 	// var testLog *slog.Logger = slog.Default()
 
-	toHz := make(chan ToHz, 5)
-	fromHz := make(chan FromHz, 5)
+	toHz := make(chan ToHz, 1)
+	fromHz := make(chan FromHz, 1)
 	// create the vertical api with above setup values
 	hz := NewHorizontalApi(testLog, fromHz)
 	defer func() {
@@ -47,7 +47,7 @@ func TestGorizontalApiWithPipe(test *testing.T) {
 	var u FromHz
 	select {
 	case u = <-fromHz:
-	case <-time.NewTimer(5 * time.Second).C:
+	case <-time.After(5 * time.Second):
 		test.Fatalf("timeout for reading the to be received message after 5 seconds")
 	}
 
@@ -65,8 +65,8 @@ func TestGorizontalApi(test *testing.T) {
 	var testLog *slog.Logger = slogt.New(test)
 	// var testLog *slog.Logger = slog.Default()
 
-	fromHz1 := make(chan FromHz, 5)
-	connHz1 := make(chan NewConn, 5)
+	fromHz1 := make(chan FromHz, 1)
+	connHz1 := make(chan NewConn, 1)
 	// create the vertical api with above setup values
 	hz1 := NewHorizontalApi(testLog, fromHz1)
 	defer hz1.Close()
@@ -74,8 +74,8 @@ func TestGorizontalApi(test *testing.T) {
 		test.Fatalf("listen on horizontalApi 1 failed with %v", err)
 	}
 
-	fromHz2 := make(chan FromHz, 5)
-	connHz2 := make(chan NewConn, 5)
+	fromHz2 := make(chan FromHz, 1)
+	connHz2 := make(chan NewConn, 1)
 	// create the vertical api with above setup values
 	hz2 := NewHorizontalApi(testLog, fromHz2)
 	defer hz2.Close()
@@ -109,8 +109,8 @@ func TestGorizontalApi(test *testing.T) {
 	var u FromHz
 	select {
 	case u = <-fromHz2:
-	case <-time.NewTimer(1 * time.Second).C:
-		test.Fatalf("timeout for reading the to be received message after 5 seconds")
+	case <-time.After(1 * time.Second):
+		test.Fatalf("timeout for reading the to be received message after 1 second")
 	}
 
 	switch u := u.(type) {

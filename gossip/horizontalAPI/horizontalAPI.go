@@ -2,14 +2,20 @@ package horizontalapi
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	hzTypes "gossip/horizontalAPI/types"
 	"log/slog"
 	"net"
 	"slices"
 	"sync"
+	"time"
 
 	"capnproto.org/go/capnp/v3"
+)
+
+var (
+	ErrTimeout error = errors.New("operation timed out")
 )
 
 //go:generate capnp compile -I $HOME/programme/go-capnp/std -ogo:./ types/message.capnp types/push.capnp
@@ -345,6 +351,10 @@ loop:
 //
 // Always tries to close all the connections. If multiple
 // fail, this function only returns the last error.
+//
+// Might return [ErrTimeout]. In this case there are some leaking goroutines
+// since the read/write/listen routines did not terminate within the specified
+// amount of time.
 func (hz *HorizontalApi) Close() error {
 	var err error
 
@@ -361,6 +371,17 @@ func (hz *HorizontalApi) Close() error {
 		}
 	}
 
-	hz.wg.Wait()
-	return err
+	//
+	fin := make(chan struct{})
+	go func() {
+		hz.wg.Wait()
+		fin <- struct{}{}
+	}()
+
+	select {
+	case <- fin:
+		return err
+	case <-time.After(5*time.Second):
+		return ErrTimeout
+	}
 }
