@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"flag"
 	horizontalapi "gossip/horizontalAPI"
 	verticalapi "gossip/verticalAPI"
 	vertTypes "gossip/verticalAPI/types"
@@ -53,10 +54,30 @@ func handleGossipAnnounce(msg verticalapi.VertToMainAnnounce, targetChan chan ho
 
 var mainLogger *slog.Logger
 
+var (
+	gossip_degree     int
+	gossip_cache_size int
+)
+
 func main() {
 	// var err error
 	// set up logging
 	slog.SetDefault(logInit())
+	mainLogger = slog.With("module", "main")
+
+	// just skip the ini parsing etc for now and only start/listen on the vertical api using constants as address
+	// then later if you want to maybe extract those from the ini config (at a fixed path to skip the argument parsing stuff for now)
+
+	// Using the flag library to read commandline arguments, in the future default values will be read from
+	// the config.ini file
+	flag.IntVar(&gossip_degree, "gossip", 30, "Gossip parameter degree: Number of peers the current peer has to exchange information with")
+	flag.IntVar(&gossip_cache_size, "cache", 50, "Gossip parameter cahce_size: Maximum number of data items to be held as part of the peer’s knowledge base. Older items will be removed to ensure space for newer items if the peer’s knowledge base exceeds this limit")
+	flag.Parse()
+
+	mainLogger.Debug("CMD ARGS mandatory",
+		"cache size", gossip_cache_size,
+		"degree", gossip_degree,
+	)
 
 	vertToMain := verticalapi.VertToMainChans{
 		Register:   make(chan verticalapi.VertToMainRegister),
@@ -67,9 +88,6 @@ func main() {
 	va.Listen("localhost:13379")
 	defer va.Close()
 
-	// just skip the ini parsing etc for now and only start/listen on the vertical api using constants as address
-	// then later if you want to maybe extract those from the ini config (at a fixed path to skip the argument parsing stuff for now)
-
 	horzToMain := horizontalapi.MainToHorzChans{
 		RelayAnnounce: make(chan horizontalapi.MainToHorzAnnounce),
 	}
@@ -77,7 +95,6 @@ func main() {
 	ha.SpreadMessages()
 
 	typeStorage := NewNotifyMap()
-	mainLogger = slog.With("module", "main")
 
 	for {
 		select {
