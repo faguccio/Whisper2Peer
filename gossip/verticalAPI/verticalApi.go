@@ -62,7 +62,8 @@ func NewVerticalApi(log *slog.Logger, vertToMainChans VertToMainChans) *Vertical
 //
 // This function spawns a new goroutine accepting new connections and
 // terminates afterwards.
-func (v *VerticalApi) Listen(addr string) (err error) {
+func (v *VerticalApi) Listen(addr string) error {
+	var err error
 	v.ln, err = net.Listen("tcp", addr)
 	if err != nil {
 		return fmt.Errorf("listen to port for vertical API: %w", err)
@@ -249,7 +250,8 @@ func (v *VerticalApi) writeToConnection(conn net.Conn, mainToVert <-chan MainToV
 //
 // Always tries to close the listener and all the connections. If multiple
 // fail, this function only returns the last error.
-func (v *VerticalApi) Close() (err error) {
+func (v *VerticalApi) Close() error {
+	var err error
 	// signal to listener and connection goroutines that they should terminate
 	v.cancel()
 	// interrupt accept of the listener routine
