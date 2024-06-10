@@ -6,6 +6,7 @@ import (
 	horizontalapi "gossip/horizontalAPI"
 	verticalapi "gossip/verticalAPI"
 	vertTypes "gossip/verticalAPI/types"
+	"strings"
 
 	"log/slog"
 	"os"
@@ -55,9 +56,14 @@ func handleGossipAnnounce(msg verticalapi.VertToMainAnnounce, targetChan chan ho
 var mainLogger *slog.Logger
 
 var (
-	gossip_degree     int
-	gossip_cache_size int
+	gossip_degree         int
+	gossip_cache_size     int
+	hz_address            string
+	vert_address          string
+	peer_addresses_string string
 )
+
+var peer_addresses []string
 
 func main() {
 	// var err error
@@ -72,11 +78,22 @@ func main() {
 	// the config.ini file
 	flag.IntVar(&gossip_degree, "gossip", 30, "Gossip parameter degree: Number of peers the current peer has to exchange information with")
 	flag.IntVar(&gossip_cache_size, "cache", 50, "Gossip parameter cahce_size: Maximum number of data items to be held as part of the peer’s knowledge base. Older items will be removed to ensure space for newer items if the peer’s knowledge base exceeds this limit")
+	flag.StringVar(&hz_address, "h_addr", "127.0.0.1:6001", "Address to listen for incoming peer connections, ip:port")
+	flag.StringVar(&vert_address, "v_addr", "127.0.0.1:6001", "Address to listen for incoming peer connections, ip:port")
+	flag.StringVar(&peer_addresses_string, "peers", "", "List of horizontal peers to connect to, [ip]:port comma separated. For example 1.0.0.1:6001,1.0.0.2:6001,1.0.0.3:6001")
 	flag.Parse()
 
 	mainLogger.Debug("CMD ARGS mandatory",
 		"cache size", gossip_cache_size,
 		"degree", gossip_degree,
+	)
+
+	peer_addresses = strings.Split(peer_addresses_string, ",")
+
+	mainLogger.Debug("CMD ARGS mandatory",
+		"Horizontal addr", hz_address,
+		"Vertical addr", vert_address,
+		"Peers addresses", peer_addresses,
 	)
 
 	vertToMain := verticalapi.VertToMainChans{
