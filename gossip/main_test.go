@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/lmittmann/tint"
+	"github.com/neilotoole/slogt"
 	_ "gopkg.in/ini.v1"
 )
 
@@ -25,6 +26,19 @@ type tester struct {
 	msg  msgType
 	buf  []byte
 	name string
+}
+
+func TestMainHorizontal(test *testing.T) {
+	var testLog *slog.Logger = slogt.New(test)
+
+	originalArgs := os.Args
+	defer func() { os.Args = originalArgs }()
+
+	os.Args = []string{"placeholder", "-gossip", "1", "-cache", "2", "-peers", "127.0.1.1:6001,127.0.2.1:6001"}
+	go main()
+	time.Sleep(2 * time.Second)
+	testLog.Debug("Endtest")
+
 }
 
 // Test main. This is not a proper Unit Testing, more of a simulation for me to actually see how the main is working
