@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	horizontalapi "gossip/horizontalAPI"
 	verticalapi "gossip/verticalAPI"
@@ -87,18 +88,19 @@ func main() {
 
 	hz.AddNeighbors(peer_addrs...)
 
-	typeStorage := NewNotifyMap()
+	typeStorage := NewNotifyMap(gossip_cache_size)
 
 	for {
 		select {
 		case x := <-vertToMain.Validation:
 			handleGossipValidation(x)
 		case x := <-vertToMain.Announce:
-			mainLogger.Debug("a", "b", x)
-			// _ = handleGossipAnnounce(x, horzToMain.RelayAnnounce, typeStorage)
+			_ = handleGossipAnnounce(x, typeStorage)
 		case x := <-vertToMain.Register:
 			handleTypeRegistration(x, typeStorage)
 		case x := <-fromHz:
+			// This will be done by the GOSSIP STRATEGY module I am not sure if we will listen fromHz or pass
+			// the channel to the GOSSIP STRATEGY module
 			handlePeerMessage(x)
 		}
 	}
@@ -123,17 +125,16 @@ func handleGossipValidation(msg verticalapi.VertToMainValidation) {
 	mainLogger.Debug("Validation data handled: ", "msg", validation_data)
 }
 
-// Handle incoming Gossip Announce messages.
-// func handleGossipAnnounce(msg verticalapi.VertToMainAnnounce, targetChan chan horizontalapi.MainToHorzAnnounce, storage *notifyMap) error {
-// 	typeToCheck := vertTypes.GossipType(msg.Data.DataType)
-// 	res := storage.Load(typeToCheck)
-// 	if len(res) == 0 {
-// 		return errors.New("Gossip Type not registered, cannot accept message.")
-// 	}
-// 	announce_data := msg.Data
-// 	enriched_announce := horizontalapi.MainToHorzAnnounce{
-// 		Data: announce_data,
-// 	}
-// 	targetChan <- enriched_announce
-// 	return nil
-// }
+// Handle incoming Gossip Announce messages. This function sould call the GOSSIP STRATEGY module
+// and use that to spread the message. The type registering is done here.
+func handleGossipAnnounce(msg verticalapi.VertToMainAnnounce, storage *notifyMap) error {
+	typeToCheck := vertTypes.GossipType(msg.Data.DataType)
+	res := storage.Load(typeToCheck)
+	if len(res) == 0 {
+		return errors.New("Gossip Type not registered, cannot accept message.")
+	}
+
+	announce_data := msg.Data
+	mainLogger.Debug("Gossip Announce", "msg", announce_data)
+	return nil
+}

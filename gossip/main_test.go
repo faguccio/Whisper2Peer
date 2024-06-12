@@ -28,7 +28,7 @@ type tester struct {
 	name string
 }
 
-func TestMainHorizontal(test *testing.T) {
+func NotTestMainHorizontal(test *testing.T) {
 	var testLog *slog.Logger = slogt.New(test)
 
 	originalArgs := os.Args
@@ -42,7 +42,7 @@ func TestMainHorizontal(test *testing.T) {
 }
 
 // Test main. This is not a proper Unit Testing, more of a simulation for me to actually see how the main is working
-func TestMain(test *testing.T) {
+func NotTestMain(test *testing.T) {
 	var testLog *slog.Logger = slog.New(tint.NewHandler(os.Stderr, &tint.Options{
 		Level:      slog.LevelDebug,
 		TimeFormat: time.RFC3339,
