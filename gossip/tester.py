@@ -43,14 +43,11 @@ for node in nodes:
     peers = ""
     for edge in edges:
         if edge[0] == node:
-            peers += edge[1] + ":7001,"
+            peers += edge[1] + ":7001 "
         if edge[1] == node:
-            peers += edge[0] + ":7001,"
+            peers += edge[0] + ":7001 "
 
-    # Delete trailing comma
-    peers = peers[:-1]
-
-    command = f"go run main.go data.go -gossip {degree} -cache {cache_size} -v_addr {vaddr} -h_addr {haddr} -peers {peers}"
+    command = f"go run main.go data.go --degree {degree} --cache {cache_size} --vaddr {vaddr} --haddr {haddr}  {peers}"
     full_commands.append(command)
 
 for command in full_commands:

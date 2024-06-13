@@ -2,17 +2,15 @@ package main
 
 import (
 	"errors"
-	"flag"
 	horizontalapi "gossip/horizontalAPI"
 	verticalapi "gossip/verticalAPI"
 	vertTypes "gossip/verticalAPI/types"
-
-	"strings"
 
 	"log/slog"
 	"os"
 	"time"
 
+	"github.com/alexflint/go-arg"
 	"github.com/lmittmann/tint"
 	_ "gopkg.in/ini.v1"
 )
@@ -27,16 +25,6 @@ func logInit() *slog.Logger {
 
 var mainLogger *slog.Logger
 
-var (
-	gossip_degree     int
-	gossip_cache_size int
-	hz_addr           string
-	vert_addr         string
-	peer_addrs_string string
-)
-
-var peer_addrs []string
-
 func main() {
 	// var err error
 	// set up logging
@@ -46,28 +34,26 @@ func main() {
 	// just skip the ini parsing etc for now and only start/listen on the vertical api using constants as address
 	// then later if you want to maybe extract those from the ini config (at a fixed path to skip the argument parsing stuff for now)
 
-	mainLogger.Debug("ARGS", "args", os.Args)
-
-	// Using the flag library to read commandline arguments, in the future default values will be read from
-	// the config.ini file
-	flag.IntVar(&gossip_degree, "gossip", 30, "Gossip parameter degree: Number of peers the current peer has to exchange information with")
-	flag.IntVar(&gossip_cache_size, "cache", 50, "Gossip parameter cahce_size: Maximum number of data items to be held as part of the peer’s knowledge base. Older items will be removed to ensure space for newer items if the peer’s knowledge base exceeds this limit")
-	flag.StringVar(&hz_addr, "h_addr", "127.0.0.1:13377", "Address to listen for incoming peer connections, ip:port")
-	flag.StringVar(&vert_addr, "v_addr", "127.0.0.1:13379", "Address to listen for incoming peer connections, ip:port")
-	flag.StringVar(&peer_addrs_string, "peers", "", "List of horizontal peers to connect to, [ip]:port comma separated. For example 1.0.0.1:13377,1.0.0.2:13377,1.0.0.3:13377")
-	flag.Parse()
+	// Arguments read using go-arg https://github.com/alexflint/go-arg. The annotation instruct the library on
+	// the type of comment and optionally the help message.
+	var args struct {
+		Degree     int      `arg:"-d,--degree" default:"30" help:"Gossip parameter degree: Number of peers the current peer has to exchange information with"`
+		Cache_size int      `arg:"-c,--cache" default:"50" help:"Gossip parameter cache_size: Maximum number of data items to be held as part of the peer’s knowledge base. Older items will be removed to ensure space for newer items if the peer’s knowledge base exceeds this limit"`
+		Hz_addr    string   `arg:"-h,--haddr" default:"127.0.0.1:6001" help:"Address to listen for incoming peer connections, ip:port"`
+		Vert_addr  string   `arg:"-v,--vaddr" default:"127.0.0.1:7001" help:"Address to listen for incoming peer connections, ip:port"`
+		Peer_addrs []string `arg:"positional" help:"List of horizontal peers to connect to, [ip]:port"`
+	}
+	arg.MustParse(&args)
 
 	mainLogger.Debug("CMD ARGS mandatory",
-		"cache size", gossip_cache_size,
-		"degree", gossip_degree,
+		"cache size", args.Cache_size,
+		"degree", args.Degree,
 	)
 
-	peer_addrs = strings.Split(peer_addrs_string, ",")
-
 	mainLogger.Debug("CMD ARGS mandatory",
-		"Horizontal addr", hz_addr,
-		"Vertical addr", vert_addr,
-		"Peers addresses", peer_addrs,
+		"Horizontal addr", args.Hz_addr,
+		"Vertical addr", args.Vert_addr,
+		"Peers addresses", args.Peer_addrs,
 	)
 
 	vertToMain := verticalapi.VertToMainChans{
@@ -77,18 +63,18 @@ func main() {
 	}
 
 	va := verticalapi.NewVerticalApi(slog.With("module", "vertAPI"), vertToMain)
-	va.Listen(vert_addr)
+	va.Listen(args.Vert_addr)
 	defer va.Close()
 
 	fromHz := make(chan horizontalapi.FromHz, 1)
 	hz := horizontalapi.NewHorizontalApi(slog.With("module", "horzAPI"), fromHz)
 	hzConnection := make(chan horizontalapi.NewConn, 1)
-	hz.Listen(hz_addr, hzConnection)
+	hz.Listen(args.Hz_addr, hzConnection)
 	defer hz.Close()
 
-	hz.AddNeighbors(peer_addrs...)
+	hz.AddNeighbors(args.Peer_addrs...)
 
-	typeStorage := NewNotifyMap(gossip_cache_size)
+	typeStorage := NewNotifyMap()
 
 	for {
 		select {
