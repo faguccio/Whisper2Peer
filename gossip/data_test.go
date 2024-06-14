@@ -8,7 +8,7 @@ import (
 )
 
 func TestConcurrentLoading(test *testing.T) {
-	store := NewNotifyMap(100)
+	store := NewNotifyMap()
 	vert_type := vertTypes.GossipType(42)
 
 	var modules []*verticalapi.RegisteredModule
