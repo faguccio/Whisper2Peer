@@ -52,3 +52,12 @@ func (e *GossipValidation) Marshal(buf []byte) error {
 func (e *GossipValidation) CalcSize() int {
 	return binary.Size(e) - binary.Size(e.valid)
 }
+
+func (e *GossipValidation) SetValid(v bool) {
+	e.valid = v
+	if v {
+		e.Bitfield = e.Bitfield | (uint16(1) << 0)
+	} else {
+		e.Bitfield = e.Bitfield & ^(uint16(1) << 0)
+	}
+}
