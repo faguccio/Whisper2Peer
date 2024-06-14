@@ -8,10 +8,10 @@ import (
 // This type represents a GossipValidation packet in the verticalApi.
 type GossipValidation struct {
 	MessageHeader MessageHeader
-	MessageId uint16
-	Bitfield  uint16
+	MessageId     uint16
+	Bitfield      uint16
 	// only for ease of use we extract this from the bitfield on Unmarshal
-	valid bool
+	Valid bool
 }
 
 // Unmarshals the GossipValidation packet from the provided buffer.
@@ -36,7 +36,7 @@ func (e *GossipValidation) Unmarshal(buf []byte) (int, error) {
 	idx += 2
 
 	// just for conveniance
-	e.valid = e.Bitfield&0x1 == 0x1
+	e.Valid = e.Bitfield&0x1 == 0x1
 
 	return idx, nil
 }
@@ -48,11 +48,11 @@ func (e *GossipValidation) Unmarshal(buf []byte) (int, error) {
 
 // Returns the size of the GossipValidation packet.
 func (e *GossipValidation) CalcSize() int {
-	return binary.Size(e) - binary.Size(e.valid)
+	return binary.Size(e) - binary.Size(e.Valid)
 }
 
 func (e *GossipValidation) SetValid(v bool) {
-	e.valid = v
+	e.Valid = v
 	if v {
 		e.Bitfield = e.Bitfield | (uint16(1) << 0)
 	} else {
