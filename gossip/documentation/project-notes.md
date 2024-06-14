@@ -43,6 +43,10 @@ Note that the coverage is 75% mainly because some error branches are missing (it
     - Endorse messages
 
 
+## Testing
+
+- Log with `JsonHandler` when a debug or testing flag is passed as an argument
+
 ## To resolve
 
 Do we want to set the source address as well for `net.Dial`? (`usenet.Dialer{}.Dial`) If so where to specify the desired address?
