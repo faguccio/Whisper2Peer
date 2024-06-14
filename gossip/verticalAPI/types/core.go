@@ -18,8 +18,6 @@ var (
 	ErrNotEnoughData    = errors.New("not enough data")
 	ErrBufSize          = errors.New("provided buffer is too small")
 	ErrWrongMessageType = errors.New("wrong MessageType set in header")
-	// usually only used to signal that Marshal/Unmarshal is not provided by that message type
-	ErrMethodNotImplemented = errors.New("method is not implemented by that specific message type")
 )
 
 // Type for MessageType set in [MessageHeader].
