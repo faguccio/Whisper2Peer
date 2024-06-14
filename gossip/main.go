@@ -97,6 +97,8 @@ func (m *Main) run() {
 			_ = m.handleGossipAnnounce(x)
 		case x := <-m.vertToMain.Register:
 			m.handleTypeRegistration(x)
+		case x := <- m.strategyChannels.Notification:
+			m.handleNotification(x)
 		}
 	}
 }
@@ -129,6 +131,30 @@ func (m *Main) handleGossipAnnounce(msg verticalapi.VertToMainAnnounce) error {
 	m.mlog.Debug("Gossip Announce", "msg", announce_data)
 	// send to gossip
 	m.strategyChannels.Announce <- msg
+	return nil
+}
+
+func (m *Main) handleNotification(msg verticalapi.MainToVertNotification) error {
+	typeToCheck := vertTypes.GossipType(msg.Data.DataType)
+	res := m.typeStorage.Load(typeToCheck)
+	if len(res) == 0 {
+		// if no module is registered for this type, mark this message as non-valid (don't propagate it)
+		s := verticalapi.VertToMainValidation{
+			Data: vertTypes.GossipValidation{
+				MessageHeader: vertTypes.MessageHeader{},
+				MessageId:     msg.Data.MessageId,
+			},
+		}
+		s.Data.SetValid(false)
+		s.Data.MessageHeader.Size = uint16(s.Data.CalcSize()+s.Data.MessageHeader.CalcSize())
+		s.Data.MessageHeader.Type = vertTypes.GossipValidationType
+		m.strategyChannels.Validation <- s
+		return nil
+	}
+
+	for _,r := range res {
+		r.MainToVert <- msg
+	}
 	return nil
 }
 
