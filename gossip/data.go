@@ -23,9 +23,14 @@ func (nm *notifyMap) Load(gossip_type vertTypes.GossipType) []*verticalapi.Regis
 	nm.RLock()
 	defer nm.RUnlock()
 	res := nm.data[gossip_type]
+
 	return res
 }
 
+// AddChannelToType function will register a new Gossip Type. Each type is a key and the value is the list of Channels
+// which are listening for Gossip Notification of such type.
+//
+// If the number of registered types excede the cache size, the first registered type will be deleted
 func (nm *notifyMap) AddChannelToType(gossip_type vertTypes.GossipType, new_channel *verticalapi.RegisteredModule) {
 	nm.Lock()
 	defer nm.Unlock()

@@ -1,12 +1,13 @@
 package horizontalapi
 
 import (
-	"github.com/neilotoole/slogt"
 	"log/slog"
 	"net"
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/neilotoole/slogt"
 )
 
 func TestGorizontalApiWithPipe(test *testing.T) {
@@ -59,7 +60,7 @@ func TestGorizontalApiWithPipe(test *testing.T) {
 	}
 }
 
-func TestGorizontalApi(test *testing.T) {
+func TestHorizontalApi(test *testing.T) {
 	// use this for logging so that messages are not shown in general,
 	// only if the test fails
 	var testLog *slog.Logger = slogt.New(test)
