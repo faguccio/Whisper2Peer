@@ -38,7 +38,7 @@ type ToHz interface {
 
 // Represents a push message from/to the horizontalApi
 type Push struct {
-	TTL uint16
+	TTL uint8
 	// TODO use same type as in verticalAPI
 	GossipType uint16
 	MessageID  uint16
