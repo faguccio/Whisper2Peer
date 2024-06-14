@@ -8,20 +8,18 @@ import (
 
 // This type represents a GossipNotification packet in the verticalApi.
 type GossipNotification struct {
-	MessageHeader
+	MessageHeader MessageHeader
 	MessageId uint16
 	DataType  GossipType
 	Data      []byte
 }
 
-// Unmarshals the GossipNotification packet from the provided buffer.
-//
-// Returns the number of bytes read from the buffer.
-//
-// Not implemented for this message type, but needed to shadow the method from [MessageHeader].
-func (e *GossipNotification) Unmarshal(buf []byte) (int, error) {
-	return 0, ErrMethodNotImplemented
-}
+// // Unmarshals the GossipNotification packet from the provided buffer.
+// //
+// // Returns the number of bytes read from the buffer.
+// func (e *GossipNotification) Unmarshal(buf []byte) (int, error) {
+// 	return 0, ErrMethodNotImplemented
+// }
 
 // Marshals the GossipNotification packet to the provided buffer.
 //

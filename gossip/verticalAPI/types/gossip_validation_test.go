@@ -4,15 +4,6 @@ import (
 	"testing"
 )
 
-func TestMarshalGossipVal(t *testing.T) {
-	var e GossipValidation
-	sample := make([]byte, 10)
-	err := e.Marshal(sample)
-	if err == nil {
-		t.Fatalf("Function should not be implemented")
-	}
-}
-
 func TestUnmarshalGossipVal(t *testing.T) {
 	result := GossipValidation{
 		MessageHeader{33795, MessageType(503)},

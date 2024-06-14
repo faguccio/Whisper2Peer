@@ -7,7 +7,7 @@ import (
 
 // This type represents a GossipNotify packet in the verticalApi.
 type GossipNotify struct {
-	MessageHeader
+	MessageHeader MessageHeader
 	Reserved uint16
 	DataType GossipType
 }
@@ -35,12 +35,10 @@ func (e *GossipNotify) Unmarshal(buf []byte) (int, error) {
 	return idx, nil
 }
 
-// Marshals the GossipNotify packet to the provided buffer.
-//
-// Not implemented for this message type, but needed to shadow the method from [MessageHeader].
-func (e *GossipNotify) Marshal(buf []byte) error {
-	return ErrMethodNotImplemented
-}
+// // Marshals the GossipNotify packet to the provided buffer.
+// func (e *GossipNotify) Marshal(buf []byte) error {
+// 	return ErrMethodNotImplemented
+// }
 
 // Returns the size of the GossipNotify packet.
 func (e *GossipNotify) CalcSize() int {
