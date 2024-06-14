@@ -43,12 +43,3 @@ func TestUnmarshalGossipAnnounce(t *testing.T) {
 		t.Fatal("Unmarshal result different than expected")
 	}
 }
-
-func TestMarshalGossipAnnounce(t *testing.T) {
-	var e GossipAnnounce
-	sample := make([]byte, 10)
-	err := e.Marshal(sample)
-	if err == nil {
-		t.Fatalf("Function should not be implemented")
-	}
-}

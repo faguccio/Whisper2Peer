@@ -7,7 +7,7 @@ import (
 
 // This type represents a GossipValidation packet in the verticalApi.
 type GossipValidation struct {
-	MessageHeader
+	MessageHeader MessageHeader
 	MessageId uint16
 	Bitfield  uint16
 	// only for ease of use we extract this from the bitfield on Unmarshal
@@ -41,12 +41,10 @@ func (e *GossipValidation) Unmarshal(buf []byte) (int, error) {
 	return idx, nil
 }
 
-// Marshals the GossipValidation packet to the provided buffer.
-//
-// Not implemented for this message type, but needed to shadow the method from [MessageHeader].
-func (e *GossipValidation) Marshal(buf []byte) error {
-	return ErrMethodNotImplemented
-}
+// // Marshals the GossipValidation packet to the provided buffer.
+// func (e *GossipValidation) Marshal(buf []byte) error {
+// 	return ErrMethodNotImplemented
+// }
 
 // Returns the size of the GossipValidation packet.
 func (e *GossipValidation) CalcSize() int {
