@@ -17,7 +17,7 @@ import (
 // abstraction for message types
 // everything implementing below methods is considered a msgType
 type msgType interface {
-	Marshal(buf []byte) error
+	// Marshal(buf []byte) error
 	CalcSize() int
 }
 
