@@ -2,7 +2,7 @@ package strats
 
 import (
 	"fmt"
-	gossip "gossip"
+	"gossip/internal/args"
 	horizontalapi "gossip/horizontalAPI"
 	verticalapi "gossip/verticalAPI"
 
@@ -25,7 +25,7 @@ type StrategyChannels struct {
 	Validation   chan verticalapi.VertToMainValidation
 }
 
-func New(args gossip.Args, stratChans StrategyChannels) (StrategyCloser, error) {
+func New(args args.Args, stratChans StrategyChannels) (StrategyCloser, error) {
 
 	fromHz := make(chan horizontalapi.FromHz, 1)
 	hz := horizontalapi.NewHorizontalApi(slog.With("module", "horzAPI"), fromHz)
