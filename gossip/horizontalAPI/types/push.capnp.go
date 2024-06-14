@@ -55,12 +55,12 @@ func (s PushMsg) Message() *capnp.Message {
 func (s PushMsg) Segment() *capnp.Segment {
 	return capnp.Struct(s).Segment()
 }
-func (s PushMsg) Ttl() uint16 {
-	return capnp.Struct(s).Uint16(0)
+func (s PushMsg) Ttl() uint8 {
+	return capnp.Struct(s).Uint8(0)
 }
 
-func (s PushMsg) SetTtl(v uint16) {
-	capnp.Struct(s).SetUint16(0, v)
+func (s PushMsg) SetTtl(v uint8) {
+	capnp.Struct(s).SetUint8(0, v)
 }
 
 func (s PushMsg) GossipType() uint16 {
