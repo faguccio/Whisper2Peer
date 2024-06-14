@@ -2,7 +2,7 @@ package main
 
 import (
 	"errors"
-	horizontalapi "gossip/horizontalAPI"
+	gs "gossip/strats"
 	verticalapi "gossip/verticalAPI"
 	vertTypes "gossip/verticalAPI/types"
 
@@ -25,13 +25,16 @@ func logInit() *slog.Logger {
 
 var mainLogger *slog.Logger
 
-var args struct {
+type Args struct {
 	Degree     int      `arg:"-d,--degree" default:"30" help:"Gossip parameter degree: Number of peers the current peer has to exchange information with"`
 	Cache_size int      `arg:"-c,--cache" default:"50" help:"Gossip parameter cache_size: Maximum number of data items to be held as part of the peer’s knowledge base. Older items will be removed to ensure space for newer items if the peer’s knowledge base exceeds this limit"`
 	Hz_addr    string   `arg:"-h,--haddr" default:"127.0.0.1:6001" help:"Address to listen for incoming peer connections, ip:port"`
 	Vert_addr  string   `arg:"-v,--vaddr" default:"127.0.0.1:7001" help:"Address to listen for incoming peer connections, ip:port"`
 	Peer_addrs []string `arg:"positional" help:"List of horizontal peers to connect to, [ip]:port"`
+	// Strategy string ``
 }
+
+var args Args
 
 func main() {
 	// var err error
@@ -68,13 +71,15 @@ func main() {
 	va.Listen(args.Vert_addr)
 	defer va.Close()
 
-	fromHz := make(chan horizontalapi.FromHz, 1)
-	hz := horizontalapi.NewHorizontalApi(slog.With("module", "horzAPI"), fromHz)
-	hzConnection := make(chan horizontalapi.NewConn, 1)
-	hz.Listen(args.Hz_addr, hzConnection)
-	defer hz.Close()
+	strategyChannels := gs.StrategyChannels{
+		Notification: make(chan verticalapi.MainToVertNotification),
+		Announce:     make(chan verticalapi.VertToMainAnnounce),
+		Validation:   make(chan verticalapi.VertToMainValidation),
+	}
 
-	hz.AddNeighbors(args.Peer_addrs...)
+	strategy, _ := gs.New(args, strategyChannels)
+	defer strategy.Close()
+	strategy.Listen()
 
 	typeStorage := NewNotifyMap()
 
@@ -86,17 +91,13 @@ func main() {
 			_ = handleGossipAnnounce(x, typeStorage)
 		case x := <-vertToMain.Register:
 			handleTypeRegistration(x, typeStorage)
-		case x := <-fromHz:
-			// This will be done by the GOSSIP STRATEGY module I am not sure if we will listen fromHz or pass
-			// the channel to the GOSSIP STRATEGY module
-			handlePeerMessage(x)
+			// case x := <-fromHz:
+			// 	// This will be done by the GOSSIP STRATEGY module I am not sure if we will listen fromHz or pass
+			// 	// the channel to the GOSSIP STRATEGY module
+			// 	handlePeerMessage(x)
 		}
 	}
 
-}
-
-func handlePeerMessage(msg horizontalapi.FromHz) {
-	mainLogger.Debug("Horizntal Message", "msg", msg)
 }
 
 // Handle incoming Gossip Registration (Notify) Messages
@@ -124,5 +125,6 @@ func handleGossipAnnounce(msg verticalapi.VertToMainAnnounce, storage *notifyMap
 
 	announce_data := msg.Data
 	mainLogger.Debug("Gossip Announce", "msg", announce_data)
+	// send to gossip
 	return nil
 }
