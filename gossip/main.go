@@ -5,6 +5,8 @@ import (
 	gs "gossip/strats"
 	verticalapi "gossip/verticalAPI"
 	vertTypes "gossip/verticalAPI/types"
+	"os/signal"
+	"syscall"
 
 	"log/slog"
 	"os"
@@ -85,11 +87,13 @@ func (m *Main) run() {
 	defer va.Close()
 
 	strategy, _ := gs.New(m.args, m.strategyChannels)
-	defer strategy.Close()
 	strategy.Listen()
+	defer strategy.Close()
 
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, syscall.SIGTERM, syscall.SIGINT)
 
-	for {
+	loop: for {
 		select {
 		case x := <-m.vertToMain.Validation:
 			m.handleGossipValidation(x)
@@ -99,6 +103,8 @@ func (m *Main) run() {
 			m.handleTypeRegistration(x)
 		case x := <- m.strategyChannels.Notification:
 			m.handleNotification(x)
+		case <- c:
+			break loop
 		}
 	}
 }
