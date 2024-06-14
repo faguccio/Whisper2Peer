@@ -23,8 +23,6 @@ func logInit() *slog.Logger {
 	}))
 }
 
-var mainLogger *slog.Logger
-
 type Args struct {
 	Degree     int      `arg:"-d,--degree" default:"30" help:"Gossip parameter degree: Number of peers the current peer has to exchange information with"`
 	Cache_size int      `arg:"-c,--cache" default:"50" help:"Gossip parameter cache_size: Maximum number of data items to be held as part of the peer’s knowledge base. Older items will be removed to ensure space for newer items if the peer’s knowledge base exceeds this limit"`
@@ -34,97 +32,107 @@ type Args struct {
 	// Strategy string ``
 }
 
-var args Args
+type Main struct {
+	log *slog.Logger
+	mlog *slog.Logger
+	args Args
+	typeStorage notifyMap
+	vertToMain verticalapi.VertToMainChans
+	strategyChannels gs.StrategyChannels
+}
 
-func main() {
-	// var err error
-	// set up logging
-	slog.SetDefault(logInit())
-	mainLogger = slog.With("module", "main")
-
-	// just skip the ini parsing etc for now and only start/listen on the vertical api using constants as address
-	// then later if you want to maybe extract those from the ini config (at a fixed path to skip the argument parsing stuff for now)
+func NewMain() *Main {
+	m := &Main{
+		log:         logInit(),
+		typeStorage: *NewNotifyMap(),
+	}
+	m.mlog = m.log.With("module", "main")
 
 	// Arguments read using go-arg https://github.com/alexflint/go-arg. The annotation instruct the library on
 	// the type of comment and optionally the help message.
+	arg.MustParse(&m.args)
 
-	arg.MustParse(&args)
-
-	mainLogger.Debug("CMD ARGS mandatory",
-		"cache size", args.Cache_size,
-		"degree", args.Degree,
+	m.mlog.Debug("CMD ARGS mandatory",
+		"cache size", m.args.Cache_size,
+		"degree", m.args.Degree,
 	)
 
-	mainLogger.Debug("CMD ARGS mandatory",
-		"Horizontal addr", args.Hz_addr,
-		"Vertical addr", args.Vert_addr,
-		"Peers addresses", args.Peer_addrs,
+	m.mlog.Debug("CMD ARGS mandatory",
+		"Horizontal addr", m.args.Hz_addr,
+		"Vertical addr", m.args.Vert_addr,
+		"Peers addresses", m.args.Peer_addrs,
 	)
 
-	vertToMain := verticalapi.VertToMainChans{
+	m.vertToMain = verticalapi.VertToMainChans{
 		Register:   make(chan verticalapi.VertToMainRegister),
 		Announce:   make(chan verticalapi.VertToMainAnnounce),
 		Validation: make(chan verticalapi.VertToMainValidation),
 	}
 
-	va := verticalapi.NewVerticalApi(slog.With("module", "vertAPI"), vertToMain)
-	va.Listen(args.Vert_addr)
-	defer va.Close()
-
-	strategyChannels := gs.StrategyChannels{
+	m.strategyChannels = gs.StrategyChannels{
 		Notification: make(chan verticalapi.MainToVertNotification),
 		Announce:     make(chan verticalapi.VertToMainAnnounce),
 		Validation:   make(chan verticalapi.VertToMainValidation),
 	}
 
-	strategy, _ := gs.New(args, strategyChannels)
+
+	return m
+}
+
+func (m *Main) run() {
+	va := verticalapi.NewVerticalApi(slog.With("module", "vertAPI"), m.vertToMain)
+	va.Listen(m.args.Vert_addr)
+	defer va.Close()
+
+	strategy, _ := gs.New(m.args, m.strategyChannels)
 	defer strategy.Close()
 	strategy.Listen()
 
-	typeStorage := NewNotifyMap()
 
 	for {
 		select {
-		case x := <-vertToMain.Validation:
-			handleGossipValidation(x)
-		case x := <-vertToMain.Announce:
-			_ = handleGossipAnnounce(x, typeStorage)
-		case x := <-vertToMain.Register:
-			handleTypeRegistration(x, typeStorage)
-			// case x := <-fromHz:
-			// 	// This will be done by the GOSSIP STRATEGY module I am not sure if we will listen fromHz or pass
-			// 	// the channel to the GOSSIP STRATEGY module
-			// 	handlePeerMessage(x)
+		case x := <-m.vertToMain.Validation:
+			m.handleGossipValidation(x)
+		case x := <-m.vertToMain.Announce:
+			_ = m.handleGossipAnnounce(x)
+		case x := <-m.vertToMain.Register:
+			m.handleTypeRegistration(x)
 		}
 	}
-
 }
 
 // Handle incoming Gossip Registration (Notify) Messages
-func handleTypeRegistration(msg verticalapi.VertToMainRegister, storage *notifyMap) {
+func (m *Main) handleTypeRegistration(msg verticalapi.VertToMainRegister) {
 	typeToRegister := vertTypes.GossipType(msg.Data.DataType)
 	listeningModule := msg.Module
-	storage.AddChannelToType(typeToRegister, listeningModule)
-	//mainLogger.Debug("Just registered: %d with val %v\n", "msg", typeToRegister, storage.Load(typeToRegister))
+	m.typeStorage.AddChannelToType(typeToRegister, listeningModule)
+	//m.mlog.Debug("Just registered: %d with val %v\n", "msg", typeToRegister, storage.Load(typeToRegister))
 }
 
 // Handle incoming Gossip Validation messages.
-func handleGossipValidation(msg verticalapi.VertToMainValidation) {
+func (m *Main) handleGossipValidation(msg verticalapi.VertToMainValidation) {
 	validation_data := msg.Data
-	mainLogger.Debug("Validation data handled: ", "msg", validation_data)
+	m.mlog.Debug("Validation data handled: ", "msg", validation_data)
+	m.strategyChannels.Validation <- msg
 }
 
 // Handle incoming Gossip Announce messages. This function sould call the GOSSIP STRATEGY module
-// and use that to spread the message. The type registering is done here.
-func handleGossipAnnounce(msg verticalapi.VertToMainAnnounce, storage *notifyMap) error {
+// and use that to spread the message.
+func (m *Main) handleGossipAnnounce(msg verticalapi.VertToMainAnnounce) error {
 	typeToCheck := vertTypes.GossipType(msg.Data.DataType)
-	res := storage.Load(typeToCheck)
+	res := m.typeStorage.Load(typeToCheck)
 	if len(res) == 0 {
 		return errors.New("Gossip Type not registered, cannot accept message.")
 	}
 
 	announce_data := msg.Data
-	mainLogger.Debug("Gossip Announce", "msg", announce_data)
+	m.mlog.Debug("Gossip Announce", "msg", announce_data)
 	// send to gossip
+	m.strategyChannels.Announce <- msg
 	return nil
+}
+
+func main() {
+	m := NewMain()
+	m.run()
 }
