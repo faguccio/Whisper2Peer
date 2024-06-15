@@ -110,7 +110,7 @@ func convertAnnounceToPush(msg common.GossipAnnounce) horizontalapi.Push {
 
 	pushMsg := horizontalapi.Push{
 		TTL:        msg.TTL,
-		GossipType: uint16(msg.DataType),
+		GossipType: msg.DataType,
 		MessageID:  uint16(id.Int64()),
 		Payload:    msg.Data,
 	}

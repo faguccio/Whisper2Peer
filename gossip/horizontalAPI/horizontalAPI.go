@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"gossip/common"
 	hzTypes "gossip/horizontalAPI/types"
 	"log/slog"
 	"net"
@@ -38,9 +39,8 @@ type ToHz interface {
 
 // Represents a push message from/to the horizontalApi
 type Push struct {
-	TTL uint8
-	// TODO use same type as in verticalAPI
-	GossipType uint16
+	TTL        uint8
+	GossipType common.GossipType
 	MessageID  uint16
 	Payload    []byte
 }
@@ -247,7 +247,7 @@ loop:
 				// of an error
 				p := Push{
 					TTL:        push.Ttl(),
-					GossipType: push.GossipType(),
+					GossipType: common.GossipType(push.GossipType()),
 					MessageID:  push.MessageID(),
 				}
 				// payload is no scalar type -> retrival might error
@@ -314,7 +314,7 @@ loop:
 				// populate the push message
 				// setting scalar value cannot error
 				push.SetTtl(rmsg.TTL)
-				push.SetGossipType(rmsg.GossipType)
+				push.SetGossipType(uint16(rmsg.GossipType))
 				push.SetMessageID(rmsg.MessageID)
 				// payload is no scalar type -> setting might error
 				if err := push.SetPayload(rmsg.Payload); err != nil {
