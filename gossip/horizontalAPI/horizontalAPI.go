@@ -379,9 +379,9 @@ func (hz *HorizontalApi) Close() error {
 	}()
 
 	select {
-	case <- fin:
+	case <-fin:
 		return err
-	case <-time.After(5*time.Second):
+	case <-time.After(5 * time.Second):
 		return ErrTimeout
 	}
 }

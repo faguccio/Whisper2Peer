@@ -1,7 +1,7 @@
 package main
 
 import (
-	vertTypes "gossip/verticalAPI/types"
+	"gossip/common"
 	"log/slog"
 	"net"
 	"os"
@@ -16,8 +16,8 @@ import (
 // abstraction for message types
 // everything implementing below methods is considered a msgType
 type msgType interface {
-	Marshal(buf []byte) error
-	CalcSize() int
+	// Marshal(buf []byte) error
+	// CalcSize() int
 }
 
 // collection of msgType and the associated buffer
@@ -53,58 +53,42 @@ func NotTestMain(test *testing.T) {
 	// define the messages that should be received via the socket
 	ts := []tester{
 		{
-			&vertTypes.GossipAnnounce{
-				MessageHeader: vertTypes.MessageHeader{
-					Size: 8 + 2,
-					Type: vertTypes.GossipAnnounceType,
-				},
+			msg: common.GossipAnnounce{
 				TTL:      32,
 				Reserved: 0,
 				DataType: 24,
 				Data:     []byte{0x20, 0x50},
 			},
-			[]byte{0x0, 0x0a, 0x01, 0xf4, 32, 0, 0x0, 0x18, 0x20, 0x50},
-			"announce",
+			buf:  []byte{0x0, 0x0a, 0x01, 0xf4, 32, 0, 0x0, 0x18, 0x20, 0x50},
+			name: "announce",
 		},
 		{
-			&vertTypes.GossipNotify{
-				MessageHeader: vertTypes.MessageHeader{
-					Size: 8,
-					Type: vertTypes.GossipNotifyType,
-				},
+			msg: common.GossipNotify{
 				Reserved: 0,
 				DataType: 42,
 			},
-			[]byte{0x0, 0x08, 0x01, 0xf5, 0, 0, 0x0, 0x2a},
-			"notify",
+			buf:  []byte{0x0, 0x08, 0x01, 0xf5, 0, 0, 0x0, 0x2a},
+			name: "notify",
 		},
 		{
-			&vertTypes.GossipAnnounce{
-				MessageHeader: vertTypes.MessageHeader{
-					Size: 8 + 2,
-					Type: vertTypes.GossipAnnounceType,
-				},
+			msg: common.GossipAnnounce{
 				TTL:      32,
 				Reserved: 0,
 				DataType: 42,
 				Data:     []byte{0x20, 0x50},
 			},
-			[]byte{0x0, 0x0a, 0x01, 0xf4, 32, 0, 0x0, 0x2a, 0x20, 0x50},
-			"announce",
+			buf:  []byte{0x0, 0x0a, 0x01, 0xf4, 32, 0, 0x0, 0x2a, 0x20, 0x50},
+			name: "announce",
 		},
 		{
-			&vertTypes.GossipValidation{
-				MessageHeader: vertTypes.MessageHeader{
-					Size: 8,
-					Type: vertTypes.GossipValidationType,
-				},
+			msg: common.GossipValidation{
 				MessageId: 1337,
 				// setting to 0b..1 does not work since the valid flag is not
 				// imported (-> or do not use reflect.DeepEqual later)
 				Bitfield: 0,
 			},
-			[]byte{0x0, 0x08, 0x01, 0xf7, 0x05, 0x39, 0, 0},
-			"validation",
+			buf:  []byte{0x0, 0x08, 0x01, 0xf7, 0x05, 0x39, 0, 0},
+			name: "validation",
 		},
 	}
 

@@ -3,6 +3,7 @@ package verticalapi
 import (
 	"context"
 	"fmt"
+	"gossip/common"
 	vertTypes "gossip/verticalAPI/types"
 	"io"
 	"log/slog"
@@ -29,7 +30,7 @@ type VerticalApi struct {
 	// store all open connections so that they can be closed in the end
 	conns map[net.Conn]struct{}
 	// collection of channels for the backchannel to the main package
-	vertToMainChans VertToMainChans
+	vertToMainChan chan<- common.FromVert
 	// logging for this module
 	log *slog.Logger
 	// waitgroup to wait for all goroutines to terminate in the end
@@ -45,16 +46,16 @@ type VerticalApi struct {
 // The methods of this module all will use the logger passed here. You can use
 // the [pkg/log/slog.With] function or [pkg/log/slog.Logger.With] on a
 // slog-logger to set a field for all logged entries (like "module"="vertAPI").
-func NewVerticalApi(log *slog.Logger, vertToMainChans VertToMainChans) *VerticalApi {
+func NewVerticalApi(log *slog.Logger, vertToMainChan chan<- common.FromVert) *VerticalApi {
 	// context is only used internally -> no need to pass it to the constructor
 	ctx, cancel := context.WithCancel(context.Background())
 	return &VerticalApi{
-		cancel:          cancel,
-		ctx:             ctx,
-		ln:              nil,
-		conns:           make(map[net.Conn]struct{}, 0),
-		vertToMainChans: vertToMainChans,
-		log:             log,
+		cancel:         cancel,
+		ctx:            ctx,
+		ln:             nil,
+		conns:          make(map[net.Conn]struct{}, 0),
+		vertToMainChan: vertToMainChan,
+		log:            log,
 	}
 }
 
@@ -88,8 +89,8 @@ func (v *VerticalApi) Listen(addr string) error {
 
 			v.conns[conn] = struct{}{}
 
-			mainToVert := make(chan MainToVertNotification)
-			regMod := RegisteredModule{
+			mainToVert := make(chan common.ToVert)
+			regMod := common.RegisteredModule{
 				MainToVert: mainToVert,
 			}
 
@@ -105,7 +106,7 @@ func (v *VerticalApi) Listen(addr string) error {
 //
 // Parses the message header and body. Then sends the message via the
 // respective channel to the main package.
-func (v *VerticalApi) handleConnection(conn net.Conn, regMod RegisteredModule) {
+func (v *VerticalApi) handleConnection(conn net.Conn, regMod common.RegisteredModule) {
 	defer v.wg.Done()
 	var err error
 	var nRead int
@@ -177,9 +178,7 @@ func (v *VerticalApi) handleConnection(conn net.Conn, regMod RegisteredModule) {
 				v.log.Warn("Invalid GossipAnnounce read", "err", err)
 				continue
 			} else {
-				v.vertToMainChans.Announce <- VertToMainAnnounce{
-					Data: ga,
-				}
+				v.vertToMainChan <- ga.Ga
 			}
 
 		case vertTypes.GossipNotifyType:
@@ -190,8 +189,8 @@ func (v *VerticalApi) handleConnection(conn net.Conn, regMod RegisteredModule) {
 				v.log.Warn("Invalid GossipNotify read", "err", err)
 				continue
 			} else {
-				v.vertToMainChans.Register <- VertToMainRegister{
-					Data:   gn,
+				v.vertToMainChan <- common.GossipRegister{
+					Data:   gn.Gn,
 					Module: &regMod,
 				}
 			}
@@ -204,9 +203,7 @@ func (v *VerticalApi) handleConnection(conn net.Conn, regMod RegisteredModule) {
 				v.log.Warn("Invalid GossipValidation read", "err", err)
 				continue
 			} else {
-				v.vertToMainChans.Validation <- VertToMainValidation{
-					Data: gv,
-				}
+				v.vertToMainChan <- gv.Gv
 			}
 
 		default:
@@ -218,17 +215,27 @@ func (v *VerticalApi) handleConnection(conn net.Conn, regMod RegisteredModule) {
 // Write messages to the connection
 //
 // Writes all messages sent to he mainToVert channel to the connection
-func (v *VerticalApi) writeToConnection(conn net.Conn, mainToVert <-chan MainToVertNotification) {
+func (v *VerticalApi) writeToConnection(conn net.Conn, mainToVert <-chan common.ToVert) {
 	defer v.wg.Done()
 	var err error
 	var nWritten int
 	buf := make([]byte, 0, 4096)
 
 	for msg := range mainToVert {
-		buf, err = msg.Data.Marshal(buf)
-		if err != nil {
-			v.log.Warn("Failed to marshal GossipNotification", "err", err)
-			continue
+		switch msg := msg.(type) {
+		case common.GossipNotification:
+			vmsg := vertTypes.GossipNotification{
+				Gn: msg,
+				MessageHeader: vertTypes.MessageHeader{
+					Type: vertTypes.GossipNotificationType,
+				},
+			}
+			vmsg.MessageHeader.RecalcSize(&vmsg)
+			buf, err = vmsg.Marshal(buf)
+			if err != nil {
+				v.log.Warn("Failed to marshal GossipNotification", "err", err)
+				continue
+			}
 		}
 
 		nWritten, err = conn.Write(buf)

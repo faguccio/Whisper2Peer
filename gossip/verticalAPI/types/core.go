@@ -10,9 +10,6 @@ import "errors"
 
 // This file is like the root file for the verticalApi.
 
-// Type for the DataType of Gossip Messages.
-type GossipType uint16
-
 // Definition of possible errors that might occur in this package.
 var (
 	ErrNotEnoughData    = errors.New("not enough data")
@@ -34,3 +31,8 @@ const (
 	// MessageType for the [GossipValidation] packet.
 	GossipValidationType = 503
 )
+
+type VertType interface {
+	CalcSize() int
+	isVertType()
+}

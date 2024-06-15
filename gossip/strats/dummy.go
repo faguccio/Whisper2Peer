@@ -2,9 +2,8 @@ package strats
 
 import (
 	"errors"
+	"gossip/common"
 	horizontalapi "gossip/horizontalAPI"
-	verticalapi "gossip/verticalAPI"
-	vertTypes "gossip/verticalAPI/types"
 
 	"math/big"
 	"time"
@@ -46,26 +45,25 @@ func (dummy *dummyStrat) Listen() {
 			case horizontalapi.Push:
 				notification := convertPushToNotification(msg)
 				dummy.unvalidatedCache = append(dummy.unvalidatedCache, msg)
-				notificationMsg := verticalapi.MainToVertNotification{
-					Data: notification,
-				}
 				// HANDLE MAIN TO send messages to all listener registered to that TYPE
-				dummy.rootStrat.strategyChannels.Notification <- notificationMsg
+				dummy.rootStrat.strategyChannels.FromStrat <- notification
 			}
 
 		case newPeer := <-dummy.hzConnection:
 			dummy.openConnections = append(dummy.openConnections, newPeer.ToHz)
 
-		case x := <-dummy.rootStrat.strategyChannels.Announce:
-			// Append announce to the "to be relayed" (so validated) messages
-			pushMsg := convertAnnounceToPush(x)
-			dummy.validatedCache = append(dummy.validatedCache, pushMsg)
-
-		case x := <-dummy.rootStrat.strategyChannels.Validation:
-			if x.Data.Valid {
-				dummy.validateMessage(x.Data.MessageId)
-			} else {
-				dummy.removeMessage(x.Data.MessageId)
+		case x := <-dummy.rootStrat.strategyChannels.ToStrat:
+			switch x := x.(type) {
+			case common.GossipAnnounce:
+				// Append announce to the "to be relayed" (so validated) messages
+				pushMsg := convertAnnounceToPush(x)
+				dummy.validatedCache = append(dummy.validatedCache, pushMsg)
+			case common.GossipValidation:
+				if x.Valid {
+					dummy.validateMessage(x.MessageId)
+				} else {
+					dummy.removeMessage(x.MessageId)
+				}
 			}
 
 		case <-ticker.C:
@@ -107,30 +105,25 @@ func (dummy *dummyStrat) removeMessage(messageId uint16) (*horizontalapi.Push, e
 	return &removedItem, nil
 }
 
-func convertAnnounceToPush(msg verticalapi.VertToMainAnnounce) horizontalapi.Push {
+func convertAnnounceToPush(msg common.GossipAnnounce) horizontalapi.Push {
 	id, _ := rand.Int(rand.Reader, big.NewInt(16))
 
 	pushMsg := horizontalapi.Push{
-		TTL:        msg.Data.TTL,
-		GossipType: uint16(msg.Data.DataType),
+		TTL:        msg.TTL,
+		GossipType: uint16(msg.DataType),
 		MessageID:  uint16(id.Int64()),
-		Payload:    msg.Data.Data,
+		Payload:    msg.Data,
 	}
 
 	return pushMsg
 }
 
-func convertPushToNotification(pushMsg horizontalapi.Push) vertTypes.GossipNotification {
-	notification := vertTypes.GossipNotification{
-		MessageHeader: vertTypes.MessageHeader{},
-		MessageId:     pushMsg.MessageID,
-		DataType:      vertTypes.GossipType(pushMsg.GossipType),
-		Data:          pushMsg.Payload,
+func convertPushToNotification(pushMsg horizontalapi.Push) common.GossipNotification {
+	notification := common.GossipNotification{
+		MessageId: pushMsg.MessageID,
+		DataType:  common.GossipType(pushMsg.GossipType),
+		Data:      pushMsg.Payload,
 	}
-
-	notification.MessageHeader.Size = uint16(notification.CalcSize())
-	notification.MessageHeader.Type = vertTypes.GossipNotificationType
-
 	return notification
 }
 

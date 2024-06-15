@@ -2,10 +2,10 @@ package main
 
 import (
 	"errors"
+	"gossip/common"
+	"gossip/internal/args"
 	gs "gossip/strats"
 	verticalapi "gossip/verticalAPI"
-	"gossip/internal/args"
-	vertTypes "gossip/verticalAPI/types"
 	"os/signal"
 	"syscall"
 
@@ -27,11 +27,11 @@ func logInit() *slog.Logger {
 }
 
 type Main struct {
-	log *slog.Logger
-	mlog *slog.Logger
-	args args.Args
-	typeStorage notifyMap
-	vertToMain verticalapi.VertToMainChans
+	log              *slog.Logger
+	mlog             *slog.Logger
+	args             args.Args
+	typeStorage      notifyMap
+	vertToMain       chan common.FromVert
 	strategyChannels gs.StrategyChannels
 }
 
@@ -57,18 +57,12 @@ func NewMain() *Main {
 		"Peers addresses", m.args.Peer_addrs,
 	)
 
-	m.vertToMain = verticalapi.VertToMainChans{
-		Register:   make(chan verticalapi.VertToMainRegister),
-		Announce:   make(chan verticalapi.VertToMainAnnounce),
-		Validation: make(chan verticalapi.VertToMainValidation),
-	}
+	m.vertToMain = make(chan common.FromVert)
 
 	m.strategyChannels = gs.StrategyChannels{
-		Notification: make(chan verticalapi.MainToVertNotification),
-		Announce:     make(chan verticalapi.VertToMainAnnounce),
-		Validation:   make(chan verticalapi.VertToMainValidation),
+		FromStrat: make(chan common.FromStrat),
+		ToStrat:   make(chan common.ToStrat),
 	}
-
 
 	return m
 }
@@ -85,41 +79,47 @@ func (m *Main) run() {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, syscall.SIGTERM, syscall.SIGINT)
 
-	loop: for {
+loop:
+	for {
 		select {
-		case x := <-m.vertToMain.Validation:
-			m.handleGossipValidation(x)
-		case x := <-m.vertToMain.Announce:
-			_ = m.handleGossipAnnounce(x)
-		case x := <-m.vertToMain.Register:
-			m.handleTypeRegistration(x)
-		case x := <- m.strategyChannels.Notification:
-			m.handleNotification(x)
-		case <- c:
+		case x := <-m.vertToMain:
+			switch x := x.(type) {
+			case common.GossipValidation:
+				m.handleGossipValidation(x)
+			case common.GossipAnnounce:
+				_ = m.handleGossipAnnounce(x)
+			case common.GossipRegister:
+				m.handleTypeRegistration(x)
+			}
+		case x := <-m.strategyChannels.FromStrat:
+			switch x := x.(type) {
+			case common.GossipNotification:
+				m.handleNotification(x)
+			}
+		case <-c:
 			break loop
 		}
 	}
 }
 
 // Handle incoming Gossip Registration (Notify) Messages
-func (m *Main) handleTypeRegistration(msg verticalapi.VertToMainRegister) {
-	typeToRegister := vertTypes.GossipType(msg.Data.DataType)
+func (m *Main) handleTypeRegistration(msg common.GossipRegister) {
+	typeToRegister := common.GossipType(msg.Data.DataType)
 	listeningModule := msg.Module
 	m.typeStorage.AddChannelToType(typeToRegister, listeningModule)
 	//m.mlog.Debug("Just registered: %d with val %v\n", "msg", typeToRegister, storage.Load(typeToRegister))
 }
 
 // Handle incoming Gossip Validation messages.
-func (m *Main) handleGossipValidation(msg verticalapi.VertToMainValidation) {
-	validation_data := msg.Data
-	m.mlog.Debug("Validation data handled: ", "msg", validation_data)
-	m.strategyChannels.Validation <- msg
+func (m *Main) handleGossipValidation(msg common.GossipValidation) {
+	m.mlog.Debug("Validation data handled: ", "msg", msg)
+	m.strategyChannels.ToStrat <- msg
 }
 
 // Handle incoming Gossip Announce messages. This function sould call the GOSSIP STRATEGY module
 // and use that to spread the message.
-func (m *Main) handleGossipAnnounce(msg verticalapi.VertToMainAnnounce) error {
-	typeToCheck := vertTypes.GossipType(msg.Data.DataType)
+func (m *Main) handleGossipAnnounce(msg common.GossipAnnounce) error {
+	typeToCheck := common.GossipType(msg.DataType)
 	res := m.typeStorage.Load(typeToCheck)
 	if len(res) == 0 {
 		return errors.New("Gossip Type not registered, cannot accept message.")
@@ -128,29 +128,24 @@ func (m *Main) handleGossipAnnounce(msg verticalapi.VertToMainAnnounce) error {
 	announce_data := msg.Data
 	m.mlog.Debug("Gossip Announce", "msg", announce_data)
 	// send to gossip
-	m.strategyChannels.Announce <- msg
+	m.strategyChannels.ToStrat <- msg
 	return nil
 }
 
-func (m *Main) handleNotification(msg verticalapi.MainToVertNotification) error {
-	typeToCheck := vertTypes.GossipType(msg.Data.DataType)
+func (m *Main) handleNotification(msg common.GossipNotification) error {
+	typeToCheck := common.GossipType(msg.DataType)
 	res := m.typeStorage.Load(typeToCheck)
 	if len(res) == 0 {
 		// if no module is registered for this type, mark this message as non-valid (don't propagate it)
-		s := verticalapi.VertToMainValidation{
-			Data: vertTypes.GossipValidation{
-				MessageHeader: vertTypes.MessageHeader{},
-				MessageId:     msg.Data.MessageId,
-			},
+		s := common.GossipValidation{
+			MessageId: msg.MessageId,
 		}
-		s.Data.SetValid(false)
-		s.Data.MessageHeader.Size = uint16(s.Data.CalcSize()+s.Data.MessageHeader.CalcSize())
-		s.Data.MessageHeader.Type = vertTypes.GossipValidationType
-		m.strategyChannels.Validation <- s
+		s.SetValid(false)
+		m.strategyChannels.ToStrat <- s
 		return nil
 	}
 
-	for _,r := range res {
+	for _, r := range res {
 		r.MainToVert <- msg
 	}
 	return nil

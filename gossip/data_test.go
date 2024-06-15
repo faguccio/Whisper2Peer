@@ -1,21 +1,20 @@
 package main
 
 import (
-	verticalapi "gossip/verticalAPI"
-	vertTypes "gossip/verticalAPI/types"
+	"gossip/common"
 	"testing"
 	"time"
 )
 
 func TestConcurrentLoading(test *testing.T) {
 	store := NewNotifyMap()
-	vert_type := vertTypes.GossipType(42)
+	vert_type := common.GossipType(42)
 
-	var modules []*verticalapi.RegisteredModule
+	var modules []*common.RegisteredModule
 
 	for i := 0; i < 100; i++ {
-		modules = append(modules, &verticalapi.RegisteredModule{
-			MainToVert: make(chan verticalapi.MainToVertNotification),
+		modules = append(modules, &common.RegisteredModule{
+			MainToVert: make(chan common.ToVert),
 		})
 	}
 

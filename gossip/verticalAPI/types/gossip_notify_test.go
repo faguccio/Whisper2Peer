@@ -1,14 +1,17 @@
 package verticalapi
 
 import (
+	"gossip/common"
 	"testing"
 )
 
 func TestUnmarshalGossipNotify(t *testing.T) {
 	result := GossipNotify{
+		common.GossipNotify{
+			Reserved: 31543,
+			DataType: common.GossipType(17477),
+		},
 		MessageHeader{33795, MessageType(501)},
-		31543,
-		GossipType(17477),
 	}
 	//In python list((integer).to_bytes(4, byteorder = 'big'))
 	sample := []byte{132, 3, 1, 245, 123, 55, 68, 69}

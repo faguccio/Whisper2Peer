@@ -45,3 +45,7 @@ func (m *MessageHeader) Marshal(buf []byte) error {
 func (m *MessageHeader) CalcSize() int {
 	return binary.Size(m)
 }
+
+func (m *MessageHeader) RecalcSize(e VertType) {
+	m.Size = uint16(e.CalcSize())
+}
