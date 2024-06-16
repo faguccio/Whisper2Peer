@@ -6,6 +6,8 @@ import (
 	"gossip/common"
 	horizontalapi "gossip/horizontalAPI"
 	"gossip/internal/args"
+	"net"
+	"strings"
 
 	"log/slog"
 )
@@ -59,7 +61,7 @@ func New(log *slog.Logger, args args.Args, stratChans StrategyChannels) (Strateg
 	hzConnection := make(chan horizontalapi.NewConn, 1)
 	hz.Listen(args.Hz_addr, hzConnection)
 
-	openConnections, err := hz.AddNeighbors(args.Peer_addrs...)
+	openConnections, err := hz.AddNeighbors(&net.Dialer{LocalAddr: &net.TCPAddr{IP: net.ParseIP(strings.SplitN(args.Hz_addr, ":", 2)[0]), Port: 0}}, args.Peer_addrs...)
 
 	if err != nil {
 		return nil, fmt.Errorf("The error occured while initiating the gossip module %w", err)

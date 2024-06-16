@@ -175,10 +175,10 @@ func (hz *HorizontalApi) Listen(addr string, newConn chan<- NewConn) error {
 // Returns a slice of channels (same ordering like the address-slice parameter)
 // on which the horizontalApi will send incoming packets on the connection to
 // the respective neighbor.
-func (hz *HorizontalApi) AddNeighbors(addrs ...string) ([]Conn[chan<- ToHz], error) {
+func (hz *HorizontalApi) AddNeighbors(dialer *net.Dialer, addrs ...string) ([]Conn[chan<- ToHz], error) {
 	var ret []Conn[chan<- ToHz]
 	for _, a := range addrs {
-		conn, err := net.Dial("tcp", a)
+		conn, err := dialer.Dial("tcp", a)
 		if err != nil {
 			return nil, err
 		}
