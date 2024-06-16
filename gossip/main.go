@@ -18,12 +18,12 @@ import (
 	_ "gopkg.in/ini.v1"
 )
 
-func logInit() *slog.Logger {
+func logInit(identiefier any) *slog.Logger {
 	return slog.New(tint.NewHandler(os.Stdout, &tint.Options{
 		Level:      slog.LevelDebug,
 		TimeFormat: time.RFC3339,
 		NoColor:    false,
-	}))
+	})).With("id", identiefier)
 }
 
 type Main struct {
@@ -37,14 +37,15 @@ type Main struct {
 
 func NewMain() *Main {
 	m := &Main{
-		log:         logInit(),
 		typeStorage: *NewNotifyMap(),
 	}
-	m.mlog = m.log.With("module", "main")
 
 	// Arguments read using go-arg https://github.com/alexflint/go-arg. The annotation instruct the library on
 	// the type of comment and optionally the help message.
 	arg.MustParse(&m.args)
+
+	m.log = logInit(m.args.Hz_addr)
+	m.mlog = m.log.With("module", "main")
 
 	m.mlog.Debug("CMD ARGS mandatory",
 		"cache size", m.args.Cache_size,
@@ -85,6 +86,7 @@ func (m *Main) run() {
 
 loop:
 	for {
+		m.mlog.Info("Another loop")
 		select {
 		case x := <-m.vertToMain:
 			switch x := x.(type) {
@@ -104,6 +106,7 @@ loop:
 			break loop
 		}
 	}
+	m.mlog.Info("Main terminating")
 }
 
 // Handle incoming Gossip Registration (Notify) Messages
@@ -111,7 +114,7 @@ func (m *Main) handleTypeRegistration(msg common.GossipRegister) {
 	typeToRegister := common.GossipType(msg.Data.DataType)
 	listeningModule := msg.Module
 	m.typeStorage.AddChannelToType(typeToRegister, listeningModule)
-	//m.mlog.Debug("Just registered: %d with val %v\n", "msg", typeToRegister, storage.Load(typeToRegister))
+	m.mlog.Debug("Just registered: %d with val %v\n", "msg", typeToRegister, "as", m.typeStorage.Load(typeToRegister))
 }
 
 // Handle incoming Gossip Validation messages.

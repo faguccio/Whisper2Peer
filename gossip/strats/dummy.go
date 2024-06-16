@@ -35,58 +35,68 @@ func NewDummy(strategy Strategy, fromHz <-chan horizontalapi.FromHz, hzConnectio
 
 func (dummy *dummyStrat) Listen() {
 	// This will be a configuration parameter
-	ticker := time.NewTicker(2 * time.Second)
+	go func() {
+		ticker := time.NewTicker(1 * time.Second)
 
-	for {
-		select {
-		case x := <-dummy.fromHz:
-			// Will notify the vertical api of the message
-			switch msg := x.(type) {
-			case horizontalapi.Push:
-				notification := convertPushToNotification(msg)
-				dummy.unvalidatedCache = append(dummy.unvalidatedCache, msg)
-				// HANDLE MAIN TO send messages to all listener registered to that TYPE
-				dummy.rootStrat.strategyChannels.FromStrat <- notification
-				dummy.rootStrat.log.Debug("Message received:", "msg", msg)
-			}
-
-		case newPeer := <-dummy.hzConnection:
-			dummy.openConnections = append(dummy.openConnections, newPeer.ToHz)
-
-		case x := <-dummy.rootStrat.strategyChannels.ToStrat:
-			switch x := x.(type) {
-			case common.GossipAnnounce:
-				// Append announce to the "to be relayed" (so validated) messages
-				pushMsg := convertAnnounceToPush(x)
-				dummy.validatedCache = append(dummy.validatedCache, pushMsg)
-			case common.GossipValidation:
-				if x.Valid {
-					dummy.validateMessage(x.MessageId)
-				} else {
-					dummy.removeMessage(x.MessageId)
+		for {
+			select {
+			case x := <-dummy.fromHz:
+				// Will notify the vertical api of the message
+				switch msg := x.(type) {
+				case horizontalapi.Push:
+					notification := convertPushToNotification(msg)
+					dummy.unvalidatedCache = append(dummy.unvalidatedCache, msg)
+					// HANDLE MAIN TO send messages to all listener registered to that TYPE
+					dummy.rootStrat.strategyChannels.FromStrat <- notification
+					dummy.rootStrat.log.Debug("Message received:", "msg", msg)
 				}
-			}
 
-		case <-ticker.C:
-			// Time passed! New round:
-			// Send messages to random neighbor
-			dummy.rootStrat.log.Debug("Length of openConnection", "len", len(dummy.openConnections))
-			idx := mrand.Intn(len(dummy.openConnections))
-			for _, message := range dummy.validatedCache {
-				dummy.openConnections[idx] <- message
-				dummy.rootStrat.log.Debug("Message sent:", "msg", message)
-			}
-			dummy.validatedCache = make([]horizontalapi.Push, 0)
+			case newPeer := <-dummy.hzConnection:
+				dummy.openConnections = append(dummy.openConnections, newPeer.ToHz)
 
-			// If message was sent to args.Degree neighboughrs delete it from the set of messages
+			case x := <-dummy.rootStrat.strategyChannels.ToStrat:
+				switch x := x.(type) {
+				case common.GossipAnnounce:
+					// Append announce to the "to be relayed" (so validated) messages
+					pushMsg := convertAnnounceToPush(x)
+					dummy.validatedCache = append(dummy.validatedCache, pushMsg)
+				case common.GossipValidation:
+					if x.Valid {
+						err := dummy.validateMessage(x.MessageId)
+						if err != nil {
+							dummy.rootStrat.log.Warn("Tried to validate a message which did not exists", "Message ID", x.MessageId)
+						}
+
+					} else {
+						dummy.removeMessage(x.MessageId)
+					}
+				}
+
+			case <-ticker.C:
+				// Time passed! New round:
+				// Send messages to random neighbor
+				//dummy.rootStrat.log.Debug("Length of openConnection", "len", len(dummy.openConnections))
+				idx := mrand.Intn(len(dummy.openConnections))
+				for _, message := range dummy.validatedCache {
+					dummy.openConnections[idx] <- message
+					dummy.rootStrat.log.Debug("Message sent:", "msg", message)
+				}
+				dummy.validatedCache = make([]horizontalapi.Push, 0)
+
+				// If message was sent to args.Degree neighboughrs delete it from the set of messages
+			}
 		}
-	}
+	}()
 }
 
-func (dummy *dummyStrat) validateMessage(messageId uint16) {
-	valid, _ := dummy.removeMessage(messageId)
+func (dummy *dummyStrat) validateMessage(messageId uint16) error {
+	valid, err := dummy.removeMessage(messageId)
 	// What should I do if there is no message to be validated?
+	if err != nil {
+		return err
+	}
 	dummy.validatedCache = append(dummy.validatedCache, *valid)
+	return nil
 }
 
 func (dummy *dummyStrat) removeMessage(messageId uint16) (*horizontalapi.Push, error) {

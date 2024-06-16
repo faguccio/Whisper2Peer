@@ -21,14 +21,14 @@ def run_command(command):
         print(f"An error occurred: {e}")
 
 
-nodes = ["127.0.0.1", "127.0.0.2", "127.0.0.3", "127.0.0.4", "127.0.0.5"]
+nodes = ["127.0.0.1", "127.0.0.2"]  # , "127.0.0.3", "127.0.0.4", "127.0.0.5"]
 
 edges = [
     (nodes[1], nodes[0]),
-    (nodes[2], nodes[0]),
-    (nodes[3], nodes[1]),
-    (nodes[4], nodes[2]),
-    (nodes[4], nodes[3]),
+    # (nodes[2], nodes[0]),
+    # (nodes[3], nodes[1]),
+    # (nodes[4], nodes[2]),
+    # (nodes[4], nodes[3]),
 ]
 
 # For now cache size and degree is equal for everybody

@@ -32,6 +32,7 @@ func New(log *slog.Logger, args args.Args, stratChans StrategyChannels) (Strateg
 	strategy := Strategy{
 		hz:               hz,
 		strategyChannels: stratChans,
+		log:              log,
 	}
 
 	hzConnection := make(chan horizontalapi.NewConn, 1)
