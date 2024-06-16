@@ -96,8 +96,8 @@ func (v *VerticalApi) Listen(addr string) error {
 			}
 
 			v.wg.Add(2)
-			go v.handleConnection(conn, regMod)
-			go v.writeToConnection(conn, mainToVert)
+			go v.handleConnection(conn, common.Conn[common.RegisteredModule]{Data: regMod, Id: common.ConnectionId(conn.RemoteAddr().String())})
+			go v.writeToConnection(conn, common.Conn[<-chan common.ToVert]{Data: mainToVert, Id: common.ConnectionId(conn.RemoteAddr().String())})
 		}
 	}()
 	return nil
@@ -107,7 +107,7 @@ func (v *VerticalApi) Listen(addr string) error {
 //
 // Parses the message header and body. Then sends the message via the
 // respective channel to the main package.
-func (v *VerticalApi) handleConnection(conn net.Conn, regMod common.RegisteredModule) {
+func (v *VerticalApi) handleConnection(conn net.Conn, regMod common.Conn[common.RegisteredModule]) {
 	defer v.wg.Done()
 	var err error
 	var nRead int
@@ -118,7 +118,11 @@ func (v *VerticalApi) handleConnection(conn net.Conn, regMod common.RegisteredMo
 	defer delete(v.conns, conn)
 	// close the main > vert channel to signal the connection is closed
 	// also this causes the write routine to terminate
-	defer close(regMod.MainToVert)
+	defer close(regMod.Data.MainToVert)
+	// signal to main that this vert module terminated -> needs to unregister it
+	defer func(regMod *common.Conn[common.RegisteredModule]) {
+		v.vertToMainChan <- common.GossipUnRegister(regMod.Id)
+	}(&regMod)
 	// close the connection
 	defer conn.Close()
 
@@ -219,13 +223,13 @@ func (v *VerticalApi) handleConnection(conn net.Conn, regMod common.RegisteredMo
 // Write messages to the connection
 //
 // Writes all messages sent to he mainToVert channel to the connection
-func (v *VerticalApi) writeToConnection(conn net.Conn, mainToVert <-chan common.ToVert) {
+func (v *VerticalApi) writeToConnection(conn net.Conn, cData common.Conn[<-chan common.ToVert]) {
 	defer v.wg.Done()
 	var err error
 	var nWritten int
 	buf := make([]byte, 0, 4096)
 
-	for msg := range mainToVert {
+	for msg := range cData.Data {
 		switch msg := msg.(type) {
 		case common.GossipNotification:
 			vmsg := vertTypes.GossipNotification{

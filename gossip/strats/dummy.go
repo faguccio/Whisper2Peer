@@ -33,7 +33,7 @@ type dummyStrat struct {
 	// Channel were new connection are notified
 	hzConnection <-chan horizontalapi.NewConn
 	// Array of peers channels, where messages can be sent
-	openConnections []chan<- horizontalapi.ToHz
+	openConnections []horizontalapi.Conn[chan<- horizontalapi.ToHz]
 	// Collection of messages received from a peer which needs to be validated through the vertical api
 	invalidMessages *ringbuffer.Ringbuffer[*storedMessage]
 	// Collection of messages which need to be relayed to other peers.
@@ -45,7 +45,7 @@ type dummyStrat struct {
 // Function to instantiate a new DummyStrategy.
 //
 // strategy must be the baseStrategy. openConnection a list of ToHz channels, one for each peer
-func NewDummy(strategy Strategy, fromHz <-chan horizontalapi.FromHz, hzConnection <-chan horizontalapi.NewConn, openConnections []chan<- horizontalapi.ToHz) dummyStrat {
+func NewDummy(strategy Strategy, fromHz <-chan horizontalapi.FromHz, hzConnection <-chan horizontalapi.NewConn, openConnections []horizontalapi.Conn[chan<- horizontalapi.ToHz]) dummyStrat {
 	return dummyStrat{
 		rootStrat:       strategy,
 		fromHz:          fromHz,
@@ -72,6 +72,15 @@ func (dummy *dummyStrat) Listen() {
 			// Message received from a peer.
 			case x := <-dummy.fromHz:
 				switch msg := x.(type) {
+				case horizontalapi.Unregister:
+					// remove the connection with the respective ID from the list of connections
+					for i, j := range dummy.openConnections {
+						if j.Id == horizontalapi.ConnectionId(msg) {
+							dummy.openConnections[i] = dummy.openConnections[len(dummy.openConnections)-1]
+							dummy.openConnections = dummy.openConnections[:len(dummy.openConnections)-1]
+							break
+						}
+					}
 				case horizontalapi.Push:
 					notification := convertPushToNotification(msg)
 					_, err1 := findFirstMessage(dummy.sentMessages, msg.MessageID)
@@ -89,7 +98,7 @@ func (dummy *dummyStrat) Listen() {
 
 				// New connection is established.
 			case newPeer := <-dummy.hzConnection:
-				dummy.openConnections = append(dummy.openConnections, newPeer.ToHz)
+				dummy.openConnections = append(dummy.openConnections, horizontalapi.Conn[chan<- horizontalapi.ToHz](newPeer))
 
 				// Message from the vertical API
 			case x := <-dummy.rootStrat.strategyChannels.ToStrat:
@@ -118,8 +127,8 @@ func (dummy *dummyStrat) Listen() {
 				idx := mrand.Intn(len(dummy.openConnections))
 				dummy.validMessages.Do((func(msg *storedMessage) {
 					//dummy.rootStrat.log.Debug("DST conn", "conn", dummy.openConnections[idx])
-					dummy.openConnections[idx] <- msg.message
-					dummy.rootStrat.log.Debug("HZ Message sent:", "dst", "tbi", "msg", msg)
+					dummy.openConnections[idx].Data <- msg.message
+					dummy.rootStrat.log.Debug("HZ Message sent:", "dst", dummy.openConnections[idx].Id, "msg", msg)
 					msg.counter++
 
 					// If message was sent to args.Degree neighboughrs delete it from the set of messages
@@ -128,7 +137,6 @@ func (dummy *dummyStrat) Listen() {
 						dummy.sentMessages.Insert(msg)
 					}
 				}))
-
 			}
 		}
 	}()

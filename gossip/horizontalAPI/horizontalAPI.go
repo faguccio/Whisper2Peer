@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"gossip/common"
 	hzTypes "gossip/horizontalAPI/types"
+	"io"
 	"log/slog"
 	"net"
 	"slices"
@@ -14,6 +15,13 @@ import (
 
 	"capnproto.org/go/capnp/v3"
 )
+
+type ConnectionId string
+
+type Conn[T any] struct {
+	Id   ConnectionId
+	Data T
+}
 
 var (
 	ErrTimeout error = errors.New("operation timed out")
@@ -48,10 +56,15 @@ type Push struct {
 }
 
 // mark this type as being sendable via FromHz channels
-func (p Push) canFromHz() {}
+func (Push) canFromHz() {}
 
 // mark this type as being sendable via ToHz channels
-func (p Push) canToHz() {}
+func (Push) canToHz() {}
+
+type Unregister ConnectionId
+
+// mark this type as being sendable via FromHz channels
+func (Unregister) canFromHz() {}
 
 // This struct is a collection of some information about a new incoming
 // connection.
@@ -61,10 +74,7 @@ func (p Push) canToHz() {}
 //
 // These structs are passed by the [HorizontalApi.Listen] function on the
 // proviced channel to signal that a new connection was established.
-type NewConn struct {
-	ToHz chan<- ToHz
-	Addr string
-}
+type NewConn Conn[chan<- ToHz]
 
 // This struct represents the horizontal api and is the main interface to/from
 // the horizontal api.
@@ -145,16 +155,16 @@ func (hz *HorizontalApi) Listen(addr string, newConn chan<- NewConn) error {
 
 			toHz := make(chan ToHz)
 			newConn <- NewConn{
-				ToHz: toHz,
-				Addr: conn.RemoteAddr().String(),
+				Data: toHz,
+				Id:   ConnectionId(conn.RemoteAddr().String()),
 			}
 
 			hz.conns[conn] = struct{}{}
 			hz.log.Info("Incoming connection from", "addr", conn.RemoteAddr().String())
 
 			hz.wg.Add(2)
-			go hz.handleConnection(conn, toHz)
-			go hz.writeToConnection(conn, toHz)
+			go hz.handleConnection(conn, Conn[chan<- ToHz]{Data: toHz, Id: ConnectionId(conn.RemoteAddr().String())})
+			go hz.writeToConnection(conn, Conn[<-chan ToHz]{Data: toHz, Id: ConnectionId(conn.RemoteAddr().String())})
 		}
 	}()
 	return nil
@@ -165,8 +175,8 @@ func (hz *HorizontalApi) Listen(addr string, newConn chan<- NewConn) error {
 // Returns a slice of channels (same ordering like the address-slice parameter)
 // on which the horizontalApi will send incoming packets on the connection to
 // the respective neighbor.
-func (hz *HorizontalApi) AddNeighbors(addrs ...string) ([]chan<- ToHz, error) {
-	var ret []chan<- ToHz
+func (hz *HorizontalApi) AddNeighbors(addrs ...string) ([]Conn[chan<- ToHz], error) {
+	var ret []Conn[chan<- ToHz]
 	for _, a := range addrs {
 		conn, err := net.Dial("tcp", a)
 		if err != nil {
@@ -174,14 +184,14 @@ func (hz *HorizontalApi) AddNeighbors(addrs ...string) ([]chan<- ToHz, error) {
 		}
 
 		hz.conns[conn] = struct{}{}
-		hz.log.Info("Added connection to", "addrArg", a, "addr", conn.RemoteAddr().String())
+		hz.log.Info("Added connection to", "addr", conn.RemoteAddr().String())
 
 		toHz := make(chan ToHz)
-		ret = append(ret, toHz)
+		ret = append(ret, Conn[chan<- ToHz]{Data: toHz, Id: ConnectionId(a)})
 
 		hz.wg.Add(2)
-		go hz.handleConnection(conn, toHz)
-		go hz.writeToConnection(conn, toHz)
+		go hz.handleConnection(conn, Conn[chan<- ToHz]{Data: toHz, Id: ConnectionId(conn.RemoteAddr().String())})
+		go hz.writeToConnection(conn, Conn[<-chan ToHz]{Data: toHz, Id: ConnectionId(conn.RemoteAddr().String())})
 	}
 	return ret, nil
 }
@@ -193,7 +203,7 @@ func (hz *HorizontalApi) AddNeighbors(addrs ...string) ([]chan<- ToHz, error) {
 // hz.fromHzChan channel.
 //
 // only needs toHz so that it can close it when the connection is closed
-func (hz *HorizontalApi) handleConnection(conn net.Conn, toHz chan<- ToHz) {
+func (hz *HorizontalApi) handleConnection(conn net.Conn, connData Conn[chan<- ToHz]) {
 	defer hz.wg.Done()
 
 	// if this read routine terminates, make sure the connection is cleaned up
@@ -202,7 +212,10 @@ func (hz *HorizontalApi) handleConnection(conn net.Conn, toHz chan<- ToHz) {
 	defer delete(hz.conns, conn)
 	// close the > hz channel to signal the connection is closed
 	// also this causes the write routine to terminate
-	defer close(toHz)
+	defer close(connData.Data)
+	defer func(connData Conn[chan<- ToHz]) {
+		hz.fromHzChan <- Unregister(connData.Id)
+	}(connData)
 	// close the connection
 	defer conn.Close()
 
@@ -220,6 +233,9 @@ loop:
 			case <-hz.ctx.Done():
 				break loop
 			default:
+			}
+			if errors.Is(err, io.EOF) {
+				return
 			}
 			hz.log.Error("decoding the message failed", "err", err)
 			continue
@@ -278,7 +294,7 @@ loop:
 // Write messages to the connection
 //
 // Writes all messages sent to he toHz channel to the connection (via capnproto)
-func (hz *HorizontalApi) writeToConnection(conn net.Conn, toHz <-chan ToHz) {
+func (hz *HorizontalApi) writeToConnection(conn net.Conn, c Conn[<-chan ToHz]) {
 	defer hz.wg.Done()
 
 	// one global encoder and arena suffice
@@ -287,7 +303,7 @@ func (hz *HorizontalApi) writeToConnection(conn net.Conn, toHz <-chan ToHz) {
 	// the following loop uses goto continue_write instead of continue so that
 	// some cleanup can be done before actually continuing
 loop:
-	for rmsg := range toHz {
+	for rmsg := range c.Data {
 		hz.log.Debug("instructed to send", "msg", rmsg)
 		// create a new capnproto message
 		cmsg, seg, err := capnp.NewMessage(arena)
