@@ -2,7 +2,7 @@ package verticalapi
 
 import (
 	"errors"
-	vertTypes "gossip/verticalAPI/types"
+	"gossip/common"
 	"io"
 	"log/slog"
 	"net"
@@ -18,7 +18,7 @@ import (
 // everything implementing below methods is considered a msgType
 type msgType interface {
 	// Marshal(buf []byte) error
-	CalcSize() int
+	// CalcSize() int
 }
 
 // collection of msgType and the associated buffer
@@ -38,44 +38,32 @@ func TestHandleConnection(test *testing.T) {
 	// define the messages that should be received via the socket
 	ts := []tester{
 		{
-			&vertTypes.GossipAnnounce{
-				MessageHeader: vertTypes.MessageHeader{
-					Size: 8 + 2,
-					Type: vertTypes.GossipAnnounceType,
-				},
+			msg: common.GossipAnnounce{
 				TTL:      32,
 				Reserved: 0,
 				DataType: 24,
 				Data:     []byte{0x20, 0x50},
 			},
-			[]byte{0x0, 0x0a, 0x01, 0xf4, 32, 0, 0x0, 0x18, 0x20, 0x50},
-			"announce",
+			buf:  []byte{0x0, 0x0a, 0x01, 0xf4, 32, 0, 0x0, 0x18, 0x20, 0x50},
+			name: "announce",
 		},
 		{
-			&vertTypes.GossipNotify{
-				MessageHeader: vertTypes.MessageHeader{
-					Size: 8,
-					Type: vertTypes.GossipNotifyType,
-				},
+			msg: common.GossipNotify{
 				Reserved: 0,
 				DataType: 42,
 			},
-			[]byte{0x0, 0x08, 0x01, 0xf5, 0, 0, 0x0, 0x2a},
-			"notify",
+			buf:  []byte{0x0, 0x08, 0x01, 0xf5, 0, 0, 0x0, 0x2a},
+			name: "notify",
 		},
 		{
-			&vertTypes.GossipValidation{
-				MessageHeader: vertTypes.MessageHeader{
-					Size: 8,
-					Type: vertTypes.GossipValidationType,
-				},
+			msg: common.GossipValidation{
 				MessageId: 1337,
 				// setting to 0b..1 does not work since the valid flag is not
 				// imported (-> or do not use reflect.DeepEqual later)
 				Bitfield: 0,
 			},
-			[]byte{0x0, 0x08, 0x01, 0xf7, 0x05, 0x39, 0, 0},
-			"validation",
+			buf:  []byte{0x0, 0x08, 0x01, 0xf7, 0x05, 0x39, 0, 0},
+			name: "validation",
 		},
 	}
 
@@ -90,19 +78,15 @@ func TestHandleConnection(test *testing.T) {
 			var testLog *slog.Logger = slogt.New(test)
 			// create the network pipe
 			cVert, cTest := net.Pipe()
-			vertToMainChans := VertToMainChans{
-				Register:   make(chan VertToMainRegister, 1),
-				Announce:   make(chan VertToMainAnnounce, 1),
-				Validation: make(chan VertToMainValidation, 1),
-			}
+			vertToMainChan := make(chan common.FromVert)
 			// create the vertical api with above setup values
-			vert := NewVerticalApi(testLog, vertToMainChans)
+			vert := NewVerticalApi(testLog, vertToMainChan)
 
 			// pretend the connection just got established and all the channels
 			// have been created
 			vert.conns[cVert] = struct{}{}
-			mainToVert := make(chan MainToVertNotification)
-			regMod := RegisteredModule{
+			mainToVert := make(chan common.ToVert)
+			regMod := common.RegisteredModule{
 				MainToVert: mainToVert,
 			}
 			// start the handler
@@ -123,29 +107,32 @@ func TestHandleConnection(test *testing.T) {
 			// to by the handler
 			// then check if that is the right channel and if the message contains the right information
 			select {
-			case x := <-vertToMainChans.Validation:
-				t, ok := t.msg.(*vertTypes.GossipValidation)
-				if !ok {
-					test.Fatalf("handler sent to wrong channel")
-				}
-				if !reflect.DeepEqual(x.Data, *t) {
-					test.Fatalf("handler didn't receive the sent message correctly. Was %+v should %+v", x.Data, *t)
-				}
-			case x := <-vertToMainChans.Announce:
-				t, ok := t.msg.(*vertTypes.GossipAnnounce)
-				if !ok {
-					test.Fatalf("handler sent to wrong channel")
-				}
-				if !reflect.DeepEqual(x.Data, *t) {
-					test.Fatalf("handler didn't receive the sent message correctly. Was %+v should %+v", x.Data, *t)
-				}
-			case x := <-vertToMainChans.Register:
-				t, ok := t.msg.(*vertTypes.GossipNotify)
-				if !ok {
-					test.Fatalf("handler sent to wrong channel")
-				}
-				if !reflect.DeepEqual(x.Data, *t) {
-					test.Fatalf("handler didn't receive the sent message correctly. Was %+v should %+v", x.Data, *t)
+			case msg := <-vertToMainChan:
+				switch x := msg.(type) {
+				case common.GossipValidation:
+					t, ok := t.msg.(common.GossipValidation)
+					if !ok {
+						test.Fatalf("handler sent to wrong channel")
+					}
+					if !reflect.DeepEqual(x, t) {
+						test.Fatalf("handler didn't receive the sent message correctly. Was %+v should %+v", x, t)
+					}
+				case common.GossipAnnounce:
+					t, ok := t.msg.(common.GossipAnnounce)
+					if !ok {
+						test.Fatalf("handler sent to wrong channel")
+					}
+					if !reflect.DeepEqual(x, t) {
+						test.Fatalf("handler didn't receive the sent message correctly. Was %+v should %+v", x, t)
+					}
+				case common.GossipRegister:
+					t, ok := t.msg.(common.GossipNotify)
+					if !ok {
+						test.Fatalf("handler sent to wrong channel")
+					}
+					if !reflect.DeepEqual(x.Data, t) {
+						test.Fatalf("handler didn't receive the sent message correctly. Was %+v should %+v", x.Data, t)
+					}
 				}
 			default:
 				// nothing did arrive
@@ -153,8 +140,8 @@ func TestHandleConnection(test *testing.T) {
 			}
 
 			// check if the handler also sent additional messages
-			if len(vertToMainChans.Announce) != 0 || len(vertToMainChans.Register) != 0 || len(vertToMainChans.Validation) != 0 {
-				test.Fatalf("handler sent to many messages on the vertToMain channels")
+			if len(vertToMainChan) != 0 {
+				test.Fatalf("handler sent to many messages on the vertToMain channel")
 			}
 
 			// close would pannic because the listener isn't setup correctly -> skip it
@@ -177,29 +164,19 @@ func TestWriteToConnection(test *testing.T) {
 		var testLog *slog.Logger = slogt.New(test)
 		// create the network pipe
 		cVert, cTest := net.Pipe()
-		vertToMainChans := VertToMainChans{
-			Register:   make(chan VertToMainRegister, 1),
-			Announce:   make(chan VertToMainAnnounce, 1),
-			Validation: make(chan VertToMainValidation, 1),
-		}
+		vertToMainChan := make(chan common.FromVert)
 		// create the vertical api with above setup values
-		vert := NewVerticalApi(testLog, vertToMainChans)
+		vert := NewVerticalApi(testLog, vertToMainChan)
 
 		// start the handler
-		mainToVert := make(chan MainToVertNotification, 1)
+		mainToVert := make(chan common.ToVert, 1)
 		go vert.writeToConnection(cVert, mainToVert)
 
 		// send a message to the handler which shall be sent on the network
-		mainToVert <- MainToVertNotification{
-			Data: vertTypes.GossipNotification{
-				MessageHeader: vertTypes.MessageHeader{
-					Size: 8 + 2,
-					Type: vertTypes.GossipNotificationType,
-				},
-				MessageId: 1337,
-				DataType:  42,
-				Data:      []byte{0x50, 0x20},
-			},
+		mainToVert <- common.GossipNotification{
+			MessageId: 1337,
+			DataType:  42,
+			Data:      []byte{0x50, 0x20},
 		}
 		bufReal := []byte{0x0, 0x0a, 0x01, 0xf6, 0x05, 0x39, 0x0, 0x2a, 0x50, 0x20}
 
@@ -236,13 +213,9 @@ func TestVerticalApi(test *testing.T) {
 	// use this for logging so that messages are not shown in general,
 	// only if the test fails
 	var testLog *slog.Logger = slogt.New(test)
-	vertToMainChans := VertToMainChans{
-		Register:   make(chan VertToMainRegister, 1),
-		Announce:   make(chan VertToMainAnnounce, 1),
-		Validation: make(chan VertToMainValidation, 1),
-	}
+	vertToMainChan := make(chan common.FromVert)
 	// create the vertical api with above setup values
-	vert := NewVerticalApi(testLog, vertToMainChans)
+	vert := NewVerticalApi(testLog, vertToMainChan)
 	// start the server on localhost:13377
 	if err := vert.Listen("localhost:13377"); err != nil {
 		test.Fatalf("Error starting server: %v", err)
@@ -257,16 +230,12 @@ func TestVerticalApi(test *testing.T) {
 	// send a notify message to register to the server and get the mainToVert
 	// channel in return
 	t := tester{
-		&vertTypes.GossipNotify{
-			MessageHeader: vertTypes.MessageHeader{
-				Size: 8,
-				Type: vertTypes.GossipNotifyType,
-			},
+		msg: common.GossipNotify{
 			Reserved: 0,
 			DataType: 42,
 		},
-		[]byte{0x0, 0x08, 0x01, 0xf5, 0, 0, 0x0, 0x2a},
-		"notify",
+		buf:  []byte{0x0, 0x08, 0x01, 0xf5, 0, 0, 0x0, 0x2a},
+		name: "notify",
 	}
 
 	// write the message to the network
@@ -281,37 +250,36 @@ func TestVerticalApi(test *testing.T) {
 	time.Sleep(5 * time.Second)
 
 	// read the message sent to the mainModule
-	var reg VertToMainRegister
+	var reg common.GossipRegister
 	select {
-	case reg = <-vertToMainChans.Register:
-		t, ok := t.msg.(*vertTypes.GossipNotify)
+	case msg := <-vertToMainChan:
+		var ok bool
+		reg, ok = msg.(common.GossipRegister)
+		if !ok {
+			test.Fatalf("did not receive a register message")
+		}
+		t, ok := t.msg.(common.GossipNotify)
 		if !ok {
 			test.Fatalf("handler sent to wrong channel")
 		}
-		if !reflect.DeepEqual(reg.Data, *t) {
-			test.Fatalf("handler didn't receive the sent message correctly. Was %+v should %+v", reg.Data, *t)
+		if !reflect.DeepEqual(reg.Data, t) {
+			test.Fatalf("handler didn't receive the sent message correctly. Was %+v should %+v", reg.Data, t)
 		}
 	default:
 		test.Fatalf("handler didn't pass a message to the right vertToMain channel")
 	}
 	// check if additional/other messages got sent as well
-	if len(vertToMainChans.Announce) != 0 || len(vertToMainChans.Register) != 0 || len(vertToMainChans.Validation) != 0 {
-		test.Fatalf("handler sent to many messages on the vertToMain channels %d %d %d", len(vertToMainChans.Announce), len(vertToMainChans.Register), len(vertToMainChans.Validation))
+	if len(vertToMainChan) != 0 {
+		test.Fatalf("handler sent to many messages on the vertToMain channel")
 	}
 
 	// send a message on the newly established channel and check if it is
 	// written to the network
 	mainToVert := reg.Module.MainToVert
-	mainToVert <- MainToVertNotification{
-		Data: vertTypes.GossipNotification{
-			MessageHeader: vertTypes.MessageHeader{
-				Size: 8 + 2,
-				Type: vertTypes.GossipNotificationType,
-			},
-			MessageId: 1337,
-			DataType:  42,
-			Data:      []byte{0x50, 0x20},
-		},
+	mainToVert <- common.GossipNotification{
+		MessageId: 1337,
+		DataType:  42,
+		Data:      []byte{0x50, 0x20},
 	}
 	bufReal := []byte{0x0, 0x0a, 0x01, 0xf6, 0x05, 0x39, 0x0, 0x2a, 0x50, 0x20}
 

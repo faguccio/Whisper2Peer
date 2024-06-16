@@ -1,23 +1,28 @@
 package verticalapi
 
 import (
+	"gossip/common"
 	"reflect"
 	"testing"
 )
 
 func TestMarshalGossipNotification(t *testing.T) {
 	sample := GossipNotification{
+		common.GossipNotification{
+			MessageId: 5655,
+			DataType:  common.GossipType(17477),
+			Data:      []byte{18, 19, 20, 21},
+		},
 		MessageHeader{12, MessageType(502)},
-		5655,
-		GossipType(17477),
-		[]byte{18, 19, 20, 21},
 	}
 
 	wrongType := GossipNotification{
+		common.GossipNotification{
+			MessageId: 5655,
+			DataType:  common.GossipType(17477),
+			Data:      []byte{18, 19, 20, 21},
+		},
 		MessageHeader{12, MessageType(503)},
-		5655,
-		GossipType(17477),
-		[]byte{18, 19, 20, 21},
 	}
 	//In python list((integer).to_bytes(4, byteorder = 'big'))
 	result := []byte{0, 12, 1, 246, 22, 23, 68, 69, 18, 19, 20, 21}

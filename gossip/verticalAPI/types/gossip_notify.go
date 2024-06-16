@@ -3,13 +3,13 @@ package verticalapi
 import (
 	"encoding/binary"
 	"errors"
+	"gossip/common"
 )
 
 // This type represents a GossipNotify packet in the verticalApi.
 type GossipNotify struct {
+	Gn            common.GossipNotify
 	MessageHeader MessageHeader
-	Reserved uint16
-	DataType GossipType
 }
 
 // Unmarshals the GossipNotify packet from the provided buffer.
@@ -26,10 +26,10 @@ func (e *GossipNotify) Unmarshal(buf []byte) (int, error) {
 
 	idx := e.MessageHeader.CalcSize()
 
-	e.Reserved = binary.BigEndian.Uint16(buf[idx:])
+	e.Gn.Reserved = binary.BigEndian.Uint16(buf[idx:])
 	idx += 2
 
-	e.DataType = GossipType(binary.BigEndian.Uint16(buf[idx:]))
+	e.Gn.DataType = common.GossipType(binary.BigEndian.Uint16(buf[idx:]))
 	idx += 2
 
 	return idx, nil
@@ -42,5 +42,11 @@ func (e *GossipNotify) Unmarshal(buf []byte) (int, error) {
 
 // Returns the size of the GossipNotify packet.
 func (e *GossipNotify) CalcSize() int {
-	return binary.Size(e)
+	s := e.MessageHeader.CalcSize()
+	s += binary.Size(e.Gn.DataType)
+	s += binary.Size(e.Gn.Reserved)
+	return s
 }
+
+// Mark this type as vertical type
+func (e *GossipNotify) isVertType() {}

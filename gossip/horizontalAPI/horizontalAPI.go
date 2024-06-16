@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"gossip/common"
 	hzTypes "gossip/horizontalAPI/types"
 	"log/slog"
 	"net"
@@ -20,9 +21,10 @@ var (
 
 //go:generate capnp compile -I $HOME/programme/go-capnp/std -ogo:./ types/message.capnp types/push.capnp
 
+//go-sumtype:decl FromHz
+
 // interfaces to implement union-like behavior
 // unions directly are sadly not provided in golang, see: https://go.dev/doc/faq#variant_types
-// go-sumtype:decl FromHz
 type FromHz interface {
 	// add a function to the interface to avoid that arbitrary types can be
 	// passed (accidentally) as FromHz
@@ -30,6 +32,7 @@ type FromHz interface {
 }
 
 // go-sumtype:decl ToHz
+
 type ToHz interface {
 	// add a function to the interface to avoid that arbitrary types can be
 	// passed (accidentally) as ToHz
@@ -38,9 +41,8 @@ type ToHz interface {
 
 // Represents a push message from/to the horizontalApi
 type Push struct {
-	TTL uint8
-	// TODO use same type as in verticalAPI
-	GossipType uint16
+	TTL        uint8
+	GossipType common.GossipType
 	MessageID  uint16
 	Payload    []byte
 }
@@ -247,7 +249,7 @@ loop:
 				// of an error
 				p := Push{
 					TTL:        push.Ttl(),
-					GossipType: push.GossipType(),
+					GossipType: common.GossipType(push.GossipType()),
 					MessageID:  push.MessageID(),
 				}
 				// payload is no scalar type -> retrival might error
@@ -314,7 +316,7 @@ loop:
 				// populate the push message
 				// setting scalar value cannot error
 				push.SetTtl(rmsg.TTL)
-				push.SetGossipType(rmsg.GossipType)
+				push.SetGossipType(uint16(rmsg.GossipType))
 				push.SetMessageID(rmsg.MessageID)
 				// payload is no scalar type -> setting might error
 				if err := push.SetPayload(rmsg.Payload); err != nil {
@@ -379,9 +381,9 @@ func (hz *HorizontalApi) Close() error {
 	}()
 
 	select {
-	case <- fin:
+	case <-fin:
 		return err
-	case <-time.After(5*time.Second):
+	case <-time.After(5 * time.Second):
 		return ErrTimeout
 	}
 }

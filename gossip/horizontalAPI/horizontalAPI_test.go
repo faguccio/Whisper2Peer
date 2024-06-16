@@ -70,19 +70,19 @@ func TestHorizontalApi(test *testing.T) {
 	connHz1 := make(chan NewConn, 1)
 	// create the vertical api with above setup values
 	hz1 := NewHorizontalApi(testLog, fromHz1)
-	defer hz1.Close()
-	if err := hz1.Listen("localhost:13377", connHz1); err != nil {
+	if err := hz1.Listen("localhost:13376", connHz1); err != nil {
 		test.Fatalf("listen on horizontalApi 1 failed with %v", err)
 	}
+	defer hz1.Close()
 
 	fromHz2 := make(chan FromHz, 1)
 	connHz2 := make(chan NewConn, 1)
 	// create the vertical api with above setup values
 	hz2 := NewHorizontalApi(testLog, fromHz2)
-	defer hz2.Close()
 	if err := hz2.Listen("localhost:13378", connHz2); err != nil {
 		test.Fatalf("listen on horizontalApi 2 failed with %v", err)
 	}
+	defer hz2.Close()
 
 	ns, err := hz1.AddNeighbors("localhost:13378")
 	if err != nil {

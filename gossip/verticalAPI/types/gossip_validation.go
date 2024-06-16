@@ -3,15 +3,13 @@ package verticalapi
 import (
 	"encoding/binary"
 	"errors"
+	"gossip/common"
 )
 
 // This type represents a GossipValidation packet in the verticalApi.
 type GossipValidation struct {
+	Gv            common.GossipValidation
 	MessageHeader MessageHeader
-	MessageId     uint16
-	Bitfield      uint16
-	// only for ease of use we extract this from the bitfield on Unmarshal
-	Valid bool
 }
 
 // Unmarshals the GossipValidation packet from the provided buffer.
@@ -29,14 +27,14 @@ func (e *GossipValidation) Unmarshal(buf []byte) (int, error) {
 		return 0, ErrNotEnoughData
 	}
 
-	e.MessageId = binary.BigEndian.Uint16(buf[idx:])
+	e.Gv.MessageId = binary.BigEndian.Uint16(buf[idx:])
 	idx += 2
 
-	e.Bitfield = binary.BigEndian.Uint16(buf[idx:])
+	e.Gv.Bitfield = binary.BigEndian.Uint16(buf[idx:])
 	idx += 2
 
 	// just for conveniance
-	e.Valid = e.Bitfield&0x1 == 0x1
+	e.Gv.Valid = e.Gv.Bitfield&0x1 == 0x1
 
 	return idx, nil
 }
@@ -48,14 +46,11 @@ func (e *GossipValidation) Unmarshal(buf []byte) (int, error) {
 
 // Returns the size of the GossipValidation packet.
 func (e *GossipValidation) CalcSize() int {
-	return binary.Size(e) - binary.Size(e.Valid)
+	s := e.MessageHeader.CalcSize()
+	s += binary.Size(e.Gv.MessageId)
+	s += binary.Size(e.Gv.Bitfield)
+	return s
 }
 
-func (e *GossipValidation) SetValid(v bool) {
-	e.Valid = v
-	if v {
-		e.Bitfield = e.Bitfield | (uint16(1) << 0)
-	} else {
-		e.Bitfield = e.Bitfield & ^(uint16(1) << 0)
-	}
-}
+// Mark this type as vertical type
+func (e *GossipValidation) isVertType() {}

@@ -3,15 +3,13 @@ package verticalapi
 import (
 	"encoding/binary"
 	"errors"
+	"gossip/common"
 )
 
 // This type represents a GossipAnnounce packet in the verticalApi.
 type GossipAnnounce struct {
+	Ga            common.GossipAnnounce
 	MessageHeader MessageHeader
-	TTL      uint8
-	Reserved uint8
-	DataType GossipType
-	Data     []byte
 }
 
 // Unmarshals the GossipAnnounce packet from the provided buffer.
@@ -28,19 +26,19 @@ func (e *GossipAnnounce) Unmarshal(buf []byte) (int, error) {
 
 	idx := e.MessageHeader.CalcSize()
 
-	e.TTL = buf[idx]
+	e.Ga.TTL = buf[idx]
 	idx += 1
 
-	e.Reserved = buf[idx]
+	e.Ga.Reserved = buf[idx]
 	idx += 1
 
-	e.DataType = GossipType(binary.BigEndian.Uint16(buf[idx:]))
+	e.Ga.DataType = common.GossipType(binary.BigEndian.Uint16(buf[idx:]))
 	idx += 2
 
 	// golang slices: [a:b] index b is excluded
 	// FABIO: do we accept smaller data frame than expected???
-	e.Data = buf[idx:min(int(e.MessageHeader.Size), len(buf))]
-	idx += len(e.Data)
+	e.Ga.Data = buf[idx:min(int(e.MessageHeader.Size), len(buf))]
+	idx += len(e.Ga.Data)
 
 	return idx, nil
 }
@@ -53,9 +51,12 @@ func (e *GossipAnnounce) Unmarshal(buf []byte) (int, error) {
 // Returns the size of the GossipAnnounce packet.
 func (e *GossipAnnounce) CalcSize() int {
 	s := e.MessageHeader.CalcSize()
-	s += binary.Size(e.TTL)
-	s += binary.Size(e.Reserved)
-	s += binary.Size(e.DataType)
-	s += len(e.Data)
+	s += binary.Size(e.Ga.TTL)
+	s += binary.Size(e.Ga.Reserved)
+	s += binary.Size(e.Ga.DataType)
+	s += len(e.Ga.Data)
 	return s
 }
+
+// Mark this type as vertical type
+func (e *GossipAnnounce) isVertType() {}

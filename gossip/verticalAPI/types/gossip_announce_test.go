@@ -1,17 +1,20 @@
 package verticalapi
 
 import (
+	"gossip/common"
 	"reflect"
 	"testing"
 )
 
 func TestUnmarshalGossipAnnounce(t *testing.T) {
 	result := GossipAnnounce{
+		common.GossipAnnounce{
+			TTL:      22,
+			Reserved: 22,
+			DataType: common.GossipType(17477),
+			Data:     []byte{18, 19, 20, 21},
+		},
 		MessageHeader{3072, MessageType(500)},
-		22,
-		22,
-		GossipType(17477),
-		[]byte{18, 19, 20, 21},
 	}
 	//In python list((integer).to_bytes(4, byteorder = 'big'))
 	sample := []byte{12, 0, 1, 244, 22, 22, 68, 69, 18, 19, 20, 21}

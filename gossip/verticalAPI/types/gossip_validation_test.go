@@ -1,16 +1,19 @@
 package verticalapi
 
 import (
+	"gossip/common"
 	"testing"
 )
 
 func TestUnmarshalGossipVal(t *testing.T) {
 	result := GossipValidation{
+		common.GossipValidation{
+			MessageId: 31543,
+			Bitfield:  17477,
+			// only for ease of use we extract this from the bitfield on Unmarshal
+			Valid: true,
+		},
 		MessageHeader{33795, MessageType(503)},
-		31543,
-		17477,
-		// only for ease of use we extract this from the bitfield on Unmarshal
-		true,
 	}
 	//In python list((integer).to_bytes(4, byteorder = 'big'))
 	sample := []byte{132, 3, 1, 247, 123, 55, 68, 69}

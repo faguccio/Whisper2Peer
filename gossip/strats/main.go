@@ -2,9 +2,9 @@ package strats
 
 import (
 	"fmt"
-	"gossip/internal/args"
+	"gossip/common"
 	horizontalapi "gossip/horizontalAPI"
-	verticalapi "gossip/verticalAPI"
+	"gossip/internal/args"
 
 	"log/slog"
 )
@@ -20,9 +20,8 @@ type StrategyCloser interface {
 }
 
 type StrategyChannels struct {
-	Notification chan verticalapi.MainToVertNotification
-	Announce     chan verticalapi.VertToMainAnnounce
-	Validation   chan verticalapi.VertToMainValidation
+	FromStrat chan common.FromStrat
+	ToStrat   chan common.ToStrat
 }
 
 func New(args args.Args, stratChans StrategyChannels) (StrategyCloser, error) {
