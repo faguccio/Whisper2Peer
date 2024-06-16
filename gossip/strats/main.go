@@ -1,6 +1,7 @@
 package strats
 
 import (
+	"context"
 	"fmt"
 	"gossip/common"
 	horizontalapi "gossip/horizontalAPI"
@@ -11,6 +12,10 @@ import (
 
 // This struct represents a base strategy, which is an abstraction over common fields (and in the future, methods) to all strategies.
 type Strategy struct {
+	// internally uses a context to signal when the goroutines shall terminate
+	cancel context.CancelFunc
+	// internally uses a context to signal when the goroutines shall terminate
+	ctx context.Context
 	// Internally spawn and uses the horizotal API
 	hz               *horizontalapi.HorizontalApi
 	strategyChannels StrategyChannels
@@ -40,7 +45,11 @@ func New(log *slog.Logger, args args.Args, stratChans StrategyChannels) (Strateg
 
 	fromHz := make(chan horizontalapi.FromHz, 1)
 	hz := horizontalapi.NewHorizontalApi(log, fromHz)
+	// context is only used internally -> no need to pass it to the constructor
+	ctx, cancel := context.WithCancel(context.Background())
 	strategy := Strategy{
+		cancel:           cancel,
+		ctx:              ctx,
 		hz:               hz,
 		strategyChannels: stratChans,
 		stratArgs:        args,
@@ -63,5 +72,6 @@ func New(log *slog.Logger, args args.Args, stratChans StrategyChannels) (Strateg
 
 // Simply closes the horizontal API
 func (strt *Strategy) Close() {
+	strt.cancel()
 	strt.hz.Close()
 }

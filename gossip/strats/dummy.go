@@ -137,6 +137,10 @@ func (dummy *dummyStrat) Listen() {
 						dummy.sentMessages.Insert(msg)
 					}
 				}))
+
+			case <-dummy.rootStrat.ctx.Done():
+				// should terminate
+				return
 			}
 		}
 	}()
