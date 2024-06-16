@@ -11,30 +11,34 @@ type RegisteredModule struct {
 // Type for the DataType of Gossip Messages.
 type GossipType uint16
 
+//go-sumtype:decl FromVert
+
 // "union" with the types the verticalAPI might send
 // TODO: this is not so nice since it somehow couples this module to the verticalAPI
-// go-sumtype:decl FromVert
 type FromVert interface {
 	isFromVert()
 }
 
+//go-sumtype:decl ToVert
+
 // "union" with the types the verticalAPI needs to be able to receive
 // TODO: this is not so nice since it somehow couples this module to the verticalAPI
-// go-sumtype:decl ToVert
 type ToVert interface {
 	isToVert()
 }
 
+//go-sumtype:decl ToStrat
+
 // "union" with the types the gossip strategy needs to be able to receive
 // TODO: this is not so nice since it somehow couples this module to the strats
-// go-sumtype:decl ToStrat
 type ToStrat interface {
 	isToStrat()
 }
 
+//go-sumtype:decl FromStrat
+
 // "union" with the types the gossip strategy might send
 // TODO: this is not so nice since it somehow couples this module to the strats
-// go-sumtype:decl FromStrat
 type FromStrat interface {
 	isFromStrat()
 }

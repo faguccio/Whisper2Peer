@@ -21,9 +21,10 @@ var (
 
 //go:generate capnp compile -I $HOME/programme/go-capnp/std -ogo:./ types/message.capnp types/push.capnp
 
+//go-sumtype:decl FromHz
+
 // interfaces to implement union-like behavior
 // unions directly are sadly not provided in golang, see: https://go.dev/doc/faq#variant_types
-// go-sumtype:decl FromHz
 type FromHz interface {
 	// add a function to the interface to avoid that arbitrary types can be
 	// passed (accidentally) as FromHz
@@ -31,6 +32,7 @@ type FromHz interface {
 }
 
 // go-sumtype:decl ToHz
+
 type ToHz interface {
 	// add a function to the interface to avoid that arbitrary types can be
 	// passed (accidentally) as ToHz
