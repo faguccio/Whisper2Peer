@@ -56,7 +56,7 @@ func NewVerticalApi(log *slog.Logger, vertToMainChan chan<- common.FromVert) *Ve
 		ln:             nil,
 		conns:          make(map[net.Conn]struct{}, 0),
 		vertToMainChan: vertToMainChan,
-		log:            log,
+		log:            log.With("module", "vertAPI"),
 	}
 }
 

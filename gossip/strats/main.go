@@ -39,12 +39,12 @@ type StrategyChannels struct {
 func New(log *slog.Logger, args args.Args, stratChans StrategyChannels) (StrategyCloser, error) {
 
 	fromHz := make(chan horizontalapi.FromHz, 1)
-	hz := horizontalapi.NewHorizontalApi(log.With("module", "horzAPI"), fromHz)
+	hz := horizontalapi.NewHorizontalApi(log, fromHz)
 	strategy := Strategy{
 		hz:               hz,
 		strategyChannels: stratChans,
-		log:              log,
 		stratArgs:        args,
+		log:              log.With("module", "strategy"),
 	}
 
 	hzConnection := make(chan horizontalapi.NewConn, 1)

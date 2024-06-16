@@ -118,7 +118,7 @@ func NewHorizontalApi(log *slog.Logger, fromHz chan<- FromHz) *HorizontalApi {
 		ln:         nil,
 		conns:      make(map[net.Conn]struct{}, 0),
 		fromHzChan: fromHz,
-		log:        log,
+		log:        log.With("module", "horzAPI"),
 	}
 }
 
