@@ -51,7 +51,11 @@ func (e *GossipNotification) Marshal(buf []byte) ([]byte, error) {
 
 // Returns the size of the GossipNotification packet.
 func (e *GossipNotification) CalcSize() int {
-	return e.MessageHeader.CalcSize() + e.Gn.CalcSize()
+	s := e.MessageHeader.CalcSize()
+	s += binary.Size(e.Gn.MessageId)
+	s += binary.Size(e.Gn.DataType)
+	s += len(e.Gn.Data)
+	return s
 }
 
 // Mark this type as vertical type

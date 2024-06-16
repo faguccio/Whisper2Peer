@@ -46,7 +46,10 @@ func (e *GossipValidation) Unmarshal(buf []byte) (int, error) {
 
 // Returns the size of the GossipValidation packet.
 func (e *GossipValidation) CalcSize() int {
-	return e.MessageHeader.CalcSize() + e.Gv.CalcSize()
+	s := e.MessageHeader.CalcSize()
+	s += binary.Size(e.Gv.MessageId)
+	s += binary.Size(e.Gv.Bitfield)
+	return s
 }
 
 // Mark this type as vertical type

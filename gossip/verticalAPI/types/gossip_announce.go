@@ -50,7 +50,12 @@ func (e *GossipAnnounce) Unmarshal(buf []byte) (int, error) {
 
 // Returns the size of the GossipAnnounce packet.
 func (e *GossipAnnounce) CalcSize() int {
-	return e.MessageHeader.CalcSize() + e.Ga.CalcSize()
+	s := e.MessageHeader.CalcSize()
+	s += binary.Size(e.Ga.TTL)
+	s += binary.Size(e.Ga.Reserved)
+	s += binary.Size(e.Ga.DataType)
+	s += len(e.Ga.Data)
+	return s
 }
 
 // Mark this type as vertical type

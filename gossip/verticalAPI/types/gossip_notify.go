@@ -42,7 +42,10 @@ func (e *GossipNotify) Unmarshal(buf []byte) (int, error) {
 
 // Returns the size of the GossipNotify packet.
 func (e *GossipNotify) CalcSize() int {
-	return e.MessageHeader.CalcSize() + e.Gn.CalcSize()
+	s := e.MessageHeader.CalcSize()
+	s += binary.Size(e.Gn.DataType)
+	s += binary.Size(e.Gn.Reserved)
+	return s
 }
 
 // Mark this type as vertical type

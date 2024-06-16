@@ -1,7 +1,5 @@
 package common
 
-import "encoding/binary"
-
 // This struct serves as collection of data needed to handle / communicate with
 // a registered module
 type RegisteredModule struct {
@@ -51,15 +49,6 @@ type GossipAnnounce struct {
 	Data     []byte
 }
 
-// Returns the size of this struct.
-func (e *GossipAnnounce) CalcSize() int {
-	s := binary.Size(e.TTL)
-	s += binary.Size(e.Reserved)
-	s += binary.Size(e.DataType)
-	s += len(e.Data)
-	return s
-}
-
 // Mark this type as fromVert
 func (e GossipAnnounce) isFromVert() {}
 
@@ -73,14 +62,6 @@ type GossipNotification struct {
 	Data      []byte
 }
 
-// Returns the size of this struct.
-func (e *GossipNotification) CalcSize() int {
-	s := binary.Size(e.MessageId)
-	s += binary.Size(e.DataType)
-	s += len(e.Data)
-	return s
-}
-
 // Mark this type as toVert
 func (e GossipNotification) isToVert() {}
 
@@ -91,11 +72,6 @@ func (e GossipNotification) isFromStrat() {}
 type GossipNotify struct {
 	Reserved uint16
 	DataType GossipType
-}
-
-// Returns the size of this struct.
-func (e *GossipNotify) CalcSize() int {
-	return binary.Size(e)
 }
 
 // Wrapper for the GossipNotify message which also includes data about the registration
@@ -115,12 +91,6 @@ type GossipValidation struct {
 	Valid bool
 }
 
-// Returns the size of this struct.
-func (e *GossipValidation) CalcSize() int {
-	s := binary.Size(e.MessageId)
-	s += binary.Size(e.Bitfield)
-	return s
-}
 func (e *GossipValidation) SetValid(v bool) {
 	e.Valid = v
 	if v {
