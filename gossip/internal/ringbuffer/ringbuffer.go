@@ -9,25 +9,25 @@ var ErrNotPresent = errors.New("value not present")
 
 type Ringbuffer[T comparable] struct {
 	data *ring.Ring
-	len uint
-	cap uint
+	len  uint
+	cap  uint
 }
 
 func NewRingbuffer[T comparable](capacity uint) *Ringbuffer[T] {
 	return &Ringbuffer[T]{
 		data: nil,
-		len: 0,
-		cap: capacity,
+		len:  0,
+		cap:  capacity,
 	}
 }
 
 func (r *Ringbuffer[T]) Insert(v T) {
-	if(r.len == 0) {
+	if r.len == 0 {
 		// create the ringbuffer
 		r.data = ring.New(1)
 		r.data.Value = v
 	} else {
-		if(r.len >= r.cap) {
+		if r.len >= r.cap {
 			// remove the next element
 			r.data.Unlink(1)
 			r.len--
@@ -42,11 +42,11 @@ func (r *Ringbuffer[T]) Insert(v T) {
 }
 
 func (r *Ringbuffer[T]) Remove(v T) error {
-	if(r.len == 0) {
+	if r.len == 0 {
 		return ErrNotPresent
 	}
 	start := r.data
-	for i := r.data;; i = i.Next() {
+	for i := r.data; ; i = i.Next() {
 		if i.Value.(T) == v {
 			if r.data == i {
 				i = i.Prev()
@@ -55,7 +55,7 @@ func (r *Ringbuffer[T]) Remove(v T) error {
 			} else {
 				i.Prev().Unlink(1)
 			}
-			r.len--;
+			r.len--
 			return nil
 		}
 		if i.Next() == start {

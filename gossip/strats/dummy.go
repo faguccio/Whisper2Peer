@@ -47,6 +47,7 @@ func (dummy *dummyStrat) Listen() {
 				dummy.unvalidatedCache = append(dummy.unvalidatedCache, msg)
 				// HANDLE MAIN TO send messages to all listener registered to that TYPE
 				dummy.rootStrat.strategyChannels.FromStrat <- notification
+				dummy.rootStrat.log.Debug("Message received:", "msg", msg)
 			}
 
 		case newPeer := <-dummy.hzConnection:
@@ -69,11 +70,13 @@ func (dummy *dummyStrat) Listen() {
 		case <-ticker.C:
 			// Time passed! New round:
 			// Send messages to random neighbor
+			dummy.rootStrat.log.Debug("Length of openConnection", "len", len(dummy.openConnections))
 			idx := mrand.Intn(len(dummy.openConnections))
 			for _, message := range dummy.validatedCache {
 				dummy.openConnections[idx] <- message
-				// FABIO TODO: remove message from validated!!!
+				dummy.rootStrat.log.Debug("Message sent:", "msg", message)
 			}
+			dummy.validatedCache = make([]horizontalapi.Push, 0)
 
 			// If message was sent to args.Degree neighboughrs delete it from the set of messages
 		}

@@ -12,6 +12,7 @@ import (
 type Strategy struct {
 	hz               *horizontalapi.HorizontalApi
 	strategyChannels StrategyChannels
+	log              *slog.Logger
 }
 
 type StrategyCloser interface {
@@ -24,10 +25,10 @@ type StrategyChannels struct {
 	ToStrat   chan common.ToStrat
 }
 
-func New(args args.Args, stratChans StrategyChannels) (StrategyCloser, error) {
+func New(log *slog.Logger, args args.Args, stratChans StrategyChannels) (StrategyCloser, error) {
 
 	fromHz := make(chan horizontalapi.FromHz, 1)
-	hz := horizontalapi.NewHorizontalApi(slog.With("module", "horzAPI"), fromHz)
+	hz := horizontalapi.NewHorizontalApi(log.With("module", "horzAPI"), fromHz)
 	strategy := Strategy{
 		hz:               hz,
 		strategyChannels: stratChans,

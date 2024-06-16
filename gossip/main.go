@@ -19,7 +19,7 @@ import (
 )
 
 func logInit() *slog.Logger {
-	return slog.New(tint.NewHandler(os.Stderr, &tint.Options{
+	return slog.New(tint.NewHandler(os.Stdout, &tint.Options{
 		Level:      slog.LevelDebug,
 		TimeFormat: time.RFC3339,
 		NoColor:    false,
@@ -68,11 +68,15 @@ func NewMain() *Main {
 }
 
 func (m *Main) run() {
-	va := verticalapi.NewVerticalApi(slog.With("module", "vertAPI"), m.vertToMain)
+	va := verticalapi.NewVerticalApi(m.log.With("module", "vertAPI"), m.vertToMain)
 	va.Listen(m.args.Vert_addr)
 	defer va.Close()
 
-	strategy, _ := gs.New(m.args, m.strategyChannels)
+	strategy, err := gs.New(m.log.With("module", "strategy"), m.args, m.strategyChannels)
+	if err != nil {
+		m.mlog.Error("Error on instantiating the strategy", "err", err)
+	}
+
 	strategy.Listen()
 	defer strategy.Close()
 
