@@ -42,24 +42,31 @@ func (dummy *dummyStrat) Listen() {
 
 		for {
 			select {
+
+			// Message received from a peer
 			case x := <-dummy.fromHz:
-				// Will notify the vertical api of the message
 				switch msg := x.(type) {
 				case horizontalapi.Push:
 					notification := convertPushToNotification(msg)
-					dummy.invalidMessages.Insert(&msg)
-					// HANDLE MAIN TO send messages to all listener registered to that TYPE
-					dummy.rootStrat.strategyChannels.FromStrat <- notification
-					dummy.rootStrat.log.Debug("Message received:", "msg", msg)
+					_, err := extractMessage(dummy.sentMessages, msg.MessageID)
+
+					// Check that the message was not already sent
+					if err != nil {
+						dummy.invalidMessages.Insert(&msg)
+						// HANDLE MAIN TO send messages to all listener registered to that TYPE
+						dummy.rootStrat.strategyChannels.FromStrat <- notification
+						dummy.rootStrat.log.Debug("Message received:", "msg", msg)
+					}
 				}
 
+				// New connection is established
 			case newPeer := <-dummy.hzConnection:
 				dummy.openConnections = append(dummy.openConnections, newPeer.ToHz)
 
+				// Message from the vertical API
 			case x := <-dummy.rootStrat.strategyChannels.ToStrat:
 				switch x := x.(type) {
 				case common.GossipAnnounce:
-					// Append announce to the "to be relayed" (so validated) messages
 					pushMsg := convertAnnounceToPush(x)
 					dummy.validMessages.Insert(&pushMsg)
 				case common.GossipValidation:
@@ -78,6 +85,7 @@ func (dummy *dummyStrat) Listen() {
 					}
 				}
 
+				// A timer signal
 			case <-ticker.C:
 				// Time passed! New round:
 				// Send messages to random neighbor
@@ -105,7 +113,6 @@ func extractMessage(ring *ringbuffer.Ringbuffer[*horizontalapi.Push], messageId 
 	}
 
 	return result[0], nil
-
 }
 
 func moveMessage(src *ringbuffer.Ringbuffer[*horizontalapi.Push], dst *ringbuffer.Ringbuffer[*horizontalapi.Push], messageId uint16) error {
