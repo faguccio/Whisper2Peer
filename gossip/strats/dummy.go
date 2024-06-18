@@ -1,7 +1,7 @@
 package strats
 
 import (
-	"fmt"
+	"errors"
 	"gossip/common"
 	horizontalapi "gossip/horizontalAPI"
 	ringbuffer "gossip/internal/ringbuffer"
@@ -11,6 +11,10 @@ import (
 
 	"crypto/rand"
 	mrand "math/rand"
+)
+
+var (
+	ErrNoMessageFound error = errors.New("No message found when extracting")
 )
 
 type dummyStrat struct {
@@ -48,10 +52,10 @@ func (dummy *dummyStrat) Listen() {
 				switch msg := x.(type) {
 				case horizontalapi.Push:
 					notification := convertPushToNotification(msg)
-					_, err := extractMessage(dummy.sentMessages, msg.MessageID)
+					_, err := fetchMessage(dummy.sentMessages, msg.MessageID)
 
 					// Check that the message was not already sent
-					if err != nil {
+					if err == ErrNoMessageFound {
 						dummy.invalidMessages.Insert(&msg)
 						// HANDLE MAIN TO send messages to all listener registered to that TYPE
 						dummy.rootStrat.strategyChannels.FromStrat <- notification
@@ -70,18 +74,15 @@ func (dummy *dummyStrat) Listen() {
 					pushMsg := convertAnnounceToPush(x)
 					dummy.validMessages.Insert(&pushMsg)
 				case common.GossipValidation:
-					if x.Valid {
-						err := moveMessage(dummy.invalidMessages, dummy.validMessages, x.MessageId)
-						if err != nil {
-							dummy.rootStrat.log.Warn("Tried to validate a message which did not exists", "Message ID", x.MessageId)
-						}
+					msg, err := extractMessage(dummy.invalidMessages, x.MessageId)
 
-					} else {
-						msg, err := extractMessage(dummy.invalidMessages, x.MessageId)
-						if err != nil {
-							dummy.rootStrat.log.Warn("Tried to invalidate a message wich did not exists", "Message ID", x.MessageId)
-						}
-						dummy.invalidMessages.Remove(msg)
+					if err != nil {
+						dummy.rootStrat.log.Warn("Tried to validate a message which did not exists", "Message ID", x.MessageId)
+						break
+					}
+
+					if x.Valid {
+						dummy.validMessages.Insert(msg)
 					}
 				}
 
@@ -94,7 +95,8 @@ func (dummy *dummyStrat) Listen() {
 				dummy.validMessages.Do((func(msg *horizontalapi.Push) {
 					dummy.openConnections[idx] <- *msg
 					dummy.rootStrat.log.Debug("Message sent:", "msg", msg)
-					moveMessage(dummy.validMessages, dummy.sentMessages, msg.MessageID)
+					dummy.validMessages.Remove(msg)
+					dummy.sentMessages.Insert(msg)
 				}))
 
 				// If message was sent to args.Degree neighboughrs delete it from the set of messages
@@ -103,29 +105,26 @@ func (dummy *dummyStrat) Listen() {
 	}()
 }
 
-func extractMessage(ring *ringbuffer.Ringbuffer[*horizontalapi.Push], messageId uint16) (*horizontalapi.Push, error) {
+func fetchMessage(ring *ringbuffer.Ringbuffer[*horizontalapi.Push], messageId uint16) (*horizontalapi.Push, error) {
 	result := ring.Filter(func(p *horizontalapi.Push) bool {
 		return p.MessageID == messageId
 	})
 
 	if len(result) == 0 {
-		return nil, fmt.Errorf("Trying to extract a message but 0 were found")
+		return nil, ErrNoMessageFound
 	}
 
 	return result[0], nil
 }
 
-func moveMessage(src *ringbuffer.Ringbuffer[*horizontalapi.Push], dst *ringbuffer.Ringbuffer[*horizontalapi.Push], messageId uint16) error {
-	msg, err := extractMessage(src, messageId)
-
+func extractMessage(ring *ringbuffer.Ringbuffer[*horizontalapi.Push], messageId uint16) (*horizontalapi.Push, error) {
+	msg, err := fetchMessage(ring, messageId)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	src.Remove(msg)
-	dst.Insert(msg)
-
-	return nil
+	ring.Remove(msg)
+	return msg, nil
 }
 
 func convertAnnounceToPush(msg common.GossipAnnounce) horizontalapi.Push {
