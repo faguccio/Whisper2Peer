@@ -1,9 +1,10 @@
 package strats
 
 import (
-	"errors"
+	"fmt"
 	"gossip/common"
 	horizontalapi "gossip/horizontalAPI"
+	ringbuffer "gossip/internal/ringbuffer"
 
 	"math/big"
 	"time"
@@ -13,23 +14,24 @@ import (
 )
 
 type dummyStrat struct {
-	rootStrat        Strategy
-	fromHz           <-chan horizontalapi.FromHz
-	hzConnection     <-chan horizontalapi.NewConn
-	openConnections  []chan<- horizontalapi.ToHz
-	unvalidatedCache []horizontalapi.Push
-	validatedCache   []horizontalapi.Push
+	rootStrat       Strategy
+	fromHz          <-chan horizontalapi.FromHz
+	hzConnection    <-chan horizontalapi.NewConn
+	openConnections []chan<- horizontalapi.ToHz
+	invalidMessages *ringbuffer.Ringbuffer[*horizontalapi.Push]
+	validMessages   *ringbuffer.Ringbuffer[*horizontalapi.Push]
+	sentMessages    *ringbuffer.Ringbuffer[*horizontalapi.Push]
 }
 
 func NewDummy(strategy Strategy, fromHz <-chan horizontalapi.FromHz, hzConnection <-chan horizontalapi.NewConn, openConnections []chan<- horizontalapi.ToHz) dummyStrat {
-
 	return dummyStrat{
-		rootStrat:        strategy,
-		fromHz:           fromHz,
-		hzConnection:     hzConnection,
-		openConnections:  openConnections,
-		unvalidatedCache: make([]horizontalapi.Push, 0),
-		validatedCache:   make([]horizontalapi.Push, 0),
+		rootStrat:       strategy,
+		fromHz:          fromHz,
+		hzConnection:    hzConnection,
+		openConnections: openConnections,
+		invalidMessages: ringbuffer.NewRingbuffer[*horizontalapi.Push](strategy.cacheSize),
+		validMessages:   ringbuffer.NewRingbuffer[*horizontalapi.Push](strategy.cacheSize),
+		sentMessages:    ringbuffer.NewRingbuffer[*horizontalapi.Push](strategy.cacheSize),
 	}
 }
 
@@ -45,7 +47,7 @@ func (dummy *dummyStrat) Listen() {
 				switch msg := x.(type) {
 				case horizontalapi.Push:
 					notification := convertPushToNotification(msg)
-					dummy.unvalidatedCache = append(dummy.unvalidatedCache, msg)
+					dummy.invalidMessages.Insert(&msg)
 					// HANDLE MAIN TO send messages to all listener registered to that TYPE
 					dummy.rootStrat.strategyChannels.FromStrat <- notification
 					dummy.rootStrat.log.Debug("Message received:", "msg", msg)
@@ -59,16 +61,20 @@ func (dummy *dummyStrat) Listen() {
 				case common.GossipAnnounce:
 					// Append announce to the "to be relayed" (so validated) messages
 					pushMsg := convertAnnounceToPush(x)
-					dummy.validatedCache = append(dummy.validatedCache, pushMsg)
+					dummy.validMessages.Insert(&pushMsg)
 				case common.GossipValidation:
 					if x.Valid {
-						err := dummy.validateMessage(x.MessageId)
+						err := moveMessage(dummy.invalidMessages, dummy.validMessages, x.MessageId)
 						if err != nil {
 							dummy.rootStrat.log.Warn("Tried to validate a message which did not exists", "Message ID", x.MessageId)
 						}
 
 					} else {
-						dummy.removeMessage(x.MessageId)
+						msg, err := extractMessage(dummy.invalidMessages, x.MessageId)
+						if err != nil {
+							dummy.rootStrat.log.Warn("Tried to invalidate a message wich did not exists", "Message ID", x.MessageId)
+						}
+						dummy.invalidMessages.Remove(msg)
 					}
 				}
 
@@ -77,11 +83,11 @@ func (dummy *dummyStrat) Listen() {
 				// Send messages to random neighbor
 				//dummy.rootStrat.log.Debug("Length of openConnection", "len", len(dummy.openConnections))
 				idx := mrand.Intn(len(dummy.openConnections))
-				for _, message := range dummy.validatedCache {
-					dummy.openConnections[idx] <- message
-					dummy.rootStrat.log.Debug("Message sent:", "msg", message)
-				}
-				dummy.validatedCache = make([]horizontalapi.Push, 0)
+				dummy.validMessages.Do((func(msg *horizontalapi.Push) {
+					dummy.openConnections[idx] <- *msg
+					dummy.rootStrat.log.Debug("Message sent:", "msg", msg)
+					moveMessage(dummy.validMessages, dummy.sentMessages, msg.MessageID)
+				}))
 
 				// If message was sent to args.Degree neighboughrs delete it from the set of messages
 			}
@@ -89,33 +95,30 @@ func (dummy *dummyStrat) Listen() {
 	}()
 }
 
-func (dummy *dummyStrat) validateMessage(messageId uint16) error {
-	valid, err := dummy.removeMessage(messageId)
-	// What should I do if there is no message to be validated?
+func extractMessage(ring *ringbuffer.Ringbuffer[*horizontalapi.Push], messageId uint16) (*horizontalapi.Push, error) {
+	result := ring.Filter(func(p *horizontalapi.Push) bool {
+		return p.MessageID == messageId
+	})
+
+	if len(result) == 0 {
+		return nil, fmt.Errorf("Trying to extract a message but 0 were found")
+	}
+
+	return result[0], nil
+
+}
+
+func moveMessage(src *ringbuffer.Ringbuffer[*horizontalapi.Push], dst *ringbuffer.Ringbuffer[*horizontalapi.Push], messageId uint16) error {
+	msg, err := extractMessage(src, messageId)
+
 	if err != nil {
 		return err
 	}
-	dummy.validatedCache = append(dummy.validatedCache, *valid)
+
+	src.Remove(msg)
+	dst.Insert(msg)
+
 	return nil
-}
-
-func (dummy *dummyStrat) removeMessage(messageId uint16) (*horizontalapi.Push, error) {
-	index := -1
-	for i, message := range dummy.unvalidatedCache {
-		if message.MessageID == messageId {
-			index = i
-			break
-		}
-	}
-
-	if index == -1 {
-		return nil, errors.New("Tried to remove a non existent message")
-	}
-
-	removedItem := dummy.unvalidatedCache[index]
-	dummy.unvalidatedCache[index] = dummy.unvalidatedCache[len(dummy.unvalidatedCache)-1]
-	dummy.unvalidatedCache = dummy.unvalidatedCache[:len(dummy.unvalidatedCache)-1]
-	return &removedItem, nil
 }
 
 func convertAnnounceToPush(msg common.GossipAnnounce) horizontalapi.Push {

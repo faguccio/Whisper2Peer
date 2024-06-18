@@ -13,6 +13,7 @@ type Strategy struct {
 	hz               *horizontalapi.HorizontalApi
 	strategyChannels StrategyChannels
 	log              *slog.Logger
+	cacheSize        uint
 }
 
 type StrategyCloser interface {
@@ -33,6 +34,7 @@ func New(log *slog.Logger, args args.Args, stratChans StrategyChannels) (Strateg
 		hz:               hz,
 		strategyChannels: stratChans,
 		log:              log,
+		cacheSize:        args.Cache_size,
 	}
 
 	hzConnection := make(chan horizontalapi.NewConn, 1)

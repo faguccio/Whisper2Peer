@@ -102,3 +102,21 @@ func TestRingbuffer(t *testing.T) {
 		t.Fatalf("Ringbuffer should be %v but is %v", should, is)
 	}
 }
+
+func TestFilter(t *testing.T) {
+	rb := ringbuffer.NewRingbuffer[int](6)
+
+	for i := 1; i < 8; i++ {
+		rb.Insert(i)
+	}
+
+	res := rb.Filter(func(a int) bool {
+		return a%2 == 0
+	})
+
+	should := []int{2, 4, 6}
+
+	if !reflect.DeepEqual(res, should) {
+		t.Fatalf("After filter application ringbuffer should be %v but is %v", should, res)
+	}
+}
