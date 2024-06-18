@@ -77,3 +77,23 @@ func (r *Ringbuffer[T]) Do(f func(T)) {
 		f(i.Value.(T))
 	}
 }
+
+// Filter out calls a function f on each element, expected to return a boolean.
+// A slice of all element wich the return value was true is returned
+func (r *Ringbuffer[T]) Filter(f func(T) bool) []T {
+	result := make([]T, 0)
+
+	if r.len == 0 {
+		return result
+	}
+
+	if f(r.data.Value.(T)) {
+		result = append(result, r.data.Value.(T))
+	}
+	for i := r.data.Next(); i != r.data; i = i.Next() {
+		if f(i.Value.(T)) {
+			result = append(result, i.Value.(T))
+		}
+	}
+	return result
+}
