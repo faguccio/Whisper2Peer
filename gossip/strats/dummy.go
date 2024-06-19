@@ -74,11 +74,12 @@ func (dummy *dummyStrat) Listen() {
 				switch msg := x.(type) {
 				case horizontalapi.Push:
 					notification := convertPushToNotification(msg)
-					_, err := fetchMessage(dummy.sentMessages, msg.MessageID)
+					_, err1 := fetchMessage(dummy.sentMessages, msg.MessageID)
+					_, err2 := fetchCountedMessage(dummy.validMessages, msg.MessageID)
 
 					// If the message was not already sent, move it to the invalidMessages
 					// and send a notification to vert API
-					if err == ErrNoMessageFound {
+					if err1 == ErrNoMessageFound && err2 == ErrNoMessageFound {
 						dummy.invalidMessages.Insert(&msg)
 						dummy.rootStrat.strategyChannels.FromStrat <- notification
 						dummy.rootStrat.log.Debug("HZ Message received:", "type", reflect.TypeOf(msg), "msg", msg)
@@ -114,6 +115,7 @@ func (dummy *dummyStrat) Listen() {
 				// A random peer is selected and we relay all messages to that peer.
 				idx := mrand.Intn(len(dummy.openConnections))
 				dummy.validMessages.Do((func(msg *validMessage) {
+					//dummy.rootStrat.log.Debug("DST conn", "conn", dummy.openConnections[idx])
 					dummy.openConnections[idx] <- msg.message
 					dummy.rootStrat.log.Debug("HZ Message sent:", "dst", "tbi", "msg", msg)
 					msg.counter++
@@ -134,6 +136,19 @@ func (dummy *dummyStrat) Listen() {
 func fetchMessage(ring *ringbuffer.Ringbuffer[*horizontalapi.Push], messageId uint16) (*horizontalapi.Push, error) {
 	result := ring.Filter(func(p *horizontalapi.Push) bool {
 		return p.MessageID == messageId
+	})
+
+	if len(result) == 0 {
+		return nil, ErrNoMessageFound
+	}
+
+	return result[0], nil
+}
+
+// Go throught a ringbuffer of messages and return the one with a matching ID, error if none is found
+func fetchCountedMessage(ring *ringbuffer.Ringbuffer[*validMessage], messageId uint16) (*validMessage, error) {
+	result := ring.Filter(func(p *validMessage) bool {
+		return p.message.MessageID == messageId
 	})
 
 	if len(result) == 0 {
