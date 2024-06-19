@@ -16,13 +16,16 @@ import (
 	"capnproto.org/go/capnp/v3"
 )
 
+// Identifier for a connection
 type ConnectionId string
 
+// store arbitrary data along with the connection it belongs to
 type Conn[T any] struct {
 	Id   ConnectionId
 	Data T
 }
 
+// define errors
 var (
 	ErrTimeout error = errors.New("operation timed out")
 )

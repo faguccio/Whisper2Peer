@@ -7,12 +7,23 @@ import (
 
 var ErrNotPresent = errors.New("value not present")
 
+// This struct represents a ringbuffer with a given capacity.
+//
+// If the capacity is exceeded, the oldest entry will be deleted.
+// Internally this uses the [container/ring] implementation of golang (so a linked circular list).
+//
+// The struct contains various internal fields, thus it should only be created
+// by using the [NewRingbuffer] function!
 type Ringbuffer[T comparable] struct {
+	// store the actual data contained in the buffer
 	data *ring.Ring
-	len  uint
-	cap  uint
+	// amount of values stored in the buffer
+	len uint
+	// total amount of values that can be stored in the buffer
+	cap uint
 }
 
+// Use this function to instantiate the ringbuffer
 func NewRingbuffer[T comparable](capacity uint) *Ringbuffer[T] {
 	return &Ringbuffer[T]{
 		data: nil,
@@ -21,6 +32,9 @@ func NewRingbuffer[T comparable](capacity uint) *Ringbuffer[T] {
 	}
 }
 
+// Insert a value into the ringbuffer.
+//
+// If this insert exceeds the capacity, the oldest element will (silently) be overwritten
 func (r *Ringbuffer[T]) Insert(v T) {
 	if r.len == 0 {
 		// create the ringbuffer
@@ -41,6 +55,9 @@ func (r *Ringbuffer[T]) Insert(v T) {
 	r.len++
 }
 
+// Remove a value from the ringbuffer.
+//
+// This will throw a [ErrNotPresent] error if the value is not contained in the ringbuffer.
 func (r *Ringbuffer[T]) Remove(v T) error {
 	if r.len == 0 {
 		return ErrNotPresent

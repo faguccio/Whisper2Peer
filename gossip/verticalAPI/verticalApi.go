@@ -38,7 +38,7 @@ type VerticalApi struct {
 	wg sync.WaitGroup
 }
 
-// Use this function to instanciate the vertical api
+// Use this function to instantiate the vertical api
 //
 // The vertToMainChans serve as backchannel to the main package. Depending on
 // what message type was received, the message struct will be sent on the

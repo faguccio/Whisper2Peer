@@ -1,7 +1,9 @@
 package common
 
+// generic identifier used for a connection
 type ConnectionId string
 
+// store arbitrary data along with the connection it belongs to
 type Conn[T any] struct {
 	Id   ConnectionId
 	Data T
@@ -103,6 +105,7 @@ type GossipValidation struct {
 	Valid bool
 }
 
+// Convenience function to set the valid flag on this message (sets .valid and adjusts the bitfield)
 func (e *GossipValidation) SetValid(v bool) {
 	e.Valid = v
 	if v {
