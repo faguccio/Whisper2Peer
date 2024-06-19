@@ -5,6 +5,7 @@ import (
 	"gossip/common"
 	horizontalapi "gossip/horizontalAPI"
 	ringbuffer "gossip/internal/ringbuffer"
+	"reflect"
 
 	"math/big"
 	"time"
@@ -17,16 +18,27 @@ var (
 	ErrNoMessageFound error = errors.New("No message found when extracting")
 )
 
+// This struct contains all the fields used by the Dummy Strategy.
 type dummyStrat struct {
-	rootStrat       Strategy
-	fromHz          <-chan horizontalapi.FromHz
-	hzConnection    <-chan horizontalapi.NewConn
+	// The base strategy, which takes care of instantiating the HZ API and contains many common fields
+	rootStrat Strategy
+	// Channel where peer messages arrive
+	fromHz <-chan horizontalapi.FromHz
+	// Channel were new connection are notified
+	hzConnection <-chan horizontalapi.NewConn
+	// Array of peers channels, where messages can be sent
 	openConnections []chan<- horizontalapi.ToHz
+	// Collection of messages received from a peer which needs to be validated through the vertical api
 	invalidMessages *ringbuffer.Ringbuffer[*horizontalapi.Push]
-	validMessages   *ringbuffer.Ringbuffer[*horizontalapi.Push]
-	sentMessages    *ringbuffer.Ringbuffer[*horizontalapi.Push]
+	// Collection of messages which need to be relayed to other peers
+	validMessages *ringbuffer.Ringbuffer[*horizontalapi.Push]
+	// Collection of messages already relayed to other peers
+	sentMessages *ringbuffer.Ringbuffer[*horizontalapi.Push]
 }
 
+// Function to instantiate a new DummyStrategy.
+//
+// strategy must be the baseStrategy. openConnection a list of ToHz channels, one for each peer
 func NewDummy(strategy Strategy, fromHz <-chan horizontalapi.FromHz, hzConnection <-chan horizontalapi.NewConn, openConnections []chan<- horizontalapi.ToHz) dummyStrat {
 	return dummyStrat{
 		rootStrat:       strategy,
@@ -39,31 +51,35 @@ func NewDummy(strategy Strategy, fromHz <-chan horizontalapi.FromHz, hzConnectio
 	}
 }
 
+// Listen for messages incoming on either StrategyChannels (from the base strategy, such as the
+// vertical API) or horizontal API
+//
+// This function spawn a new goroutine. Incoming messages will be processed by the Dummy Strategy.
 func (dummy *dummyStrat) Listen() {
-	// This will be a configuration parameter
 	go func() {
+		// A repeating signal to trigger a recurrent behavior.
 		ticker := time.NewTicker(1 * time.Second)
 
+		// Keep listening on all channels
 		for {
 			select {
-
-			// Message received from a peer
+			// Message received from a peer.
 			case x := <-dummy.fromHz:
 				switch msg := x.(type) {
 				case horizontalapi.Push:
 					notification := convertPushToNotification(msg)
 					_, err := fetchMessage(dummy.sentMessages, msg.MessageID)
 
-					// Check that the message was not already sent
+					// If the message was not already sent, move it to the invalidMessages
+					// and send a notification to vert API
 					if err == ErrNoMessageFound {
 						dummy.invalidMessages.Insert(&msg)
-						// HANDLE MAIN TO send messages to all listener registered to that TYPE
 						dummy.rootStrat.strategyChannels.FromStrat <- notification
-						dummy.rootStrat.log.Debug("Message received:", "msg", msg)
+						dummy.rootStrat.log.Debug("HZ Message received:", "type", reflect.TypeOf(msg), "msg", msg)
 					}
 				}
 
-				// New connection is established
+				// New connection is established.
 			case newPeer := <-dummy.hzConnection:
 				dummy.openConnections = append(dummy.openConnections, newPeer.ToHz)
 
@@ -72,6 +88,7 @@ func (dummy *dummyStrat) Listen() {
 				switch x := x.(type) {
 				case common.GossipAnnounce:
 					pushMsg := convertAnnounceToPush(x)
+					// We consider Announce messages automatically valid
 					dummy.validMessages.Insert(&pushMsg)
 				case common.GossipValidation:
 					msg, err := extractMessage(dummy.invalidMessages, x.MessageId)
@@ -86,11 +103,9 @@ func (dummy *dummyStrat) Listen() {
 					}
 				}
 
-				// A timer signal
+				// Recurrent timer signal
 			case <-ticker.C:
-				// Time passed! New round:
-				// Send messages to random neighbor
-				//dummy.rootStrat.log.Debug("Length of openConnection", "len", len(dummy.openConnections))
+				// A random peer is selected and we relay all messages to that peer.
 				idx := mrand.Intn(len(dummy.openConnections))
 				dummy.validMessages.Do((func(msg *horizontalapi.Push) {
 					dummy.openConnections[idx] <- *msg
