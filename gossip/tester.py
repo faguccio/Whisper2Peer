@@ -33,7 +33,7 @@ edges = [
 
 # For now cache size and degree is equal for everybody
 cache_size = 50
-degree = 30
+degree = 1
 
 full_commands = []
 

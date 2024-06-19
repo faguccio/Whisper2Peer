@@ -86,7 +86,7 @@ func (m *Main) run() {
 
 loop:
 	for {
-		m.mlog.Info("Another loop")
+		// m.mlog.Info("Another loop")
 		select {
 		case x := <-m.vertToMain:
 			switch x := x.(type) {

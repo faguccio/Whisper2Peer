@@ -17,6 +17,7 @@ type Strategy struct {
 	log              *slog.Logger
 	// Argument made easily accessible for any strategy
 	cacheSize uint
+	degree    uint
 }
 
 // Any strategy should implement the strategyCloser type, so a Listen method and a Close one.
@@ -46,6 +47,7 @@ func New(log *slog.Logger, args args.Args, stratChans StrategyChannels) (Strateg
 		strategyChannels: stratChans,
 		log:              log,
 		cacheSize:        args.Cache_size,
+		degree:           args.Degree,
 	}
 
 	hzConnection := make(chan horizontalapi.NewConn, 1)

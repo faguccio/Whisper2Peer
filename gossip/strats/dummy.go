@@ -18,6 +18,12 @@ var (
 	ErrNoMessageFound error = errors.New("No message found when extracting")
 )
 
+// Valid messages have also a counter of how many peers the message was relayed to
+type validMessage struct {
+	counter int
+	message horizontalapi.Push
+}
+
 // This struct contains all the fields used by the Dummy Strategy.
 type dummyStrat struct {
 	// The base strategy, which takes care of instantiating the HZ API and contains many common fields
@@ -30,8 +36,8 @@ type dummyStrat struct {
 	openConnections []chan<- horizontalapi.ToHz
 	// Collection of messages received from a peer which needs to be validated through the vertical api
 	invalidMessages *ringbuffer.Ringbuffer[*horizontalapi.Push]
-	// Collection of messages which need to be relayed to other peers
-	validMessages *ringbuffer.Ringbuffer[*horizontalapi.Push]
+	// Collection of messages which need to be relayed to other peers.
+	validMessages *ringbuffer.Ringbuffer[*validMessage]
 	// Collection of messages already relayed to other peers
 	sentMessages *ringbuffer.Ringbuffer[*horizontalapi.Push]
 }
@@ -46,7 +52,7 @@ func NewDummy(strategy Strategy, fromHz <-chan horizontalapi.FromHz, hzConnectio
 		hzConnection:    hzConnection,
 		openConnections: openConnections,
 		invalidMessages: ringbuffer.NewRingbuffer[*horizontalapi.Push](strategy.cacheSize),
-		validMessages:   ringbuffer.NewRingbuffer[*horizontalapi.Push](strategy.cacheSize),
+		validMessages:   ringbuffer.NewRingbuffer[*validMessage](strategy.cacheSize),
 		sentMessages:    ringbuffer.NewRingbuffer[*horizontalapi.Push](strategy.cacheSize),
 	}
 }
@@ -89,7 +95,7 @@ func (dummy *dummyStrat) Listen() {
 				case common.GossipAnnounce:
 					pushMsg := convertAnnounceToPush(x)
 					// We consider Announce messages automatically valid
-					dummy.validMessages.Insert(&pushMsg)
+					dummy.validMessages.Insert(&validMessage{0, pushMsg})
 				case common.GossipValidation:
 					msg, err := extractMessage(dummy.invalidMessages, x.MessageId)
 
@@ -99,7 +105,7 @@ func (dummy *dummyStrat) Listen() {
 					}
 
 					if x.Valid {
-						dummy.validMessages.Insert(msg)
+						dummy.validMessages.Insert(&validMessage{0, *msg})
 					}
 				}
 
@@ -107,14 +113,18 @@ func (dummy *dummyStrat) Listen() {
 			case <-ticker.C:
 				// A random peer is selected and we relay all messages to that peer.
 				idx := mrand.Intn(len(dummy.openConnections))
-				dummy.validMessages.Do((func(msg *horizontalapi.Push) {
-					dummy.openConnections[idx] <- *msg
-					dummy.rootStrat.log.Debug("Message sent:", "msg", msg)
-					dummy.validMessages.Remove(msg)
-					dummy.sentMessages.Insert(msg)
+				dummy.validMessages.Do((func(msg *validMessage) {
+					dummy.openConnections[idx] <- msg.message
+					dummy.rootStrat.log.Debug("HZ Message sent:", "dst", "tbi", "msg", msg)
+					msg.counter++
+
+					// If message was sent to args.Degree neighboughrs delete it from the set of messages
+					if msg.counter >= int(dummy.rootStrat.degree) {
+						dummy.validMessages.Remove(msg)
+						dummy.sentMessages.Insert(&msg.message)
+					}
 				}))
 
-				// If message was sent to args.Degree neighboughrs delete it from the set of messages
 			}
 		}
 	}()
