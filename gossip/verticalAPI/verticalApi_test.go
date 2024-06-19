@@ -90,7 +90,7 @@ func TestHandleConnection(test *testing.T) {
 				MainToVert: mainToVert,
 			}
 			// start the handler
-			go vert.handleConnection(cVert, regMod)
+			go vert.handleConnection(cVert, common.Conn[common.RegisteredModule]{Data: regMod})
 
 			// write the message to the socket
 			if n, err := cTest.Write(t.buf); err != nil {
@@ -100,8 +100,7 @@ func TestHandleConnection(test *testing.T) {
 			}
 
 			// sleep to make sure the message had time to arrive
-			// TODO are 5 seconds too long? (makes these tests a bit slow)
-			time.Sleep(5 * time.Second)
+			time.Sleep(1 * time.Second)
 
 			// check all channels on which unmarshaled messages could be sent
 			// to by the handler
@@ -170,7 +169,7 @@ func TestWriteToConnection(test *testing.T) {
 
 		// start the handler
 		mainToVert := make(chan common.ToVert, 1)
-		go vert.writeToConnection(cVert, mainToVert)
+		go vert.writeToConnection(cVert, common.Conn[<-chan common.ToVert]{Data: mainToVert})
 
 		// send a message to the handler which shall be sent on the network
 		mainToVert <- common.GossipNotification{
@@ -180,9 +179,8 @@ func TestWriteToConnection(test *testing.T) {
 		}
 		bufReal := []byte{0x0, 0x0a, 0x01, 0xf6, 0x05, 0x39, 0x0, 0x2a, 0x50, 0x20}
 
-		// allow the message arrive within 5 seconds to avoid hanging up the test
-		// TODO are 5 seconds too long? (makes these tests a bit slow)
-		if err := cTest.SetReadDeadline(time.Now().Add(5 * time.Second)); err != nil {
+		// allow the message arrive within 1 second to avoid hanging up the test
+		if err := cTest.SetReadDeadline(time.Now().Add(1 * time.Second)); err != nil {
 			test.Fatalf("Setting readDeadline failed: %v", err)
 		}
 		// receive the message sent on the network
@@ -197,7 +195,7 @@ func TestWriteToConnection(test *testing.T) {
 		}
 
 		// check if an additional message was sent
-		if err := cTest.SetReadDeadline(time.Now().Add(5 * time.Second)); err != nil {
+		if err := cTest.SetReadDeadline(time.Now().Add(1 * time.Second)); err != nil {
 			test.Fatalf("Setting readDeadline failed: %v", err)
 		}
 		buf = make([]byte, 1)
@@ -213,7 +211,7 @@ func TestVerticalApi(test *testing.T) {
 	// use this for logging so that messages are not shown in general,
 	// only if the test fails
 	var testLog *slog.Logger = slogt.New(test)
-	vertToMainChan := make(chan common.FromVert)
+	vertToMainChan := make(chan common.FromVert, 1)
 	// create the vertical api with above setup values
 	vert := NewVerticalApi(testLog, vertToMainChan)
 	// start the server on localhost:13377
@@ -246,8 +244,7 @@ func TestVerticalApi(test *testing.T) {
 	}
 
 	// sleep to make sure the message had time to arrive
-	// TODO are 5 seconds too long? (makes these tests a bit slow)
-	time.Sleep(5 * time.Second)
+	time.Sleep(1 * time.Second)
 
 	// read the message sent to the mainModule
 	var reg common.GossipRegister
@@ -275,17 +272,15 @@ func TestVerticalApi(test *testing.T) {
 
 	// send a message on the newly established channel and check if it is
 	// written to the network
-	mainToVert := reg.Module.MainToVert
-	mainToVert <- common.GossipNotification{
+	reg.Module.Data.MainToVert <- common.GossipNotification{
 		MessageId: 1337,
 		DataType:  42,
 		Data:      []byte{0x50, 0x20},
 	}
 	bufReal := []byte{0x0, 0x0a, 0x01, 0xf6, 0x05, 0x39, 0x0, 0x2a, 0x50, 0x20}
 
-	// allow the message arrive within 5 seconds to avoid hanging up the test
-	// TODO are 5 seconds too long? (makes these tests a bit slow)
-	if err := cTest.SetReadDeadline(time.Now().Add(5 * time.Second)); err != nil {
+	// allow the message arrive within 1 second to avoid hanging up the test
+	if err := cTest.SetReadDeadline(time.Now().Add(1 * time.Second)); err != nil {
 		test.Fatalf("Setting readDeadline failed: %v", err)
 	}
 	// receive the message sent on the network
@@ -301,7 +296,7 @@ func TestVerticalApi(test *testing.T) {
 	}
 
 	// check if additional messages also get send
-	if err := cTest.SetReadDeadline(time.Now().Add(5 * time.Second)); err != nil {
+	if err := cTest.SetReadDeadline(time.Now().Add(1 * time.Second)); err != nil {
 		test.Fatalf("Setting readDeadline failed: %v", err)
 	}
 	buf = make([]byte, 1)
@@ -310,9 +305,26 @@ func TestVerticalApi(test *testing.T) {
 	}
 
 	// terminate the server (this time the server got properly setup)
-	defer func() {
-		if err := vert.Close(); err != nil {
-			test.Fatalf("Failed to close server: %v", err)
+	if err := vert.Close(); err != nil {
+		test.Fatalf("Failed to close server: %v", err)
+	}
+
+	// sleep to make sure the message had time to arrive
+	time.Sleep(1 * time.Second)
+
+	// check if the unregistering message was sent
+	select {
+	case msg := <-vertToMainChan:
+		var ok bool
+		reg, ok := msg.(common.GossipUnRegister)
+		if !ok {
+			test.Fatalf("did not receive an unregister message")
 		}
-	}()
+		t := common.GossipUnRegister(cTest.LocalAddr().String())
+		if !reflect.DeepEqual(reg, t) {
+			test.Fatalf("handler didn't receive the sent message correctly. Was %+v should %+v", reg, t)
+		}
+	default:
+		test.Fatalf("no unregister message sent on closing")
+	}
 }

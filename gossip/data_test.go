@@ -19,8 +19,9 @@ func TestConcurrentLoading(test *testing.T) {
 	}
 
 	for i := 0; i < 100; i++ {
+		i := i
 		go func() {
-			store.AddChannelToType(vert_type, modules[i])
+			store.AddChannelToType(vert_type, &common.Conn[common.RegisteredModule]{Data: *modules[i]})
 		}()
 	}
 
