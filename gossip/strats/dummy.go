@@ -120,6 +120,7 @@ func (dummy *dummyStrat) Listen() {
 	}()
 }
 
+// Go throught a ringbuffer of messages and return the one with a matching ID, error if none is found
 func fetchMessage(ring *ringbuffer.Ringbuffer[*horizontalapi.Push], messageId uint16) (*horizontalapi.Push, error) {
 	result := ring.Filter(func(p *horizontalapi.Push) bool {
 		return p.MessageID == messageId
@@ -132,6 +133,8 @@ func fetchMessage(ring *ringbuffer.Ringbuffer[*horizontalapi.Push], messageId ui
 	return result[0], nil
 }
 
+// Go throught a ringbuffer of messages and return the one with a matching ID, error if none is found.
+// Also remove the message from the buffer
 func extractMessage(ring *ringbuffer.Ringbuffer[*horizontalapi.Push], messageId uint16) (*horizontalapi.Push, error) {
 	msg, err := fetchMessage(ring, messageId)
 	if err != nil {
@@ -142,8 +145,10 @@ func extractMessage(ring *ringbuffer.Ringbuffer[*horizontalapi.Push], messageId 
 	return msg, nil
 }
 
+// Convert a Gossip Announce message to a Horizontal Push message. Message ID is chosen at random.
 func convertAnnounceToPush(msg common.GossipAnnounce) horizontalapi.Push {
-	id, _ := rand.Int(rand.Reader, big.NewInt(16))
+	// Hardcoded 65535 as the max value of a uint16
+	id, _ := rand.Int(rand.Reader, big.NewInt(65535))
 
 	pushMsg := horizontalapi.Push{
 		TTL:        msg.TTL,
@@ -155,6 +160,7 @@ func convertAnnounceToPush(msg common.GossipAnnounce) horizontalapi.Push {
 	return pushMsg
 }
 
+// Convert a Horizontal Push message to a Gossip Notification one
 func convertPushToNotification(pushMsg horizontalapi.Push) common.GossipNotification {
 	notification := common.GossipNotification{
 		MessageId: pushMsg.MessageID,
@@ -164,6 +170,7 @@ func convertPushToNotification(pushMsg horizontalapi.Push) common.GossipNotifica
 	return notification
 }
 
+// Close the root strategy
 func (dummy *dummyStrat) Close() {
 	dummy.rootStrat.Close()
 }
