@@ -64,7 +64,7 @@ func NewDummy(strategy Strategy, fromHz <-chan horizontalapi.FromHz, hzConnectio
 func (dummy *dummyStrat) Listen() {
 	go func() {
 		// A repeating signal to trigger a recurrent behavior.
-		ticker := time.NewTicker(1 * time.Second)
+		ticker := time.NewTicker(time.Duration(dummy.rootStrat.stratArgs.GossipTimer) * time.Second)
 
 		// Keep listening on all channels
 		for {
