@@ -18,8 +18,8 @@ var (
 	ErrNoMessageFound error = errors.New("No message found when extracting")
 )
 
-// Valid messages have also a counter of how many peers the message was relayed to
-type validMessage struct {
+// Some messages might use a counter of how many peers the message was relayed to
+type storedMessage struct {
 	counter int
 	message horizontalapi.Push
 }
@@ -35,11 +35,11 @@ type dummyStrat struct {
 	// Array of peers channels, where messages can be sent
 	openConnections []chan<- horizontalapi.ToHz
 	// Collection of messages received from a peer which needs to be validated through the vertical api
-	invalidMessages *ringbuffer.Ringbuffer[*horizontalapi.Push]
+	invalidMessages *ringbuffer.Ringbuffer[*storedMessage]
 	// Collection of messages which need to be relayed to other peers.
-	validMessages *ringbuffer.Ringbuffer[*validMessage]
+	validMessages *ringbuffer.Ringbuffer[*storedMessage]
 	// Collection of messages already relayed to other peers
-	sentMessages *ringbuffer.Ringbuffer[*horizontalapi.Push]
+	sentMessages *ringbuffer.Ringbuffer[*storedMessage]
 }
 
 // Function to instantiate a new DummyStrategy.
@@ -51,9 +51,9 @@ func NewDummy(strategy Strategy, fromHz <-chan horizontalapi.FromHz, hzConnectio
 		fromHz:          fromHz,
 		hzConnection:    hzConnection,
 		openConnections: openConnections,
-		invalidMessages: ringbuffer.NewRingbuffer[*horizontalapi.Push](strategy.cacheSize),
-		validMessages:   ringbuffer.NewRingbuffer[*validMessage](strategy.cacheSize),
-		sentMessages:    ringbuffer.NewRingbuffer[*horizontalapi.Push](strategy.cacheSize),
+		invalidMessages: ringbuffer.NewRingbuffer[*storedMessage](strategy.cacheSize),
+		validMessages:   ringbuffer.NewRingbuffer[*storedMessage](strategy.cacheSize),
+		sentMessages:    ringbuffer.NewRingbuffer[*storedMessage](strategy.cacheSize),
 	}
 }
 
@@ -74,13 +74,14 @@ func (dummy *dummyStrat) Listen() {
 				switch msg := x.(type) {
 				case horizontalapi.Push:
 					notification := convertPushToNotification(msg)
-					_, err1 := fetchMessage(dummy.sentMessages, msg.MessageID)
-					_, err2 := fetchCountedMessage(dummy.validMessages, msg.MessageID)
+					_, err1 := findFirstMessage(dummy.sentMessages, msg.MessageID)
+					_, err2 := findFirstMessage(dummy.validMessages, msg.MessageID)
+					_, err3 := findFirstMessage(dummy.invalidMessages, msg.MessageID)
 
-					// If the message was not already sent, move it to the invalidMessages
+					// If the message was not already received, move it to the invalidMessages
 					// and send a notification to vert API
-					if err1 == ErrNoMessageFound && err2 == ErrNoMessageFound {
-						dummy.invalidMessages.Insert(&msg)
+					if err1 != nil && err2 != nil && err3 != nil {
+						dummy.invalidMessages.Insert(&storedMessage{0, msg})
 						dummy.rootStrat.strategyChannels.FromStrat <- notification
 						dummy.rootStrat.log.Debug("HZ Message received:", "type", reflect.TypeOf(msg), "msg", msg)
 					}
@@ -96,9 +97,10 @@ func (dummy *dummyStrat) Listen() {
 				case common.GossipAnnounce:
 					pushMsg := convertAnnounceToPush(x)
 					// We consider Announce messages automatically valid
-					dummy.validMessages.Insert(&validMessage{0, pushMsg})
+					dummy.validMessages.Insert(&storedMessage{0, pushMsg})
 				case common.GossipValidation:
-					msg, err := extractMessage(dummy.invalidMessages, x.MessageId)
+					msg, err := findFirstMessage(dummy.invalidMessages, x.MessageId)
+					dummy.invalidMessages.Remove(msg)
 
 					if err != nil {
 						dummy.rootStrat.log.Warn("Tried to validate a message which did not exists", "Message ID", x.MessageId)
@@ -106,7 +108,7 @@ func (dummy *dummyStrat) Listen() {
 					}
 
 					if x.Valid {
-						dummy.validMessages.Insert(&validMessage{0, *msg})
+						dummy.validMessages.Insert(msg)
 					}
 				}
 
@@ -114,7 +116,7 @@ func (dummy *dummyStrat) Listen() {
 			case <-ticker.C:
 				// A random peer is selected and we relay all messages to that peer.
 				idx := mrand.Intn(len(dummy.openConnections))
-				dummy.validMessages.Do((func(msg *validMessage) {
+				dummy.validMessages.Do((func(msg *storedMessage) {
 					//dummy.rootStrat.log.Debug("DST conn", "conn", dummy.openConnections[idx])
 					dummy.openConnections[idx] <- msg.message
 					dummy.rootStrat.log.Debug("HZ Message sent:", "dst", "tbi", "msg", msg)
@@ -123,7 +125,7 @@ func (dummy *dummyStrat) Listen() {
 					// If message was sent to args.Degree neighboughrs delete it from the set of messages
 					if msg.counter >= int(dummy.rootStrat.degree) {
 						dummy.validMessages.Remove(msg)
-						dummy.sentMessages.Insert(&msg.message)
+						dummy.sentMessages.Insert(msg)
 					}
 				}))
 
@@ -133,21 +135,8 @@ func (dummy *dummyStrat) Listen() {
 }
 
 // Go throught a ringbuffer of messages and return the one with a matching ID, error if none is found
-func fetchMessage(ring *ringbuffer.Ringbuffer[*horizontalapi.Push], messageId uint16) (*horizontalapi.Push, error) {
-	result := ring.Filter(func(p *horizontalapi.Push) bool {
-		return p.MessageID == messageId
-	})
-
-	if len(result) == 0 {
-		return nil, ErrNoMessageFound
-	}
-
-	return result[0], nil
-}
-
-// Go throught a ringbuffer of messages and return the one with a matching ID, error if none is found
-func fetchCountedMessage(ring *ringbuffer.Ringbuffer[*validMessage], messageId uint16) (*validMessage, error) {
-	result := ring.Filter(func(p *validMessage) bool {
+func findFirstMessage(ring *ringbuffer.Ringbuffer[*storedMessage], messageId uint16) (*storedMessage, error) {
+	result := ring.Filter(func(p *storedMessage) bool {
 		return p.message.MessageID == messageId
 	})
 
@@ -156,18 +145,6 @@ func fetchCountedMessage(ring *ringbuffer.Ringbuffer[*validMessage], messageId u
 	}
 
 	return result[0], nil
-}
-
-// Go throught a ringbuffer of messages and return the one with a matching ID, error if none is found.
-// Also remove the message from the buffer
-func extractMessage(ring *ringbuffer.Ringbuffer[*horizontalapi.Push], messageId uint16) (*horizontalapi.Push, error) {
-	msg, err := fetchMessage(ring, messageId)
-	if err != nil {
-		return nil, err
-	}
-
-	ring.Remove(msg)
-	return msg, nil
 }
 
 // Convert a Gossip Announce message to a Horizontal Push message. Message ID is chosen at random.
