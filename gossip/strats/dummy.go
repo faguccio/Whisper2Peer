@@ -51,9 +51,9 @@ func NewDummy(strategy Strategy, fromHz <-chan horizontalapi.FromHz, hzConnectio
 		fromHz:          fromHz,
 		hzConnection:    hzConnection,
 		openConnections: openConnections,
-		invalidMessages: ringbuffer.NewRingbuffer[*storedMessage](strategy.cacheSize),
-		validMessages:   ringbuffer.NewRingbuffer[*storedMessage](strategy.cacheSize),
-		sentMessages:    ringbuffer.NewRingbuffer[*storedMessage](strategy.cacheSize),
+		invalidMessages: ringbuffer.NewRingbuffer[*storedMessage](strategy.stratArgs.Cache_size),
+		validMessages:   ringbuffer.NewRingbuffer[*storedMessage](strategy.stratArgs.Cache_size),
+		sentMessages:    ringbuffer.NewRingbuffer[*storedMessage](strategy.stratArgs.Cache_size),
 	}
 }
 
@@ -123,7 +123,7 @@ func (dummy *dummyStrat) Listen() {
 					msg.counter++
 
 					// If message was sent to args.Degree neighboughrs delete it from the set of messages
-					if msg.counter >= int(dummy.rootStrat.degree) {
+					if msg.counter >= int(dummy.rootStrat.stratArgs.Degree) {
 						dummy.validMessages.Remove(msg)
 						dummy.sentMessages.Insert(msg)
 					}
