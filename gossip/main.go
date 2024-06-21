@@ -18,12 +18,12 @@ import (
 	_ "gopkg.in/ini.v1"
 )
 
-func logInit(identiefier any) *slog.Logger {
+func logInit(identifier any) *slog.Logger {
 	return slog.New(tint.NewHandler(os.Stdout, &tint.Options{
 		Level:      slog.LevelDebug,
 		TimeFormat: time.RFC3339,
 		NoColor:    false,
-	})).With("id", identiefier)
+	})).With("id", identifier)
 }
 
 type Main struct {

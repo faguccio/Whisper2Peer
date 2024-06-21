@@ -97,3 +97,20 @@ func (r *Ringbuffer[T]) Filter(f func(T) bool) []T {
 	}
 	return result
 }
+
+// FindFirs returns the first occurance on which the funciton f returns true
+func (r *Ringbuffer[T]) FindFirst(f func(T) bool) (T, error) {
+	var ret T
+
+	if r.len == 0 {
+		return ret, ErrNotPresent
+	}
+
+	for i := r.data.Next(); i != r.data; i = i.Next() {
+		if f(i.Value.(T)) {
+			return i.Value.(T), nil
+		}
+	}
+
+	return r.data.Value.(T), ErrNotPresent
+}

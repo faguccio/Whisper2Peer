@@ -135,16 +135,12 @@ func (dummy *dummyStrat) Listen() {
 }
 
 // Go throught a ringbuffer of messages and return the one with a matching ID, error if none is found
+// This function is needed just for a closure
 func findFirstMessage(ring *ringbuffer.Ringbuffer[*storedMessage], messageId uint16) (*storedMessage, error) {
-	result := ring.Filter(func(p *storedMessage) bool {
+	res, err := ring.FindFirst(func(p *storedMessage) bool {
 		return p.message.MessageID == messageId
 	})
-
-	if len(result) == 0 {
-		return nil, ErrNoMessageFound
-	}
-
-	return result[0], nil
+	return res, err
 }
 
 // Convert a Gossip Announce message to a Horizontal Push message. Message ID is chosen at random.

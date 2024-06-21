@@ -120,3 +120,29 @@ func TestFilter(t *testing.T) {
 		t.Fatalf("After filter application ringbuffer should be %v but is %v", should, res)
 	}
 }
+
+func TestFindFirst(t *testing.T) {
+	rb := ringbuffer.NewRingbuffer[int](30)
+
+	for i := 1; i < 30; i++ {
+		rb.Insert(i)
+	}
+
+	res, _ := rb.FindFirst(func(a int) bool {
+		return a == 23
+	})
+
+	should := 23
+
+	if !reflect.DeepEqual(res, should) {
+		t.Fatalf("Find first should have found %v but found %v", should, res)
+	}
+
+	_, err := rb.FindFirst(func(a int) bool {
+		return a == 50
+	})
+
+	if err == nil {
+		t.Fatalf("Found first should have found nothing")
+	}
+}
