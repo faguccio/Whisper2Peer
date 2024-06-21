@@ -69,11 +69,11 @@ func NewMain() *Main {
 }
 
 func (m *Main) run() {
-	va := verticalapi.NewVerticalApi(m.log.With("module", "vertAPI"), m.vertToMain)
+	va := verticalapi.NewVerticalApi(m.log, m.vertToMain)
 	va.Listen(m.args.Vert_addr)
 	defer va.Close()
 
-	strategy, err := gs.New(m.log.With("module", "strategy"), m.args, m.strategyChannels)
+	strategy, err := gs.New(m.log, m.args, m.strategyChannels)
 	if err != nil {
 		m.mlog.Error("Error on instantiating the strategy", "err", err)
 	}

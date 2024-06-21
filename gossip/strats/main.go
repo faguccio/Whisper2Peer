@@ -1,16 +1,23 @@
 package strats
 
 import (
+	"context"
 	"fmt"
 	"gossip/common"
 	horizontalapi "gossip/horizontalAPI"
 	"gossip/internal/args"
+	"net"
+	"strings"
 
 	"log/slog"
 )
 
 // This struct represents a base strategy, which is an abstraction over common fields (and in the future, methods) to all strategies.
 type Strategy struct {
+	// internally uses a context to signal when the goroutines shall terminate
+	cancel context.CancelFunc
+	// internally uses a context to signal when the goroutines shall terminate
+	ctx context.Context
 	// Internally spawn and uses the horizotal API
 	hz               *horizontalapi.HorizontalApi
 	strategyChannels StrategyChannels
@@ -39,18 +46,22 @@ type StrategyChannels struct {
 func New(log *slog.Logger, args args.Args, stratChans StrategyChannels) (StrategyCloser, error) {
 
 	fromHz := make(chan horizontalapi.FromHz, 1)
-	hz := horizontalapi.NewHorizontalApi(log.With("module", "horzAPI"), fromHz)
+	hz := horizontalapi.NewHorizontalApi(log, fromHz)
+	// context is only used internally -> no need to pass it to the constructor
+	ctx, cancel := context.WithCancel(context.Background())
 	strategy := Strategy{
+		cancel:           cancel,
+		ctx:              ctx,
 		hz:               hz,
 		strategyChannels: stratChans,
-		log:              log,
 		stratArgs:        args,
+		log:              log.With("module", "strategy"),
 	}
 
 	hzConnection := make(chan horizontalapi.NewConn, 1)
 	hz.Listen(args.Hz_addr, hzConnection)
 
-	openConnections, err := hz.AddNeighbors(args.Peer_addrs...)
+	openConnections, err := hz.AddNeighbors(&net.Dialer{LocalAddr: &net.TCPAddr{IP: net.ParseIP(strings.SplitN(args.Hz_addr, ":", 2)[0]), Port: 0}}, args.Peer_addrs...)
 
 	if err != nil {
 		return nil, fmt.Errorf("The error occured while initiating the gossip module %w", err)
@@ -63,5 +74,6 @@ func New(log *slog.Logger, args args.Args, stratChans StrategyChannels) (Strateg
 
 // Simply closes the horizontal API
 func (strt *Strategy) Close() {
+	strt.cancel()
 	strt.hz.Close()
 }

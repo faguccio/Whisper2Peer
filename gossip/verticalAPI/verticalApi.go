@@ -38,7 +38,7 @@ type VerticalApi struct {
 	wg sync.WaitGroup
 }
 
-// Use this function to instanciate the vertical api
+// Use this function to instantiate the vertical api
 //
 // The vertToMainChans serve as backchannel to the main package. Depending on
 // what message type was received, the message struct will be sent on the
@@ -56,7 +56,7 @@ func NewVerticalApi(log *slog.Logger, vertToMainChan chan<- common.FromVert) *Ve
 		ln:             nil,
 		conns:          make(map[net.Conn]struct{}, 0),
 		vertToMainChan: vertToMainChan,
-		log:            log,
+		log:            log.With("module", "vertAPI"),
 	}
 }
 

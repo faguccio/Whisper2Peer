@@ -84,7 +84,7 @@ func TestHorizontalApi(test *testing.T) {
 	}
 	defer hz2.Close()
 
-	ns, err := hz1.AddNeighbors("localhost:13378")
+	ns, err := hz1.AddNeighbors(&net.Dialer{}, "localhost:13378")
 	if err != nil {
 		test.Fatalf("adding neighbor for horizontalApi 1 failed with %v", err)
 	}
