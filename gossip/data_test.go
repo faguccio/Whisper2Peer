@@ -1,12 +1,13 @@
 package main
 
 import (
+	"fmt"
 	"gossip/common"
+	"sync"
 	"testing"
-	"time"
 )
 
-func TestConcurrentLoading(test *testing.T) {
+func TestConcurrentAdding(test *testing.T) {
 	store := NewNotifyMap()
 	vert_type := common.GossipType(42)
 
@@ -18,17 +19,75 @@ func TestConcurrentLoading(test *testing.T) {
 		})
 	}
 
+	var wg sync.WaitGroup
+
 	for i := 0; i < 100; i++ {
+		wg.Add(1)
+
 		i := i
 		go func() {
-			store.AddChannelToType(vert_type, &common.Conn[common.RegisteredModule]{Data: *modules[i]})
+			defer wg.Done()
+			store.AddChannelToType(vert_type, &common.Conn[common.RegisteredModule]{Data: *modules[i], Id: common.ConnectionId(fmt.Sprint(i))})
 		}()
 	}
 
-	time.Sleep(20 * time.Millisecond)
+	err := store.AddChannelToType(vert_type, &common.Conn[common.RegisteredModule]{Data: *modules[5], Id: common.ConnectionId(fmt.Sprint(5))})
+
+	if err == nil {
+		test.Fatalf("Registered error multiple times but no error returned")
+
+	}
+
+	wg.Wait()
 
 	registered := store.Load(vert_type)
 	if len(registered) != 100 {
 		test.Fatalf("A race condition happend while doing concurrent writes to the type store")
 	}
+}
+
+func TestRemoveChannel(t *testing.T) {
+	var wg sync.WaitGroup
+
+	for i := 0; i < 1; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			store := NewNotifyMap()
+
+			var modules []*common.RegisteredModule
+			vert_type1 := common.GossipType(42)
+			vert_type2 := common.GossipType(420)
+
+			for i := 0; i < 3; i++ {
+				modules = append(modules, &common.RegisteredModule{
+					MainToVert: make(chan common.ToVert),
+				})
+			}
+
+			store.AddChannelToType(vert_type1, &common.Conn[common.RegisteredModule]{Data: *modules[0], Id: "a"})
+			store.AddChannelToType(vert_type1, &common.Conn[common.RegisteredModule]{Data: *modules[1], Id: "b"})
+			store.AddChannelToType(vert_type1, &common.Conn[common.RegisteredModule]{Data: *modules[1], Id: "b"})
+			store.AddChannelToType(vert_type2, &common.Conn[common.RegisteredModule]{Data: *modules[2], Id: "c"})
+			store.AddChannelToType(vert_type2, &common.Conn[common.RegisteredModule]{Data: *modules[1], Id: "b"})
+
+			store.RemoveChannel("b")
+
+			res1 := store.Load(vert_type1)
+			for _, conn := range res1 {
+				if conn.Id == "b" {
+					t.Fatalf("Connection was not deleted from registerd type %v", vert_type1)
+				}
+			}
+
+			res2 := store.Load(vert_type2)
+			for _, conn := range res2 {
+				if conn.Id == "b" {
+					t.Fatalf("Connection was not deleted from registerd type %v", vert_type2)
+				}
+			}
+		}()
+	}
+
+	wg.Wait()
 }

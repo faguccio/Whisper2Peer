@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"gossip/common"
 	"sync"
 )
@@ -30,21 +31,32 @@ func (nm *notifyMap) Load(gossip_type common.GossipType) []*common.Conn[common.R
 // which are listening for Gossip Notification of such type.
 //
 // If the number of registered types excede the cache size, the first registered type will be deleted
-func (nm *notifyMap) AddChannelToType(gossip_type common.GossipType, new_channel *common.Conn[common.RegisteredModule]) {
-	// TODO can register multiple times with same type?
+func (nm *notifyMap) AddChannelToType(gossip_type common.GossipType, new_channel *common.Conn[common.RegisteredModule]) error {
 	nm.Lock()
 	defer nm.Unlock()
+
+	{
+		reg := nm.data[gossip_type]
+
+		for _, conn := range reg {
+			if conn.Id == new_channel.Id {
+				return errors.New("Tried to register connection multiple times on type")
+			}
+		}
+	}
+
 	current_channels := nm.data[gossip_type]
 	current_channels = append(current_channels, new_channel)
 	nm.data[gossip_type] = current_channels
+	return nil
 }
 
-func (nm *notifyMap) RemoveChannel(unreg common.GossipUnRegister) {
+func (nm *notifyMap) RemoveChannel(unreg common.ConnectionId) {
 	nm.Lock()
 	defer nm.Unlock()
 	for k, l := range nm.data {
 		for i, j := range l {
-			if j.Id == common.ConnectionId(unreg) {
+			if j.Id == unreg {
 				l[i] = l[len(l)-1]
 				nm.data[k] = l[:len(l)-1]
 				break

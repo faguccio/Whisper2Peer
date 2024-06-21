@@ -111,7 +111,7 @@ loop:
 }
 
 func (m *Main) handleModuleUnregister(msg common.GossipUnRegister) {
-	m.typeStorage.RemoveChannel(msg)
+	m.typeStorage.RemoveChannel(common.ConnectionId(msg))
 	m.mlog.Info("Unregistered module", "module", msg)
 	// TODO talk about invalidating messages (not feasible I think, also this should only concern a rather short timeframe)
 }
@@ -119,9 +119,12 @@ func (m *Main) handleModuleUnregister(msg common.GossipUnRegister) {
 // Handle incoming Gossip Registration (Notify) Messages
 func (m *Main) handleTypeRegistration(msg common.GossipRegister) {
 	typeToRegister := common.GossipType(msg.Data.DataType)
-	listeningModule := msg.Module
-	m.typeStorage.AddChannelToType(typeToRegister, listeningModule)
-	m.mlog.Info("Registered module", "module", typeToRegister, "type", m.typeStorage.Load(typeToRegister))
+	err := m.typeStorage.AddChannelToType(typeToRegister, msg.Module)
+	if err != nil {
+		m.mlog.Warn("Skipped registration of module", "type", typeToRegister, "module", msg.Module.Id)
+	} else {
+		m.mlog.Info("Registered module", "type", typeToRegister, "module", msg.Module.Id)
+	}
 }
 
 // Handle incoming Gossip Validation messages.
