@@ -2,6 +2,7 @@ package verticalapi
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"gossip/common"
 	vertTypes "gossip/verticalAPI/types"
@@ -135,6 +136,9 @@ func (v *VerticalApi) handleConnection(conn net.Conn, regMod common.RegisteredMo
 			case <-v.ctx.Done():
 				return
 			default:
+			}
+			if errors.Is(err, io.EOF) {
+				return
 			}
 			v.log.Error("Read on vertical API failed", "err", err)
 			continue

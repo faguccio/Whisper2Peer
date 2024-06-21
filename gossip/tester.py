@@ -1,4 +1,5 @@
 import subprocess
+import time
 
 
 def run_command(command):
@@ -20,19 +21,19 @@ def run_command(command):
         print(f"An error occurred: {e}")
 
 
-nodes = ["127.0.0.1", "127.0.0.2", "127.0.0.3", "127.0.0.4", "127.0.0.5"]
+nodes = ["127.0.0.1", "127.0.0.2"]  # , "127.0.0.3", "127.0.0.4", "127.0.0.5"]
 
 edges = [
-    (nodes[0], nodes[1]),
-    (nodes[0], nodes[2]),
-    (nodes[1], nodes[3]),
-    (nodes[2], nodes[4]),
-    (nodes[3], nodes[4]),
+    (nodes[1], nodes[0]),
+    # (nodes[2], nodes[0]),
+    # (nodes[3], nodes[1]),
+    # (nodes[4], nodes[2]),
+    # (nodes[4], nodes[3]),
 ]
 
 # For now cache size and degree is equal for everybody
 cache_size = 50
-degree = 30
+degree = 2
 
 full_commands = []
 
@@ -44,14 +45,15 @@ for node in nodes:
     for edge in edges:
         if edge[0] == node:
             peers += edge[1] + ":7001 "
-        if edge[1] == node:
-            peers += edge[0] + ":7001 "
 
-    command = f"go run main.go data.go --degree {degree} --cache {cache_size} --vaddr {vaddr} --haddr {haddr}  {peers}"
+    command = f"./gossip --degree {degree} --cache {cache_size} --vaddr {vaddr} --haddr {haddr}  {peers}"
     full_commands.append(command)
 
+
+subprocess.run(["make", "build"])
 for command in full_commands:
     print(command)
+    time.sleep(.1)
     run_command(command)
 
 # OUTPUT not really readable, loggin level should be changed

@@ -8,7 +8,7 @@ import (
 
 func extractToSlice[T comparable](rb *ringbuffer.Ringbuffer[T]) []T {
 	ret := make([]T, 0)
-	rb.Do(func(x T){
+	rb.Do(func(x T) {
 		ret = append(ret, x)
 	})
 	return ret
@@ -30,21 +30,21 @@ func TestRingbuffer(t *testing.T) {
 	}
 
 	rb.Insert(1)
-	should = []int{1,0}
+	should = []int{1, 0}
 	is = extractToSlice(rb)
 	if !reflect.DeepEqual(is, should) {
 		t.Fatalf("Ringbuffer should be %v but is %v", should, is)
 	}
 
 	rb.Insert(2)
-	should = []int{2,0,1}
+	should = []int{2, 0, 1}
 	is = extractToSlice(rb)
 	if !reflect.DeepEqual(is, should) {
 		t.Fatalf("Ringbuffer should be %v but is %v", should, is)
 	}
 
 	rb.Insert(3)
-	should = []int{3,1,2}
+	should = []int{3, 1, 2}
 	is = extractToSlice(rb)
 	if !reflect.DeepEqual(is, should) {
 		t.Fatalf("Ringbuffer should be %v but is %v", should, is)
@@ -59,14 +59,14 @@ func TestRingbuffer(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Removing 2 in state %v should have returned an error but was %v", is, err)
 	}
-	should = []int{3,1}
+	should = []int{3, 1}
 	is = extractToSlice(rb)
 	if !reflect.DeepEqual(is, should) {
 		t.Fatalf("Ringbuffer should be %v but is %v", should, is)
 	}
 
 	rb.Insert(4)
-	should = []int{4,1,3}
+	should = []int{4, 1, 3}
 	is = extractToSlice(rb)
 	if !reflect.DeepEqual(is, should) {
 		t.Fatalf("Ringbuffer should be %v but is %v", should, is)
@@ -76,7 +76,7 @@ func TestRingbuffer(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Removing 4 in state %v should have returned an error but was %v", is, err)
 	}
-	should = []int{1,3}
+	should = []int{1, 3}
 	is = extractToSlice(rb)
 	if !reflect.DeepEqual(is, should) {
 		t.Fatalf("Ringbuffer should be %v but is %v", should, is)
@@ -100,5 +100,49 @@ func TestRingbuffer(t *testing.T) {
 	is = extractToSlice(rb)
 	if !reflect.DeepEqual(is, should) {
 		t.Fatalf("Ringbuffer should be %v but is %v", should, is)
+	}
+}
+
+func TestFilter(t *testing.T) {
+	rb := ringbuffer.NewRingbuffer[int](6)
+
+	for i := 1; i < 8; i++ {
+		rb.Insert(i)
+	}
+
+	res := rb.Filter(func(a int) bool {
+		return a%2 == 0
+	})
+
+	should := []int{2, 4, 6}
+
+	if !reflect.DeepEqual(res, should) {
+		t.Fatalf("After filter application ringbuffer should be %v but is %v", should, res)
+	}
+}
+
+func TestFindFirst(t *testing.T) {
+	rb := ringbuffer.NewRingbuffer[int](30)
+
+	for i := 1; i < 30; i++ {
+		rb.Insert(i)
+	}
+
+	res, _ := rb.FindFirst(func(a int) bool {
+		return a == 23
+	})
+
+	should := 23
+
+	if !reflect.DeepEqual(res, should) {
+		t.Fatalf("Find first should have found %v but found %v", should, res)
+	}
+
+	_, err := rb.FindFirst(func(a int) bool {
+		return a == 50
+	})
+
+	if err == nil {
+		t.Fatalf("Found first should have found nothing")
 	}
 }

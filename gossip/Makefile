@@ -1,6 +1,6 @@
-.PHONY: format test staticcheck all mrproper generate
+.PHONY: format test staticcheck all mrproper generate build
 
-all: format test staticcheck checkUnion
+all: format test staticcheck checkUnion build
 
 format:
 	go fmt ./...
@@ -23,3 +23,6 @@ test_coverage:
 
 mrproper:
 	$(RM) ./horizontalAPI/types/*.go
+
+build:
+	go build

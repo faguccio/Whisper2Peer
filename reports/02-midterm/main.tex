@@ -1,0 +1,86 @@
+\documentclass[a4paper,english,10pt,NET]{tumarticle}
+
+% TUM packages
+\usepackage{tumfonts}
+\usepackage{tumarticle}
+\usepackage{tumlocale}
+\usepackage{tumcmd}
+
+\usepackage{graphicx} % Required for inserting images
+\usepackage[style=american]{csquotes}
+\usepackage{hyperref}
+\usepackage{xspace}
+\usepackage{booktabs}
+\usepackage{siunitx}
+\usepackage{todo}
+
+\renewcommand{\eg}{\mbox{e.\,g.}\xspace} % already defined in tumcmd but without xspace
+\renewcommand{\ie}{\mbox{i.\,e.}\xspace} % already defined in tumcmd but without xspace
+\newcommand{\cf}{\mbox{c.\,f.}\xspace}
+\newcommand{\tos}{$\to$\xspace}
+
+% Set document title. If no language is supplied, the document language is
+% assumed.
+\title{P2Psec Project -- Midterm Report}
+\author{Fabio Gaiba, Lukas Heindl}
+\date{July 2nd, 2024}
+
+\begin{document}
+
+\maketitle
+\thispagestyle{tumarticle}
+
+\section{Introduction}
+
+Let's remember the team name \textbf{Whisper2Peer} :)
+
+\section{Changes to initial assumptions}
+
+\section{Module Architecture}
+
+\subsection{Logical structure}
+
+classes, ..., 
+
+\subsection{Process architecture}
+
+threading, multi-process, ... (a lot of intersection with the classes, but I think here we can go in depth about the communication part)
+
+\subsection{Networking} 
+
+AsyncIO, goroutines, ... ofc capnproto as well
+
+\section{Security Measures}
+
+E.g secure channels between peers, sybil resistance mechanism, concurrent lookup paths in DHT protocol, . . . 
+
+You should briefly describe the intention behind the security measure and how you want to implement it
+
+
+\section{Specification of the peer-to-peer protocol}
+
+(that will be implemented)
+
+Message formats (as given in this document)
+
+Reasoning why the messages are needed
+
+\section{Future Work}
+
+Features you wanted to include in the implementation but couldn’t finish so far
+
+
+\section{Workload distribution}
+
+
+\section{???}
+
+Effort spent for the project (please specify individual effort)
+
+I don't get the difference to Workload Distribution...
+
+
+
+\todos
+
+\end{document}
