@@ -1,5 +1,12 @@
 package common
 
+type ConnectionId string
+
+type Conn[T any] struct {
+	Id   ConnectionId
+	Data T
+}
+
 // This struct serves as collection of data needed to handle / communicate with
 // a registered module
 type RegisteredModule struct {
@@ -77,11 +84,16 @@ type GossipNotify struct {
 // Wrapper for the GossipNotify message which also includes data about the registration
 type GossipRegister struct {
 	Data   GossipNotify
-	Module *RegisteredModule
+	Module *Conn[RegisteredModule]
 }
 
 // Mark this type as fromVert
 func (e GossipRegister) isFromVert() {}
+
+type GossipUnRegister ConnectionId
+
+// Mark this type as fromVert
+func (e GossipUnRegister) isFromVert() {}
 
 // This type represents a GossipValidation packet in the verticalApi.
 type GossipValidation struct {

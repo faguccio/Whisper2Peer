@@ -86,7 +86,6 @@ func (m *Main) run() {
 
 loop:
 	for {
-		// m.mlog.Info("Another loop")
 		select {
 		case x := <-m.vertToMain:
 			switch x := x.(type) {
@@ -96,6 +95,8 @@ loop:
 				_ = m.handleGossipAnnounce(x)
 			case common.GossipRegister:
 				m.handleTypeRegistration(x)
+			case common.GossipUnRegister:
+				m.handleModuleUnregister(x)
 			}
 		case x := <-m.strategyChannels.FromStrat:
 			switch x := x.(type) {
@@ -109,17 +110,26 @@ loop:
 	m.mlog.Info("Main terminating")
 }
 
+func (m *Main) handleModuleUnregister(msg common.GossipUnRegister) {
+	m.typeStorage.RemoveChannel(common.ConnectionId(msg))
+	m.mlog.Info("Unregistered module", "module", msg)
+	// TODO talk about invalidating messages (not feasible I think, also this should only concern a rather short timeframe)
+}
+
 // Handle incoming Gossip Registration (Notify) Messages
 func (m *Main) handleTypeRegistration(msg common.GossipRegister) {
 	typeToRegister := common.GossipType(msg.Data.DataType)
-	listeningModule := msg.Module
-	m.typeStorage.AddChannelToType(typeToRegister, listeningModule)
-	m.mlog.Debug("Just registered: %d with val %v\n", "msg", typeToRegister, "as", m.typeStorage.Load(typeToRegister))
+	err := m.typeStorage.AddChannelToType(typeToRegister, msg.Module)
+	if err != nil {
+		m.mlog.Warn("Skipped registration of module", "type", typeToRegister, "module", msg.Module.Id)
+	} else {
+		m.mlog.Info("Registered module", "type", typeToRegister, "module", msg.Module.Id)
+	}
 }
 
 // Handle incoming Gossip Validation messages.
 func (m *Main) handleGossipValidation(msg common.GossipValidation) {
-	m.mlog.Debug("Validation data handled: ", "msg", msg)
+	m.mlog.Info("Validation data handled", "msg", msg)
 	m.strategyChannels.ToStrat <- msg
 }
 
@@ -133,7 +143,7 @@ func (m *Main) handleGossipAnnounce(msg common.GossipAnnounce) error {
 	}
 
 	announce_data := msg.Data
-	m.mlog.Debug("Gossip Announce", "msg", announce_data)
+	m.mlog.Info("Gossip Announce", "msg", announce_data)
 	// send to gossip
 	m.strategyChannels.ToStrat <- msg
 	return nil
@@ -153,7 +163,7 @@ func (m *Main) handleNotification(msg common.GossipNotification) error {
 	}
 
 	for _, r := range res {
-		r.MainToVert <- msg
+		r.Data.MainToVert <- msg
 	}
 	return nil
 }

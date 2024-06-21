@@ -29,8 +29,8 @@ func TestGorizontalApiWithPipe(test *testing.T) {
 	defer cRead.Close()
 
 	hz.wg.Add(2)
-	go hz.handleConnection(cRead, toHz)
-	go hz.writeToConnection(cWrite, toHz)
+	go hz.handleConnection(cRead, Conn[chan<- ToHz]{Data: toHz})
+	go hz.writeToConnection(cWrite, Conn[<-chan ToHz]{Data: toHz})
 
 	// send a notify message to register to the server and get the mainToVert
 	// channel in return
@@ -104,7 +104,7 @@ func TestHorizontalApi(test *testing.T) {
 
 	// send message
 	testLog.Info("sending", "msg", t)
-	ns[0] <- t
+	ns[0].Data <- t
 
 	// receive message
 	var u FromHz
