@@ -123,11 +123,14 @@ func (r *Ringbuffer[T]) FindFirst(f func(T) bool) (T, error) {
 		return ret, ErrNotPresent
 	}
 
+	if f(r.data.Value.(T)) {
+		return r.data.Value.(T), nil
+	}
 	for i := r.data.Next(); i != r.data; i = i.Next() {
 		if f(i.Value.(T)) {
 			return i.Value.(T), nil
 		}
 	}
 
-	return r.data.Value.(T), ErrNotPresent
+	return ret, ErrNotPresent
 }
