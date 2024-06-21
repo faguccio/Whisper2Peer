@@ -129,10 +129,20 @@ func TestFindFirst(t *testing.T) {
 	}
 
 	res, _ := rb.FindFirst(func(a int) bool {
+		return a == 29
+	})
+
+	should := 29
+
+	if !reflect.DeepEqual(res, should) {
+		t.Fatalf("Find first should have found %v but found %v", should, res)
+	}
+
+	res, _ = rb.FindFirst(func(a int) bool {
 		return a == 23
 	})
 
-	should := 23
+	should = 23
 
 	if !reflect.DeepEqual(res, should) {
 		t.Fatalf("Find first should have found %v but found %v", should, res)
