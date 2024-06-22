@@ -10,9 +10,24 @@
 \usepackage[style=american]{csquotes}
 \usepackage{hyperref}
 \usepackage{xspace}
+
+\usepackage{tabularx}
 \usepackage{booktabs}
+
 \usepackage{siunitx}
 \usepackage{todo}
+
+\usepackage{cleveref}
+
+\usepackage{tikz}
+\usepackage{pgf-umlcd}
+\usepackage{messagepassing}
+\usepackage{bytefield}
+\usetikzlibrary{arrows.meta,calc,fit,positioning,decorations.pathmorphing}
+\tikzset{
+	>={Stealth[scale=0.7]},
+	every edge/.style={>={Stealth[scale=0.7]},draw,},
+}
 
 \renewcommand{\eg}{\mbox{e.\,g.}\xspace} % already defined in tumcmd but without xspace
 \renewcommand{\ie}{\mbox{i.\,e.}\xspace} % already defined in tumcmd but without xspace
@@ -38,13 +53,34 @@ Let's remember the team name \textbf{Whisper2Peer} :)
 
 \section{Module Architecture}
 
+\begin{figure}
+	\centering
+	\input{figures/overview}
+	\caption{A high level overview of the modules and the channels.}
+	\label{fig:overview}
+\end{figure}
+
 \subsection{Logical structure}
 
 classes, ..., 
 
+% \begin{figure}
+% 	\centering
+% 	\input{figures/cd}
+% 	\caption{Class diagram.}
+% 	\label{fig:cd}
+% \end{figure}
+
 \subsection{Process architecture}
 
 threading, multi-process, ... (a lot of intersection with the classes, but I think here we can go in depth about the communication part)
+
+\begin{figure}
+	\centering
+	\input{figures/sequence}
+	\caption{Messagepassing of one instance/scenario.}
+	\label{fig:msg}
+\end{figure}
 
 \subsection{Networking} 
 
@@ -65,13 +101,35 @@ Message formats (as given in this document)
 
 Reasoning why the messages are needed
 
+\subsection{capnproto}
+\subsubsection{push}
+\begin{table}
+	\centering
+	\begin{tabularx}{.85\linewidth}{llX}
+		\toprule
+		Field & Type & Description
+		\\
+		\midrule
+		ttl & Uint8 & Time to live: specifies nodes with which distance to the \Todo{reveicing/transmitting} should still be reached
+		\\
+		gossipType & Uint16 & Type of the payload (set by the module talking on the vertical API)
+		\\
+		messageId & Uint16 & Identifier of this message
+		\\
+		payload & Data & Bytes of data that is spread in the network
+		\\
+		\bottomrule
+	\end{tabularx}
+	\caption{Contents of a push packet.}
+	\label{tab:push}
+\end{table}
+See \cref{tab:push} for reference.
+
 \section{Future Work}
 
 Features you wanted to include in the implementation but couldn’t finish so far
 
-
 \section{Workload distribution}
-
 
 \section{???}
 

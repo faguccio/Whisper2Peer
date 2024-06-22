@@ -1,0 +1,66 @@
+\begin{tikzpicture}[
+	]
+	\coordinate (tmp);
+
+	\begin{package}{horizontalAPI}
+		\begin{class}[text width=1\linewidth]{HorizontalAPI}{tmp}
+			\operation{Listen(addr string, newConn chan<- NewConn): error}
+			\operation{AddNeighbors(dialer *net.Dialer, addrs ...string): ([]Conn[chan<- ToHz], error)}
+			\operation{Close(): error}
+		\end{class}
+	\end{package}
+
+	\coordinate[yshift=-7ex] (tmp) at (horizontalAPI.south);
+
+	\begin{package}{verticalAPI}
+		\begin{class}[text width=\linewidth]{VerticalAPI}{tmp}
+			\operation{Listen(addr string): error}
+			\operation{Close(): error}
+		\end{class}
+	\end{package}
+
+	\coordinate[yshift=-7ex] (tmp) at (verticalAPI.south);
+
+	\begin{package}{strats}
+		\begin{class}[text width=\linewidth]{Strategy}{tmp}
+			\operation{Close(): error}
+		\end{class}
+		\coordinate[yshift=-1ex] (tmp) at (Strategy.south);
+		\begin{interface}[text width=\linewidth]{StrategyCloser}{tmp}
+			\operation{Listen()}
+			\operation{Close()}
+		\end{interface}
+	\end{package}
+
+	\coordinate[yshift=-7ex] (tmp) at (strats.south);
+
+	\begin{package}{ringbuffer}
+		\begin{class}[text width=\linewidth]{Ringbuffer}{tmp}
+			\operation{Insert(v T): void}
+			\operation{Remove(v T): error}
+			\operation{Do(f func(T): void): void}
+			\operation{Filter(f func(T): bool): []T}
+			\operation{FindFirst(f func(T): bool): (T,error)}
+		\end{class}
+	\end{package}
+
+	\coordinate[yshift=-7ex] (tmp) at (ringbuffer.south);
+
+	\begin{package}{common}
+		\begin{class}[text width=\linewidth]{GossipNotification}{tmp}
+			\attribute{MessageId: uint16}
+			\attribute{DataType: GossipType}
+			\attribute{Data: []byte}
+		\end{class}
+	\end{package}
+
+	\coordinate[yshift=-7ex] (tmp) at (common.south);
+
+	\begin{package}{args}
+		\begin{class}[text width=\linewidth]{Args}{tmp}
+			\attribute{name: attribute type}
+		\end{class}
+	\end{package}
+
+	\coordinate[yshift=-7ex] (tmp) at (args.south);
+\end{tikzpicture}
