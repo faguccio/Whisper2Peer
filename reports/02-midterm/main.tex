@@ -23,10 +23,19 @@
 \usepackage{pgf-umlcd}
 \usepackage{messagepassing}
 \usepackage{bytefield}
-\usetikzlibrary{arrows.meta,calc,fit,positioning,decorations.pathmorphing}
+\usetikzlibrary{arrows.meta,calc,fit,positioning,decorations.pathmorphing,automata,shapes}
 \tikzset{
 	>={Stealth[scale=0.7]},
 	every edge/.style={>={Stealth[scale=0.7]},draw,},
+	automata/.style={
+		->,
+		every edge/.style={>={Stealth[scale=1.3]},font=\footnotesize,shorten >=1pt,draw,},
+		font=\small,
+		initial text={},
+		every state/.style={draw=TUMBlue,very thick,fill=TUMLightBlue,ellipse,},
+		every loop/.style={looseness=5,},
+		node distance=1.8cm and 2.3cm,
+	},
 }
 
 \renewcommand{\eg}{\mbox{e.\,g.}\xspace} % already defined in tumcmd but without xspace
@@ -73,14 +82,21 @@ classes, ...,
 
 \subsection{Process architecture}
 
-threading, multi-process, ... (a lot of intersection with the classes, but I think here we can go in depth about the communication part)
-
 \begin{figure}
 	\centering
-	\input{figures/sequence}
-	\caption{Messagepassing of one instance/scenario.}
-	\label{fig:msg}
+	\input{figures/fsm_msgs}
+	\caption{Finite state machine for message caching.}
+	\label{fig:fsm_msgs}
 \end{figure}
+
+threading, multi-process, ... (a lot of intersection with the classes, but I think here we can go in depth about the communication part)
+
+% \begin{figure}
+% 	\centering
+% 	\input{figures/sequence}
+% 	\caption{Messagepassing of one instance/scenario.}
+% 	\label{fig:msg}
+% \end{figure}
 
 \subsection{Networking} 
 
