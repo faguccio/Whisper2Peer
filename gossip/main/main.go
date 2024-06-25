@@ -131,7 +131,7 @@ func (m *Main) handleTypeRegistration(msg common.GossipRegister) {
 
 // Handle incoming Gossip Validation messages.
 func (m *Main) handleGossipValidation(msg common.GossipValidation) {
-	m.mlog.Info("Validation data handled", "msg", msg)
+	m.mlog.Info("Validation data handled", "Message", msg)
 	m.strategyChannels.ToStrat <- msg
 }
 
@@ -145,7 +145,7 @@ func (m *Main) handleGossipAnnounce(msg common.GossipAnnounce) error {
 	}
 
 	announce_data := msg.Data
-	m.mlog.Info("Gossip Announce", "msg", announce_data)
+	m.mlog.Info("Gossip Announce", "Message", announce_data)
 	// send to gossip
 	m.strategyChannels.ToStrat <- msg
 	return nil
