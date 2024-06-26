@@ -20,7 +20,6 @@
 \usepackage{cleveref}
 
 \usepackage{tikz}
-\usepackage{pgf-umlcd}
 \usepackage{messagepassing}
 \usepackage{bytefield}
 \usetikzlibrary{arrows.meta,calc,fit,positioning,decorations.pathmorphing,automata,shapes}
@@ -85,7 +84,7 @@ Let's remember the team name \textbf{Whisper2Peer} :)
 \subsection{Process architecture}
 % TODO(Fabio)
 
-\Todo{come up with scenario (reg, announce | notify > validation) to explain message-passing}
+\Todo{come up with scenario (reg, announce \quad|\quad notify > validation) to explain message-passing}
 \Todo{figure for message types on different channels}
 
 \begin{figure}
@@ -132,21 +131,7 @@ Reasoning why the messages are needed
 \subsubsection{push}
 \begin{table}
 	\centering
-	\begin{tabularx}{.85\linewidth}{llX}
-		\toprule
-		Field & Type & Description
-		\\
-		\midrule
-		ttl & Uint8 & Time to live: specifies nodes with which distance to the \Todo{reveicing/transmitting} should still be reached
-		\\
-		gossipType & Uint16 & Type of the payload (set by the module talking on the vertical API)
-		\\
-		messageId & Uint16 & Identifier of this message
-		\\
-		payload & Data & Bytes of data that is spread in the network
-		\\
-		\bottomrule
-	\end{tabularx}
+	\input{figures/hzMsgs_push}
 	\caption{Contents of a push packet.}
 	\label{tab:push}
 \end{table}

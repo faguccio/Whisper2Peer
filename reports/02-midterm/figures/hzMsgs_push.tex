@@ -1,0 +1,15 @@
+\begin{tabularx}{.85\linewidth}{llX}
+	\toprule
+	Field & Type & Description
+	\\
+	\midrule
+	ttl & Uint8 & Time to live: specifies nodes with which distance to the \Todo{reveicing/transmitting} should still be reached
+	\\
+	gossipType & Uint16 & Type of the payload (set by the module talking on the vertical API)
+	\\
+	messageId & Uint16 & Identifier of this message
+	\\
+	payload & Data & Bytes of data that is spread in the network
+	\\
+	\bottomrule
+\end{tabularx}
