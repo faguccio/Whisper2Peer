@@ -1,0 +1,14 @@
+\begin{tikzpicture}[automata]
+	\node[state, initial,initial text={new mID}] (inv) {invalid};
+	\node[state,accepting,right=of inv] (val) {valid};
+	\node[state,right=of val] (sent) {sent};
+	\node[state,below=of val] (del) {deleted};
+	%
+	\path (inv) edge[->] node[sloped,above] {valid=True} (val);
+	\path (val) edge node[sloped,above] {sent x times} (sent);
+	%
+	\path (inv) edge[bend right=10] node[sloped,below] {valid=False} (del);
+	\path (inv) edge[bend left=10] node[sloped,above] {cache full} (del);
+	\path (val) edge node[sloped,above] {cache full} (del);
+	\path (sent) edge node[sloped,above] {cache full} (del);
+\end{tikzpicture}
