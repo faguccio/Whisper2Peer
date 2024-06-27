@@ -78,6 +78,19 @@ Let's remember the team name \textbf{Whisper2Peer} :)
 \section{Changes to initial assumptions}
 % TODO(Fabio)
 
+For the most part, we committed to our initial proposals. The project is in Golang, with a simple python script that will be used later just for generating networks for end-to-end testing.
+
+\Todo{Check correctness python statement}
+
+As for the used libraries, we sticked to the ones mentioned in the initial report. We have chosen capnproto for the (de)serialization of our custom messages in the Horizontal peer-to-peer communication. 
+
+The majority of the changes in direction regarded the Quality of Software and the Testing parts. While we did leverage \textit{staticcheck} for static checking, we did not get into other checkers such as \textit{golangci-lint}. 
+
+On the other hand we explored the tool \href{https://github.com/BurntSushi/go-sumtype}{https://github.com/BurntSushi/go-sumtype} which allows us compile time checking for sum types, which is not included in the language out of the box. 
+
+Finally, while we have unit testing in place we have not experimented with git hooks yet. The same goes fot Gitlab CI, as it will be put in place for every team later in the project.
+
+
 \Todo{no substantial changes but few minor ones: no gitlab CI (see moodle), no git hooks yet}
 
 \section{Module Architecture}
