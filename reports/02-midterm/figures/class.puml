@@ -3,6 +3,7 @@
 top to bottom direction
 
 namespace verticalapi {
+namespace types {
     class GossipAnnounce << (S,Aquamarine) >> {
         + Ga common.GossipAnnounce
         + MessageHeader MessageHeader
@@ -10,7 +11,6 @@ namespace verticalapi {
         - isVertType() 
 
         + Unmarshal(buf []byte) (int, error)
-        + Marshal(buf []byte) ([]byte, error)
         + CalcSize() int
 
     }
@@ -20,7 +20,6 @@ namespace verticalapi {
 
         - isVertType() 
 
-        + Unmarshal(buf []byte) (int, error)
         + Marshal(buf []byte) ([]byte, error)
         + CalcSize() int
 
@@ -32,7 +31,6 @@ namespace verticalapi {
         - isVertType() 
 
         + Unmarshal(buf []byte) (int, error)
-        + Marshal(buf []byte) ([]byte, error)
         + CalcSize() int
 
     }
@@ -43,7 +41,6 @@ namespace verticalapi {
         - isVertType() 
 
         + Unmarshal(buf []byte) (int, error)
-        + Marshal(buf []byte) ([]byte, error)
         + CalcSize() int
 
     }
@@ -63,6 +60,12 @@ namespace verticalapi {
         + CalcSize() int
 
     }
+    class MessageType << (T, #FF7700) >>  {
+    }
+	note right
+		alias for uint16
+	end note
+	}
     class VerticalApi << (S,Aquamarine) >> {
         - cancel context.CancelFunc
         - ctx context.Context
@@ -79,33 +82,28 @@ namespace verticalapi {
         + Close() error
 
     }
-    class verticalapi.MessageType << (T, #FF7700) >>  {
-    }
-	note right
-		alias for uint16
-	end note
 }
 
-"verticalapi.VertType" <|.. "verticalapi.GossipAnnounce"
-"verticalapi.VertType" <|.. "verticalapi.GossipNotification"
-"verticalapi.VertType" <|.. "verticalapi.GossipNotify"
-"verticalapi.VertType" <|.. "verticalapi.GossipValidation"
+"verticalapi.types.VertType" <|.. "verticalapi.types.GossipAnnounce"
+"verticalapi.types.VertType" <|.. "verticalapi.types.GossipNotification"
+"verticalapi.types.VertType" <|.. "verticalapi.types.GossipNotify"
+"verticalapi.types.VertType" <|.. "verticalapi.types.GossipValidation"
 
 "verticalapi.VerticalApi" o-- "common.FromVert"
 
-"verticalapi.GossipAnnounce" o-- "common.GossipAnnounce"
-"verticalapi.GossipAnnounce" o-- "verticalapi.MessageHeader"
+"verticalapi.types.GossipAnnounce" o-- "common.GossipAnnounce"
+"verticalapi.types.GossipAnnounce" o-- "verticalapi.types.MessageHeader"
 
-"verticalapi.GossipNotification" o-- "common.GossipNotification"
-"verticalapi.GossipNotification" o-- "verticalapi.MessageHeader"
+"verticalapi.types.GossipNotification" o-- "common.GossipNotification"
+"verticalapi.types.GossipNotification" o-- "verticalapi.types.MessageHeader"
 
-"verticalapi.GossipNotify" o-- "common.GossipNotify"
-"verticalapi.GossipNotify" o-- "verticalapi.MessageHeader"
+"verticalapi.types.GossipNotify" o-- "common.GossipNotify"
+"verticalapi.types.GossipNotify" o-- "verticalapi.types.MessageHeader"
 
-"verticalapi.GossipValidation" o-- "common.GossipValidation"
-"verticalapi.GossipValidation" o-- "verticalapi.MessageHeader"
+"verticalapi.types.GossipValidation" o-- "common.GossipValidation"
+"verticalapi.types.GossipValidation" o-- "verticalapi.types.MessageHeader"
 
-"verticalapi.MessageHeader" o-- "verticalapi.MessageType"
+"verticalapi.types.MessageHeader" o-- "verticalapi.types.MessageType"
 
 "common.ConnectionId" <|.. "common.GossipUnRegister"
 "horizontalapi.Conn" <|.. "horizontalapi.NewConn"
@@ -115,7 +113,7 @@ namespace main {
     class Main << (S,Aquamarine) >> {
         - log *slog.Logger
         - mlog *slog.Logger
-        - args args.Args
+        - args internal/args.Args
         - typeStorage notifyMap
         - vertToMain <font color=blue>chan</font> common.FromVert
         - strategyChannels strats.StrategyChannels
@@ -138,7 +136,7 @@ namespace main {
     }
 }
 
-"main.Main" o-- "args.Args"
+"main.Main" o-- "internal/args.Args"
 "main.Main" o-- "main.notifyMap"
 "main.Main" o-- "common.FromVert"
 "main.Main" o-- "strats.StrategyChannels"
@@ -153,7 +151,7 @@ namespace strats {
         - hz *horizontalAPI.HorizontalApi
         - strategyChannels StrategyChannels
         - log *slog.Logger
-        - stratArgs args.Args
+        - stratArgs internal/args.Args
 
         + Close() 
 
@@ -173,9 +171,9 @@ namespace strats {
         - fromHz <font color=blue>chan</font> horizontalAPI.FromHz
         - hzConnection <font color=blue>chan</font> horizontalAPI.NewConn
         - openConnections []horizontalAPI.Conn[<font color=blue>chan</font> horizontalapi.ToHz]
-        - invalidMessages *ringbuffer.Ringbuffer[*storedMessage]
-        - validMessages *ringbuffer.Ringbuffer[*storedMessage]
-        - sentMessages *ringbuffer.Ringbuffer[*storedMessage]
+        - invalidMessages *internal/ringbuffer.Ringbuffer[*storedMessage]
+        - validMessages *internal/ringbuffer.Ringbuffer[*storedMessage]
+        - sentMessages *internal/ringbuffer.Ringbuffer[*storedMessage]
 
         + Listen() 
         + Close() 
@@ -197,13 +195,13 @@ namespace strats {
 
 "strats.Strategy" o-- "horizontalapi.HorizontalApi"
 "strats.Strategy" o-- "strats.StrategyChannels"
-"strats.Strategy" o-- "args.Args"
+"strats.Strategy" o-- "internal/args.Args"
 
 "strats.dummyStrat" o-- "horizontalapi.FromHz"
 "strats.dummyStrat" o-- "horizontalapi.ToHz"
 "strats.dummyStrat" o-- "horizontalapi.NewConn"
 "strats.dummyStrat" o-- "horizontalapi.Conn"
-"strats.dummyStrat" o-d- "ringbuffer.Ringbuffer"
+"strats.dummyStrat" o-d- "internal/ringbuffer.Ringbuffer"
 "strats.dummyStrat" o-- "strats.storedMessage"
 
 namespace horizontalapi {
@@ -225,11 +223,11 @@ namespace horizontalapi {
         - log *slog.Logger
         - wg sync.WaitGroup
 
-        - handleConnection(conn net.Conn, connData Conn) 
-        - writeToConnection(conn net.Conn, c Conn) 
+        - handleConnection(conn net.Conn, connData Conn[<font color=blue>chan</font> ToHz]) 
+        - writeToConnection(conn net.Conn, c Conn[<font color=blue>chan</font> ToHz]) 
 
         + Listen(addr string, newConn <font color=blue>chan</font> NewConn) error
-        + AddNeighbors(dialer *net.Dialer, addrs ...string) ([]Conn, error)
+        + AddNeighbors(dialer *net.Dialer, addrs ...string) ([]Conn[<font color=blue>chan</font> ToHz], error)
         + Close() error
 
     }
@@ -255,7 +253,7 @@ namespace horizontalapi {
     class horizontalapi.NewConn << (T, #FF7700) >>  {
     }
 	note left
-		alias for Conn
+		alias for Conn[<font color=blue>chan</font> ToHz]
 	end note
     class horizontalapi.Unregister << (T, #FF7700) >>  {
         - canFromHz() 
@@ -276,9 +274,10 @@ namespace horizontalapi {
 "horizontalapi.Push" o-- "common.GossipType"
 
 "horizontalapi.HorizontalApi" o-- "horizontalapi.FromHz"
+"horizontalapi.HorizontalApi" o-r- "horizontalapi.Conn"
 
 
-namespace ringbuffer {
+namespace internal/ringbuffer {
     class Ringbuffer<comparable constrains T> << (S,Aquamarine) >> {
         - data *ring.Ring
         - len uint
@@ -403,7 +402,7 @@ namespace common {
 "common.RegisteredModule" o-- "common.ToVert"
 
 
-namespace args {
+namespace internal/args {
     class Args << (S,Aquamarine) >> {
         + Degree uint
         + Cache_size uint
