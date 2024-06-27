@@ -46,6 +46,7 @@
 % TODO verticalAPI horizontalAPI
 % TODO reference (footnote) to capnproto
 % TODO thread ~ goroutine
+% TODO talk about the actual gossip strategy?
 
 % Set document title. If no language is supplied, the document language is
 % assumed.
@@ -185,32 +186,33 @@ You should briefly describe the intention behind the security measure and how yo
 
 
 \section{Specification of the peer-to-peer protocol}
-\begin{itemize}
-	\item for now only one message concrete type needed push
-	\item push is (obv) needed to spread information in the network
-	\item p2p protocol is specified/implemented using capnproto (see -- ref back to structure)
-		=> concrete message format not specified, only which fields are available and what type they have (see table)
-	\item Actual sent messages are of type message which only contains a single union over all messages possibly being sent over this connection. At the moment push message type is the only one contained in this union. This way er are ready when more types are needed
-\end{itemize}
-% TODO(Lukas)
+This module works with two protocol, one on the verticalAPI and one on the horizontalAPI.
+The one for the verticalAPI was already predetermined, its specification can be found in the \emph{specification.pdf} document.
+For the other one we had the freedom to develop something on our own.
+To avoid having to write the de-\,/\,parsing ourself, we chose to use capnproto.
+Capnproto is a data serialization format which comes with libraries in multiple different languages.
+With capnproto you only specify what data (\enquote{name} and type) should be in the message.
+The concrete message format is then the concern of capnproto.
 
-(that will be implemented)
+With this in mind, it makes no real sense to include the conrete format of the messages but only the names of the fields and their type.
+As of now we only have one message type on the horizontalAPI, namely the \emph{push} message type.
+Its fields and types can be seen in \cref{tab:push}.
+This message type is used to actively send information to the neighboring peers.
 
-Message formats (as given in this document)
+The actual message sent on the horizontalAPI is not the raw \emph{push} message type but a more generic message type which is a simple union of all message types that can be sent on the horizontalAPI.
+At the moment there is only the \emph{push} message type but having in mind what we have planned, we will need more in the future (\cref{sec:future})
+This approach makes is possible to add more message types as we go by simply adding more types to this union.
+The nice thing at this point is that capnproto handles the complete checking which message type was actually sent (resolving the union so to speek).
+This way we do not need to come up with \eg a messageType field on our own and assign identifieres for the individual types.
 
-Reasoning why the messages are needed
-
-\subsection{capnproto}
-\subsubsection{push}
 \begin{table}
 	\centering
 	\input{figures/hzMsgs_push}
-	\caption{Contents of a push packet.}
+	\caption{Contents of a push message.}
 	\label{tab:push}
 \end{table}
-See \cref{tab:push} for reference.
 
-\section{Future Work}
+\section{Future Work} \label{sec:future}
 \begin{itemize}
 	\item currently only unit tests \tos end to end tests would be nice to test if everything works well together. Plan on using a simple network (for which we can make assumptions which nodes should/have to receive the message), start up the peers and instruct one node on the verticalAPI to spread a message
 	\item this end to end testing already lays the foundation for larger scale benchmarking of our gossip strategy (test different parameters, use a much larger (randomly generated but fixed for reproducibility) network)
@@ -226,6 +228,7 @@ See \cref{tab:push} for reference.
 			\item If there still is time left we intend to optimize the PoW further so that a node is not overwhelmed by too many PoW requests
 		\end{itemize}
 \end{itemize}
+% TODO do a subsection for the security part if we go into detail here
 % TODO(Lukas)
 
 \section{Workload distribution}
