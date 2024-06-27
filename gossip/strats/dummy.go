@@ -117,7 +117,13 @@ func (dummy *dummyStrat) Listen() {
 					}
 
 					if x.Valid {
-						dummy.validMessages.Insert(msg)
+						if msg.message.TTL == 1 {
+							dummy.sentMessages.Insert(msg)
+						} else {
+							msg.message.TTL = max(msg.message.TTL-1, 0)
+
+							dummy.validMessages.Insert(msg)
+						}
 					}
 				}
 
