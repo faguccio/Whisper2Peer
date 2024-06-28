@@ -158,11 +158,29 @@ This way we avoid the necessity to include the \texttt{verticalAPI/types} packag
 	\end{figure}
 \end{landscape}
 
-\subsection{Process architecture} \label{sec:msgpassing}
-% TODO(Fabio)
+\subsection{Process architecture}
+
+To explain the current process architecture, we opted to first give a general overview of how the processes are spawned and supposed to communicate through channels. Then we present details on which type of messages can be sent over which channels and finally a few scenarios will be displayed to show how the threads communicate with each other.
+
+\subsubsection{Processes (threads) Creation}
+
+\textbf{Main} is the entry point of the whole module. This thread will spawn a \textbf{Listener} \textit{Vertical API} thread that will keep accepting new connection to the module. For each new connection, two new routines are spawned: one that will \textbf{receive} and process messages and one that will \textbf{send} messages. Communication directed to or from routines created by Vertical API happen through respectively with the \textbf{toVert} and \textbf{fromVert} channels.
+
+Then, \textbf{Main} will create the \textbf{Strategy} thread, which will then spawn a \textbf{Listener} thread for the {Horizontal API}. The latter, similarly to the Vertical, will accept new connection ans create for each one two threads, one for reading and one for writing. Communication between Main and Strategy routines happen in the \textbf{fromStrat} and \textbf{toStrat} channels, while Strategy communicates with threads of Horizontal with the \textbf{fromHz} and \textbf{toHz} channels.
+
+As already mentioned, there is actually no communication between Horizontal API goroutines and the Main. The communication can again be seen in figure \ref{fig:overview}. It is important to note that there will actually be multiple channels directed to the Vertical API (toVert), as well as multiple channels directed to the Horizontal API (toHz). This is because incoming messages from the network are aggregated on the same channel while outgoing messages will be sent to specific hosts, so different channels.
+
+\subsubsection{Message Types}
+
+\Todo{figure for message types on different channels}
+
+\subsubsection{Scenario 1: Gossip Notify Message}
+
+\subsubsection{Scenario 2: Gossip Announce Message}
+
+\subsubsection{Scenario 3: Peer Relayed a Message}
 
 \Todo{come up with scenario (reg, announce \quad|\quad notify > validation) to explain message-passing}
-\Todo{figure for message types on different channels}
 
 \begin{figure}
 	\centering
