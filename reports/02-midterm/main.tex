@@ -13,6 +13,7 @@
 
 \usepackage{tabularx}
 \usepackage{booktabs}
+\usepackage{pdflscape}
 
 \usepackage{siunitx}
 \usepackage{todo}
@@ -80,6 +81,16 @@ Let's remember the team name \textbf{Whisper2Peer} :)
 
 % TODO(Lukas)
 \Todo{class diagram (landscape page)}
+
+\begin{landscape}
+	\pagestyle{empty}
+	\begin{figure}
+		\centering
+		\hspace*{-0.1\linewidth}\includegraphics[width=1.2\linewidth]{figures/class}
+		\caption{Class diagram.}
+		\label{fig:class:dia}
+	\end{figure}
+\end{landscape}
 
 \subsection{Process architecture}
 % TODO(Fabio)

@@ -1,17 +1,23 @@
 .PHONY: clean spellA spellT cont count
 
 MAIN  = main
-FILES = $(MAIN).tex Makefile
+FILES = $(MAIN).tex $(wildcard figures/*.pdf) $(wildcard figures/*.png) $(wildcard figures/*.jpg) $(wildcard figures/*.tex) Makefile
 
 AUX = tex-aux
 OPT =
 
 .PRECIOUS: $(MAIN).pdf
 
-$(MAIN).pdf: $(FILES)
+$(MAIN).pdf: $(FILES) figures/class.pdf
 	test -d $(AUX) || mkdir $(AUX)
 	[[ "$$(whoami)" == "lukas" ]] && ./cluttex_teal --output-directory=$(AUX) --change-directory -e pdflatex $(OPT) "$<" || true
 	[[ "$$(whoami)" != "lukas" ]] && tectonic "$<" || true
+
+figures/class.pdf: figures/class.svg
+	cd figures && inkscape --export-filename=class.pdf class.svg
+
+figures/class.svg: figures/class.puml
+	cd figures && plantuml -tsvg class.puml
 
 cont: $(FILES)
 	$(MAKE) OPT="--watch=inotifywait"
