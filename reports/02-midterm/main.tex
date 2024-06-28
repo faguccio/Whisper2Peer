@@ -90,13 +90,24 @@ On the other hand we explored the tool \href{https://github.com/BurntSushi/go-su
 
 Finally, while we have unit testing in place we have not experimented with git hooks yet. The same goes fot Gitlab CI, as it will be put in place for every team later in the project.
 
-
-\Todo{no substantial changes but few minor ones: no gitlab CI (see moodle), no git hooks yet}
-
 \section{Module Architecture}
 % TODO(Fabio)
 
-\Todo{describe highlevel overview}
+We decided to divide the project into four main packages, plus two support ones. Those main packages are described in the figure \ref{fig:overview}. The following is just a brief overview, each part will be discussed more precisely later in the report.
+
+\begin{itemize}
+	\item \textbf{Main}: is in charge of managing the whole module. It has to take and use the configuration parameters, orchestrate the other components and filter and relay messages. Moreover in this package we define the data structure that holds in memory the registered \textit{Gossip Types}.
+	\item \textbf{Vertical API}: its main goal is to manage connection to other modules. It provides an abstraction over the networking part and manages under the hood the marshaling and un-marshaling of the messages.
+	\item \textbf{Horizontal API}: is very similar to the Vertical API, except it has to communicate with the peer's Gossip modules.
+	\item \textbf{Gossip-Strategy}: this package is in charge of instantiating a concrete strategy for disseminating the information between peers. It will leverage the Horizontal API to communicate with peers, focusing just on how to handle the messages.
+\end{itemize}
+
+In addition to these four packages, there are also a \textbf{Common} package, holding common data types, and a \textbf{Ringbuffer} package, defining a circular queue data structure used to store data to be spread in the network.  
+
+Those modules will create threads which can communicate with message passing, as can be seen again in the figure \ref{fig:overview}. This design decision allow the program to be highly scalable (due to the parallelization of the threads) and also lightweight (as threads can wait on messages in case there is none to be received).
+
+\Todo{check last paragraph as I am not super sure}
+
 \begin{figure}
 	\centering
 	\input{figures/overview}
