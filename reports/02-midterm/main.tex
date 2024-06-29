@@ -20,6 +20,7 @@
 
 \usepackage{cleveref}
 
+\usepackage[svgnames]{xcolor}
 \usepackage{tikz}
 \usepackage{messagepassing}
 \usepackage{bytefield}
@@ -37,6 +38,11 @@
 		node distance=1.8cm and 2.3cm,
 	},
 }
+
+\definecolor{Type}{HTML}{FF7700}
+\definecolor{Interface}{HTML}{B4A7E5}
+\colorlet{Struct}{Aquamarine}
+\NewDocumentCommand{\PumlCircle}{mm}{\tikz[baseline=(n.base)]\node[inner sep=0.07em,circle,fill=#1,draw=black] (n) {\texttt{#2}};}
 
 \renewcommand{\eg}{\mbox{e.\,g.}\xspace} % already defined in tumcmd but without xspace
 \renewcommand{\ie}{\mbox{i.\,e.}\xspace} % already defined in tumcmd but without xspace
@@ -87,8 +93,8 @@ Using UML class diagrams is the standard way of modeling the logical structure o
 It quickly shows how classes are connected\,/\,coupled and what data a class stores.
 
 The UML class diagram for the packages of our project can be seen in \cref{fig:classDia}.
-The turquise \texttt{S} marks a struct/class, the lila \texttt{I} marks inferfaces and the orange \texttt{T} marks a type.
-Types (as marked with \texttt{T}) usually are simple type aliases for an existing class (or a builtin type of golang).
+The \PumlCircle{Struct}{S} marks a struct/class, the \PumlCircle{Interface}{I} marks inferfaces and the orange \PumlCircle{Type}{T} marks a type.
+Types (as marked with \PumlCircle{Type}{T}) usually are simple type aliases for an existing class (or a builtin type of golang).
 Note that for a better overview, this diagram is mostly structured like \cref{fig:overview} with the verticalAPI on the left and the horizontalAPI on the right.
 
 In our case most of the communication is not done by function calls but by message passing.
@@ -110,6 +116,10 @@ In most cases the constructor is pretty straight forward.
 The \texttt{strategy} package is an exception to this.
 Here there is only one generic constructor \texttt{New} which returns an object which implements the \texttt{StrategyCloser} interface (at the moment this is only the \texttt{dummyStrat}).
 Which strategy is to be used is decided by the generic constructor based on the arguments.
+
+One additional special case might be the \texttt{common} package.
+First this was contained in the \texttt{verticalAPI/types} package but as we progressed, we figured it would be a good idea to extract the definition of some message types we use throughout the whole module.
+This way we avoid the necessety to include the \texttt{verticalAPI/types} package everywhere.
 
 \begin{landscape}
 	\pagestyle{empty}
