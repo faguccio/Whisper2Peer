@@ -255,7 +255,19 @@ Also note how this use of one thread per read\,/\,write on the connection combin
 
 \section{Security Measures}
 
+Currently, as a node starts, it will receive a list of the peer node to connect to. A peer will accept any new connection, which makes the system vulnerable to \textit{Sybils Attacks} and consequently \textit{Eclipse Attacks}. We plan to mitigate this problem by introducing a Identity Validation system based on a computational Proof of Work (PoW).
 
+\subsection{Identity Validation}
+
+When a peer is asked to accept a new connection, it will send a challenge (random nonce) $r$. Based on $r$ and a variable local part $v$, the other peer will compute a hash which should start with $n$ leading zeros, much like in the registration challenge for the project. $n$ can be a configuration parameters, meaning that nodes could choose how strong they want proof of work from newly connected nodes (and how much strong PoWs are they willing to compute when trying to connect to a peer).
+
+This will mitigate a Sybil Attack, since the attacker, in order to create multiple identities, has to overcome multiple Proofs of Work. But the attacker can still share its resources by sequentially add nodes. To counteract this possibility, the idea is to request PoW periodically. More on this can be found in the Future Work section \ref{sec:future}.
+
+\subsubsection{Periodical Proofs of Work}
+
+A node will periodically ask to the accepted peers for a PoW. At the same time the node will be prompted by the peer which it has connected to for PoWs. An attacker would have to compute such PoWs for each fake identity, making resource sharing not possible anymore.
+
+Currently the idea needs to be further explored, but multiple requests for PoW could be aggregated into a single PoW so that a node does not waste to much resources into multiple PoW. Still an attacker would need to compute 1 PoW for each fake identity. PoWs could also be preemptively asked to facilitate even more this aggregation (since there is no global synchronization). More on this matter can be found in 
 
 \Todo{not in place, but put some thought into it (PoW for participation) \tos \cf future work}
 
