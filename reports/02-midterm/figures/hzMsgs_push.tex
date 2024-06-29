@@ -3,11 +3,11 @@
 	Field & Type & Description
 	\\
 	\midrule
-	ttl & Uint8 & Time to live: specifies nodes with which distance to the \Todo{reveicing/transmitting} should still be reached
+	ttl & Uint8 & Time to live: specifies nodes until which distance to the transmitting node should be reached ($\text{TTL} = 0 \text{ means } \infty$)
 	\\
-	gossipType & Uint16 & Type of the payload (set by the module talking on the vertical API)
+	gossipType & Uint16 & Type of the payload (set by the module talking on the verticalAPI)
 	\\
-	messageId & Uint16 & Identifier of this message
+	messageID & Uint16 & Identifier of this message (randomely chosen by the strategy)
 	\\
 	payload & Data & Bytes of data that is spread in the network
 	\\
