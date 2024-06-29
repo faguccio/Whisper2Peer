@@ -232,12 +232,16 @@ This way we do not need to come up with \eg a messageType field on our own and a
 % TODO(Lukas)
 
 \section{Workload distribution}
+As already outlined, we split our module in various different packages.
+This enabled us to distribute the packages and work independently from each other (apart from defining the commmunication\,/\,interface of course).
 
 % TODO(Fabio)
 \Todo{Fabio: strategy (peeer programming), vertAPI (testing), main (both)}
 
-% TODO(Lukas)
-\Todo{Lukas: horAPI, vertAPI -> common (code, copy-paste from regClient), main (both)}
+Lukas worked on the horizontalAPI and the verticalAPI (from which the common package later was derived).
+Note that at least writing the de-\,/\,parsing of the verticalAPI was pretty straight forward because it is fairly similar to what we needed to do for the registration client.
+
+While Fabio started working on the main package, Lukas later did some refactoring and finalized the package.
 
 
 \todos
