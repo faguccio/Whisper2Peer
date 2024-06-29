@@ -162,7 +162,7 @@ For the networking, first we need to differentiate between the two APIs our modu
 First, the verticalAPI and second the horizontalAPI.
 
 \subsubsection{verticalAPI}
-On the verticalAPI we communicate with other modules running on the same peer.
+On the verticalAPI we communicate with other modules typically running on the same peer.
 At this point, these modules are implemented by someone else (\eg another team in the lecture).
 Therefore, we were handed a specification which defines the format of the messages on that API.
 With the hard requirement to adhere to this specification it is not possible for us to use capnproto at this point so we need to implement the de-\,/\,parsing on our own.
