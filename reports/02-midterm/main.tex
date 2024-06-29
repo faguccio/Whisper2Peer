@@ -162,7 +162,7 @@ This way we avoid the necessity to include the \texttt{verticalAPI/types} packag
 
 To explain the current process architecture, we opted to first give a general overview of how the processes are spawned and supposed to communicate through channels. Then we present details on which type of messages can be sent over which channels and finally a few scenarios will be displayed to show how the threads communicate with each other.
 
-\subsubsection{Processes (threads) Creation}
+\subsubsection{Processes (threads) Creation} \label{process-creation}
 
 \textbf{Main} is the entry point of the whole module. This thread will spawn a \textbf{Listener} \textit{Vertical API} thread that will keep accepting new connection to the module. For each new connection, two new routines are spawned: one that will \textbf{receive} and process messages and one that will \textbf{send} messages. Communication directed to or from routines created by Vertical API happen through respectively with the \textbf{toVert} and \textbf{fromVert} channels.
 
@@ -176,18 +176,29 @@ As already mentioned, there is actually no communication between Horizontal API 
 
 \subsubsection{Scenario 1: Gossip Notify Message}
 
-\subsubsection{Scenario 2: Gossip Announce Message}
+The first scenario we want to display is the reception of a Gossip Notification message. For the sake of clarity, a single Vertical API thread is used to show both the writing and reading threads.
 
-\subsubsection{Scenario 3: Peer Relayed a Message}
-
-\Todo{come up with scenario (reg, announce \quad|\quad notify > validation) to explain message-passing}
+In this case the message passing is trivial \ref{fig:msg-notify}. The Vertical API receive the message, marshal it and send it to the main thread where the Gossip Type will be registered. It's interesting to notice that what we store is the writing communication channel. As previously mentioned \ref{process-creation}, there are multiple writing channels, one for each hosts. This will greatly simplify the sending procedure.
 
 \begin{figure}
 	\centering
-	\input{figures/sequence}
-	\caption{Messagepassing of one instance/scenario.}
-	\label{fig:msg}
+	\input{figures/msgpass-notify}
+	\caption{Message passing when a Gossip Notify message is received}
+	\label{fig:msg-notify}
 \end{figure}
+
+\subsubsection{Scenario 2: Peer Relayed a Message}
+
+
+
+
+
+\subsubsection{Scenario 3: Gossip Announce Message}
+
+
+\Todo{come up with scenario (reg, announce \quad|\quad notify > validation) to explain message-passing}
+
+
 
 % \begin{figure}
 % 	\centering
