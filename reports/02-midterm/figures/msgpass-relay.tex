@@ -3,11 +3,11 @@
     \newprocesswithlength{main}{9}
     \newprocesswithlength{strat}{9}
 	\newprocesswithlength{hzAPI}{9}
-	\sendwithname{hzAPI}{1}{strat}{2}{peer-msg}
+	\sendwithname{hzAPI}{1}{strat}{2}{PUSH}
 	\sendwithname{strat}{2}{main}{3}{notific}
 	\sendwithname{main}{3}{vertAPI}{4}{notific}
 	\sendwithname{vertAPI}{4}{main}{5}{val}
 	\sendwithname{main}{5}{strat}{6}{val}
-	\sendwithname{strat}{6}{hzAPI}{7}{peer-msg}
+	\sendwithname{strat}{6}{hzAPI}{7}{PUSH}
 	
 \end{messagepassing}

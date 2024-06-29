@@ -1,0 +1,9 @@
+\begin{messagepassing}
+	\newprocesswithlength{vertAPI}{9}
+    \newprocesswithlength{main}{9}
+    \newprocesswithlength{strat}{9}
+	\newprocesswithlength{hzAPI}{9}
+	\sendwithname{vertAPI}{1}{main}{2}{ann}
+	\sendwithname{main}{2}{strat}{3}{ann}
+	\sendwithname{strat}{3}{hzAPI}{4}{PUSH}	
+\end{messagepassing}
