@@ -76,7 +76,6 @@ Let's remember the team name \textbf{Whisper2Peer} :)
 \Todo{write later, summary of the rest, not strictly needed but would be nice}
 
 \section{Changes to initial assumptions}
-% TODO(Fabio)
 
 For the most part, we committed to our initial proposals. The project is in Golang, with a simple python script that will be used later just for generating networks for end-to-end testing.
 
@@ -91,7 +90,6 @@ On the other hand we explored the tool \href{https://github.com/BurntSushi/go-su
 Finally, while we have unit testing in place we have not experimented with git hooks yet. The same goes fot Gitlab CI, as it will be put in place for every team later in the project.
 
 \section{Module Architecture}
-% TODO(Fabio)
 
 We decided to divide the project into four main packages, plus two support ones. Those main packages are described in the figure \ref{fig:overview}. The following is just a brief overview, each part will be discussed more precisely later in the report.
 
@@ -198,8 +196,6 @@ In this last scenario, a Gossip Announce message is sent to the Vertical API (ve
 	\label{fig:msg-announce}
 \end{figure}
 
-\Todo{come up with scenario (reg, announce \quad|\quad notify > validation) to explain message-passing}
-
 
 \subsubsection{Scenario 3: Peer Relayed a Message}
 
@@ -258,7 +254,8 @@ Also note how this use of one thread per read\,/\,write on the connection combin
 
 
 \section{Security Measures}
-% TODO(Fabio)
+
+
 
 \Todo{not in place, but put some thought into it (PoW for participation) \tos \cf future work}
 
