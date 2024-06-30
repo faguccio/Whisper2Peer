@@ -29,7 +29,7 @@ clean:
 	-test -d $(AUX)  && $(RM) -r $(AUX)
 
 spellA: $(FILES)
-	-aspell --home-dir=. --personal=dict.txt -l de_DE -t -c "$<"
+	-aspell --home-dir=. --personal=dict.txt -l en_US -t -c "$<"
 	iconv -f ISO-8859-1 -t UTF-8 ./dict.txt > ./dict.txt2
 spellT: $(FILES)
-	-textidote --check de --remove tikzpicture --replace replacements.txt --dict ./dict.txt2 --output html "$<" > $(MAIN)-texidote.html
+	-textidote --check en --remove tikzpicture --replace replacements.txt --dict ./dict.txt2 --output html "$<" > $(MAIN)-texidote.html
