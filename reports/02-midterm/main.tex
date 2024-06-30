@@ -69,9 +69,14 @@
 \thispagestyle{tumarticle}
 
 \section{Introduction}
-% TODO(no one for now)
 
-In this document we will introduce our module \textbf{Whisper2Peer} overall design. We will first go through the changes to the initial assumptions, mainly regarding testing and quality of software. Then we will show the module architecture, both from a logical and a concurrent standpoint. We will give sample scenarios to understand how messages are processed and travel the program. We will also show our own abstractions over the networking.
+In this document we will introduce the overall design of our module \textbf{Whisper2Peer}.
+We will first go through the changes to the initial assumptions, mainly regarding testing and quality of software.
+Then we will show the module architecture from a logical standpoint and the different threads used in the process.
+Since we are using golang, our threads are actually goroutines.
+Note that for simplicity we are using the both terms \emph{goroutine} and \emph{thread} interchangeable.
+We will give sample scenarios to understand how messages are processed and travel the program.
+We will also show our own abstractions over the networking.
 
 Later we will discuss the security measure we intend to implement, and also the peer-to-peer protocol we put in place. Finally, we will explore what work remains to be done and how the workload was distributed between the team members.
 
