@@ -26,7 +26,9 @@
 
 \usepackage{tikz}
 \usepackage{messagepassing}
-\oobcolor{gray}
+\ifdefined\oobcolor\oobcolor{gray}\fi
+\ifdefined\oobcolour\oobcolour{gray}\fi
+
 \usepackage{bytefield}
 \usetikzlibrary{arrows.meta,calc,fit,positioning,decorations.pathmorphing,automata,shapes}
 \tikzset{
@@ -52,10 +54,11 @@
 \renewcommand{\ie}{\mbox{i.\,e.}\xspace} % already defined in tumcmd but without xspace
 \newcommand{\cf}{\mbox{c.\,f.}\xspace}
 \newcommand{\tos}{$\to$\xspace}
+
 % TODO message passing vs messagepassing
 % TODO verticalAPI horizontalAPI
-% TODO reference (footnote) to capnproto
 % TODO thread ~ goroutine
+
 % TODO talk about the actual gossip strategy?
 
 % Set document title. If no language is supplied, the document language is
@@ -72,38 +75,38 @@
 \section{Introduction}
 % TODO(no one for now)
 
-In this document we will introduce our module \textbf{Whisper2Peer} overall design. We will first go through the changes to the initial assumptions, mainly regarding Testing and Quality of Software. Then we will show the module architecture, both from a logical and a concurrent standpoint. We will give sample scenarios to understand how messages are processed and travel the program. We will show also our own abstractions over the networking.
+In this document we will introduce our module \textbf{Whisper2Peer} overall design. We will first go through the changes to the initial assumptions, mainly regarding testing and quality of software. Then we will show the module architecture, both from a logical and a concurrent standpoint. We will give sample scenarios to understand how messages are processed and travel the program. We will also show our own abstractions over the networking.
 
-Later we will discuss the Security Measure we intend to implement, and also the peer to peer protocol we put in place. Finally we will explore the work it remains to be done and how the workload was distributed between the members.
+Later we will discuss the security measure we intend to implement, and also the peer-to-peer protocol we put in place. Finally, we will explore what work remains to be done and how the workload was distributed between the team members.
 
 % \Todo{write later, summary of the rest, not strictly needed but would be nice}
 
 \section{Changes to initial assumptions}
 
-For the most part, we committed to our initial proposals. The project is in Golang, with a simple python script that will be used later just for generating networks for end-to-end testing.
+For the most part, we committed to our initial proposal. The project is developed in golang, with a simple python script that will be used later to generate networks for end-to-end testing.
 
-As for the used libraries, we sticked to the ones mentioned in the initial report. We have chosen \texttt{capnproto} for the (de)serialization of our custom messages in the Horizontal peer-to-peer communication. 
+As for the used libraries, we sticked to the ones mentioned in the initial report. We have chosen \texttt{capnproto} for the (de)serialization of our custom messages in the horizontal peer-to-peer communication. 
 
-The majority of the changes in direction regarded the Quality of Software and the Testing parts. While we did leverage \textit{staticcheck} for static checking, we did not get into other checkers such as \textit{golangci-lint}. 
+The majority of the changes in direction concern the quality of software and the testing parts. While we did leverage \textit{staticcheck} for static checking, we did not get into other checkers such as \textit{golangci-lint}. 
 
-On the other hand we explored the tool \textit{go-sumtype} \ref{sumtypes} which allows us compile time checking for sum types, which is not included in the language out of the box. 
+On the other hand we explored the tool \textit{go-sumtype} \cref{sumtypes} which allows us to do compile time checking for sum types. These types are not included in the language out of the box. 
 
-Finally, while we have unit testing in place we have not experimented with git hooks yet. The same goes fot Gitlab CI, as it will be put in place for every team later in the project.
+Finally, while we have unit testing in place we have not experimented with git hooks yet. The same goes for Gitlab CI, as it will be put in place for every team later in the project.
 
 \section{Module Architecture}
 
-We decided to divide the project into four main packages, plus two support ones. Those main packages are described in the figure \ref{fig:overview}. The following is just a brief overview, each part will be discussed more precisely later in the report.
+We decided to divide the project into four main packages, plus two support ones. Those main packages are described in \cref{fig:overview}. The following is just a brief overview, each part will be discussed in more detail in the following subsections.
 
 \begin{itemize}
-	\item \textbf{Main}: is in charge of managing the whole module. It has to take and use the configuration parameters, orchestrate the other components and filter and relay messages. Moreover in this package we define the data structure that holds in memory the registered \textit{Gossip Types}.
+	\item \textbf{Main}: is in charge of managing the whole module. It has to take and use the configuration parameters, orchestrate the other components and filter and relay messages. Moreover, in this package we define the data structure that holds in memory the registered \textit{Gossip Types}.
 	\item \textbf{Vertical API}: its main goal is to manage connection to other modules. It provides an abstraction over the networking part and manages under the hood the marshaling and un-marshaling of the messages.
 	\item \textbf{Horizontal API}: is very similar to the \texttt{Vertical API}, except it has to communicate with the peer's Gossip modules.
 	\item \textbf{Gossip-Strategy}: this package is in charge of instantiating a concrete strategy for disseminating the information between peers. It will leverage the \texttt{Horizontal API} to communicate with peers, focusing just on how to handle the messages.
 \end{itemize}
 
-In addition to these four packages, there are also a \textbf{Common} package, holding common data types, and a \textbf{Ringbuffer} package, defining a circular queue data structure used to store data to be spread in the network.  
+In addition to these four packages, there are also a \textbf{Common} package, holding common data types, and an internal \textbf{Ringbuffer} package, defining a circular queue data structure used to store data to be spread in the network.  
 
-Those modules will create threads which can communicate with message passing, as can be seen again in \cref{fig:overview}. This design decision allows the program to be highly scalable due to the degree of parallelization.
+Those modules will create threads which communicate with message passing, as can be seen again in \cref{fig:overview}. This design decision allows the program to be highly scalable due to the degree of parallelization.
 
 \begin{figure}
 	\centering
@@ -161,21 +164,18 @@ To explain the current process architecture, we opted to first give a general ov
 
 \subsubsection{Processes (threads) Creation} \label{process-creation}
 
-\texttt{Main} is the entry point of the whole module. This thread will spawn a Listener \texttt{Vertical API} thread that will keep accepting new connection to the module. For each new connection, two new routines are spawned: one that will receive and process messages and one that will send messages. Communication directed to or from routines created by \texttt{Vertical API} happen respectively with the \texttt{toVert} and \texttt{fromVert} channels.
+\texttt{Main} is the entry point of the whole module. This thread will spawn a listener \texttt{Vertical API} thread that will keep accepting new connection to the module from other modules following the specification of the problem statement. For each new connection, two new routines are spawned: one that will receive and process messages and one that will send messages. Communication directed to or from routines created by \texttt{Vertical API} happens respectively with channels of the \texttt{ToVert} and \texttt{FromVert} types.
 
-Then, \texttt{Main} will create the \texttt{Strategy} thread, which will then spawn a Listener thread for the \texttt{Horizontal API}. The latter, similarly to the \texttt{Vertical API}, will accept new connection and create for each one two threads, one for reading and one for writing. Communication between \texttt{Main} and \texttt{Strategy} routines happen in the \texttt{fromStrat} and \texttt{toStrat} channels, while \texttt{Strategy} communicates with threads of \texttt{Horizontal API} with the \texttt{fromHz} and \texttt{toHz} channels.
+Then, \texttt{Main} will create the \texttt{Strategy} thread, which will then spawn a listener thread for the \texttt{Horizontal API}. The latter, similarly to the \texttt{Vertical API}, will accept new connection and creates for each one two threads, one for reading and one for writing. Communication between \texttt{Main} and \texttt{Strategy} routines happens via the \texttt{FromStrat} and \texttt{ToStrat} channels, while \texttt{Strategy} communicates with threads of \texttt{Horizontal API} via the \texttt{FromHz} and \texttt{ToHz} channels.
 
-As already mentioned, there is actually no communication between \texttt{Horizontal API} goroutines and the \texttt{Main}. The communication can again be seen in \cref{fig:overview}. It is important to note that there will actually be multiple channels directed to the \textit{Vertical API} (\texttt{toVert}), as well as multiple channels directed to the \textit{Horizontal API} (\texttt{toHz}). This is because incoming messages from the network are aggregated on the same channel while outgoing messages will be sent to specific hosts, so different channels.
+As already mentioned, there is actually no communication between \texttt{Horizontal API} goroutines and the \texttt{Main}. The channels used for communication can be seen on the arrows in \cref{fig:overview}. It is important to note that there will actually be multiple channels directed to the \textit{Vertical API} (\texttt{ToVert}), as well as multiple channels directed to the \textit{Horizontal API} (\texttt{ToHz}). This is because incoming messages from the network are aggregated on the same channel while outgoing messages will be sent to specific hosts, so different channels.
 
-% \subsubsection{Message Types}
-
-% \Todo{figure for message types on different channels}
 
 \subsubsection{Scenario 1: Gossip Notify Message}
 
 The first scenario we want to display is the reception of a Gossip Notify message. For the sake of clarity, a single Vertical API thread is used to show both the writing and reading threads.
 
-In this case the message passing is trivial (see \cref{fig:msg-notify}). The Vertical API (\texttt{vertAPI}) receive the \textit{Gossip Notifiy} message (\texttt{notify}), marshal it and send it to the main (\texttt{main}) thread where the Gossip Type will be registered. It's interesting to notice that what we store is the writing communication channel. As previously mentioned in \cref{process-creation}, there are multiple writing channels, one for each hosts. This will greatly simplify the sending procedure.
+In this case the message passing is trivial (see \cref{fig:msg-notify}). The Vertical API (\texttt{vertAPI}) receives the \textit{Gossip Notify} message (\texttt{notify}), marshals it and sends it to the main (\texttt{main}) thread where the Gossip Type is registered. It is interesting to note that what we store is the writing communication channel. As previously mentioned in \cref{process-creation}, there are multiple writing channels, one for each host. This greatly simplifies the sending procedure.
 
 \begin{figure}
 	\centering
@@ -186,9 +186,9 @@ In this case the message passing is trivial (see \cref{fig:msg-notify}). The Ver
 
 \subsubsection{Scenario 2: Gossip Announce Message}
 
-In this scenario, a Gossip Announce message is sent to the Vertical API (\texttt{vertAPI}) thread. The message (\texttt{ann}) goes to the Main (\texttt{main}) module which will verify that the type is registered and in case proceed by forwarding the message to the Strategy (\texttt{strat}) thread. The strategy will then send the message to the Horizontal API (\texttt{hzAPI}) which will take care of actually sending the message to other peers. In the form of a PUSH message. 
+In this scenario, a Gossip Announce message is sent to the Vertical API (\texttt{vertAPI}) thread. This message (\texttt{ann}) goes to the Main (\texttt{main}) module which verifies that the type is registered and if so forwards the message to the Strategy (\texttt{strat}). The strategy then sends the message to the Horizontal API (\texttt{hzAPI}) which takes care of actually sending the message to other peers. In the form of a \textit{PUSH} message. 
 
-The delay in the Strategy, from reception to sending, is due to the implementation. Messages are sent in rounds, so they will wait until a new sending round starts.
+The delay in the Strategy, from reception to sending, is due to the implementation. Messages are sent in rounds, so they need to wait until a new sending round starts.
 
 \begin{figure}
 	\centering
@@ -200,7 +200,7 @@ The delay in the Strategy, from reception to sending, is due to the implementati
 
 \subsubsection{Scenario 3: Peer Relayed a Message}
 
-In this last scenario, we depict the handling of a peer \textit{PUSH} message \ref{fig:msg-relay}. First, the message is received by the Horizontal API (hzAPI), then it goes to the concrete Strategy (strat). The strategy will process the message accordingly and ask main (main) to perform a gossip notification for such message (\texttt{notific}). If such Gossip Type is registered, Main will then instruct Vertical API (vertAPI) to send to connected modules such message (\texttt{notific}). After that Vertical have done so, it will wait to receive a Gossip Validation message (\texttt{val}). On reception, the information will travel the threads back to the strategy, which if the message is valid will begin to spread it itself. Otherwise it will be deleted from memory.
+In this last scenario, we depict the handling of a peer \textit{PUSH} message \cref{fig:msg-relay}. First, the message is received by the Horizontal API (\texttt{hzAPI}), then it goes to the concrete Strategy (\texttt{strat}). The strategy processes the message accordingly and asks main (\texttt{main}) to perform a Gossip Notification for such message (\texttt{notific}). If such Gossip Type is registered, Main instructs the Vertical API (\texttt{vertAPI}) to send to connected modules such message (\texttt{notific}). After that, the Vertical API receives a Gossip Validation message (\texttt{val}). On reception, this message travels the threads back to the strategy, which if the message is valid begins to spread it itself. In the figure this is the \textit{PUSH} message marked in gray. If the original message was not deemed valid, the message is not spread further.
 
 \begin{figure}
 	\centering
@@ -208,9 +208,6 @@ In this last scenario, we depict the handling of a peer \textit{PUSH} message \r
 	\caption{Peer receive \textit{PUSH} message}
 	\label{fig:msg-relay}
 \end{figure}
-
-
-
 
 
 % \begin{figure}
@@ -255,19 +252,19 @@ Also note how this use of one thread per read\,/\,write on the connection combin
 
 \section{Security Measures}
 
-Currently, as a node starts, it will receive a list of the peer node to connect to. A peer will accept any new connection, which makes the system vulnerable to \textit{Sybils Attacks} and consequently \textit{Eclipse Attacks}. We plan to mitigate this problem by introducing a Identity Validation system based on a computational Proof of Work (PoW).
+Currently, as a node starts, it already has a list of the peer node to connect to. A peer accepts any new connection, which makes the system vulnerable to \textit{Sybil Attacks} and consequently \textit{Eclipse Attacks}. We plan to mitigate this problem by introducing an Identity Validation system based on a computational Proof of Work (PoW).
 
 \subsection{Identity Validation}
 
-When a peer is asked to accept a new connection, it will send a challenge (random nonce) $r$. Based on $r$ and a variable local part $v$, the other peer will compute a hash which should start with $n$ leading zeros, much like in the registration challenge for the project. $n$ can be a configuration parameters, meaning that nodes could choose how strong they want proof of work from newly connected nodes (and how much strong PoWs are they willing to compute when trying to connect to a peer).
+When a peer is asked to accept a new connection, it sends a challenge (random nonce) $r$. Based on $r$ and a variable local part $v$, the other peer computes a hash which should start with $n$ leading zeros, much like in the registration challenge for the project. $n$ can be a configuration parameter, meaning that nodes could choose how strong they want proof of work from newly connected nodes (and how strong PoWs are they willing to compute when trying to connect to a peer).
 
-This will mitigate a Sybil Attack, since the attacker, in order to create multiple identities, has to overcome multiple Proofs of Work. But the attacker can still share its resources by sequentially add nodes. To counteract this possibility, the idea is to request PoW periodically. 
+This mitigates Sybil Attacks, since the attacker, in order to create multiple identities, has to perform multiple Proofs of Work. But the attacker can still share its resources by sequentially adding nodes. To counteract this possibility, the idea is to request PoW periodically. 
 
 \subsection{Periodical Proofs of Work}
 
-A node will periodically ask to the neighboring peers for a PoW. At the same time the node will be prompted by each of its neighbors for PoWs. An attacker would have to compute such PoWs for each fake identity, making resource sharing not possible anymore.
+A node periodically asks the neighboring peers for a PoW. At the same time the node will be prompted by each of its neighbors for PoWs. This way, an attacker would have to compute such PoWs for each fake identity periodically. This limits the amount of Sybils an attacker can keep online in the network with limited resources.
 
-Currently the idea needs to be further explored, but multiple requests for PoW could be aggregated into a single PoW so that a node does not waste to much resources into multiple PoW. Still an attacker would need to compute 1 PoW for each fake identity. PoWs could also be preemptively asked to facilitate even more this aggregation (since there is no global synchronization) and also mitigate DoS of attacks. PoW requests will also have a specific upper bound for the frequency.
+Currently, the idea needs to be further explored, but multiple requests for PoW could be aggregated into a single PoW so that a node does not waste too many resources into multiple PoW. Still an attacker would need to compute one PoW for each fake identity. PoWs could also be preemptively asked to facilitate even more this aggregation (since there is no global synchronization) and also mitigate DoS of peers by flooding it with PoW requests. For the same reason peers should also limit the frequency a neighboring peer is allowed to send a PoW request.
 
 
 \section{Specification of the peer-to-peer protocol}
