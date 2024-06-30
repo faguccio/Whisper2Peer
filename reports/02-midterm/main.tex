@@ -130,8 +130,9 @@ Thus, there are fewer functions defined on our classes than one might expect, an
 To gain a deeper understanding about the internal communication please refer to \cref{sec:msgpassing}.
 Still, getting a rough overview of what class implements which interface is also useful for the message passing. \label{sumtypes}
 For message passing we need to focus on the interfaces starting with \texttt{To\ldots} and \texttt{From\ldots}.
-As sum-types\,/\,unions are not natively supported by golang, we use these interfaces as a workaround (and the \emph{go-sumtype}\footnote{\url{https://github.com/BurntSushi/go-sumtype}} tool for checking.
-Then, on the golang channels we send objects of the respective interface type.
+As sum-types\,/\,unions are not natively supported by golang, our workaround is to send objects implementing the respective interface on each channel.
+When receiving on such a channel, we can safely \texttt{switch} over the object's type and handle the respective message.
+We use the tool \emph{go-sumtype}\footnote{\url{https://github.com/BurntSushi/go-sumtype}} to check if the \texttt{switch} statements really handle all cases needed (actually this only works in a specific scenario but for more on this refer to the documentation of that tool).
 
 In \cref{sec:structureNetworking} we will go more into detail regarding the networking part.
 For now, it is only important that while we implement de- and serialization on the vertical API ourselves, we use capnproto on the \texttt{horizontal API} for this task.
