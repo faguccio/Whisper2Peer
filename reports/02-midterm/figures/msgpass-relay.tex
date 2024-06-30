@@ -1,13 +1,12 @@
 \begin{messagepassing}
-	\newprocesswithlength{vertAPI}{9}
-    \newprocesswithlength{main}{9}
-    \newprocesswithlength{strat}{9}
-	\newprocesswithlength{hzAPI}{9}
+	\newprocesswithlength{vertAPI}{10}
+    \newprocesswithlength{main}{10}
+    \newprocesswithlength{strat}{10}
+	\newprocesswithlength{hzAPI}{10}
 	\sendwithname{hzAPI}{1}{strat}{2}{PUSH}
 	\sendwithname{strat}{2}{main}{3}{notific}
 	\sendwithname{main}{3}{vertAPI}{4}{notific}
-	\sendwithname{vertAPI}{4}{main}{5}{val}
-	\sendwithname{main}{5}{strat}{6}{val}
-	\sendwithname{strat}{6}{hzAPI}{7}{PUSH}
-	
+	\sendwithname{vertAPI}{5}{main}{6}{val}
+	\sendwithname{main}{6}{strat}{7}{val}
+	\sendoutofband{strat}{8}{hzAPI}{9}{PUSH}{}
 \end{messagepassing}
