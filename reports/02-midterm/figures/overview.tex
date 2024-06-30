@@ -32,7 +32,7 @@
 		% fill the vertical API box
 		\coordinate (tmp) at (vertAPI.south);
 		\node[anchor=north west,font=\tt] (v1) at (tmp -| vertAPI.west) {
-				bind
+				bind+listen
 				\\
 				while true:
 				\\
@@ -121,9 +121,9 @@
 		% fill the horizontal API box
 		\coordinate (tmp) at (horAPI.south);
 		\node[anchor=north west,font=\tt] (h1) at (tmp -| horAPI.west) {
-				connect neighbors
+				connect to neighbors
 				\\
-				bind
+				bind+listen
 				\\
 				while true:
 				\\
