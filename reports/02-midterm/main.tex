@@ -135,7 +135,7 @@ When receiving on such a channel, we can safely \texttt{switch} over the object'
 We use the tool \emph{go-sumtype}\footnote{\url{https://github.com/BurntSushi/go-sumtype}} to check if the \texttt{switch} statements really handle all cases needed (actually this only works in a specific scenario but for more on this refer to the documentation of that tool).
 
 In \cref{sec:structureNetworking} we will go more into detail regarding the networking part.
-For now, it is only important that while we implement de- and serialization on the vertical API ourselves, we use capnproto on the \texttt{horizontal API} for this task.
+For now, it is only important that while we implement de- and serialization on the vertical API ourselves, we use capnproto\footnote{\url{https://github.com/capnproto/go-capnp}} on the horizontal API for this task.
 The respective logic in both cases is contained in the respective \texttt{types} subpackage.
 Since the capnproto code is generated automatically (and contains some capnproto internals), we omit the \texttt{horizontalAPI/types} package while including the \texttt{verticalAPI/types} package.
 
