@@ -1,0 +1,12 @@
+\begin{messagepassing}[>={Stealth[scale=1.3]}]
+	\newprocesswithlength{vertAPI}{10}
+    \newprocesswithlength{main}{10}
+    \newprocesswithlength{strat}{10}
+	\newprocesswithlength{hzAPI}{10}
+	\sendwithname{hzAPI}{1}{strat}{2}{PUSH}
+	\sendwithname{strat}{2}{main}{3}{notific}
+	\sendwithname{main}{3}{vertAPI}{4}{notific}
+	\sendwithname{vertAPI}{5}{main}{6}{val}
+	\sendwithname{main}{6}{strat}{7}{val}
+	\sendoutofband{strat}{8}{hzAPI}{9}{PUSH}{}
+\end{messagepassing}

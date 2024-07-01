@@ -26,6 +26,9 @@
 
 \usepackage{tikz}
 \usepackage{messagepassing}
+\ifdefined\oobcolor\oobcolor{gray}\fi
+\ifdefined\oobcolour\oobcolour{gray}\fi
+
 \usepackage{bytefield}
 \usetikzlibrary{arrows.meta,calc,fit,positioning,decorations.pathmorphing,automata,shapes}
 \tikzset{
@@ -51,11 +54,8 @@
 \renewcommand{\ie}{\mbox{i.\,e.}\xspace} % already defined in tumcmd but without xspace
 \newcommand{\cf}{\mbox{c.\,f.}\xspace}
 \newcommand{\tos}{$\to$\xspace}
-% TODO message passing vs messagepassing
-% TODO verticalAPI horizontalAPI
-% TODO reference (footnote) to capnproto
+
 % TODO thread ~ goroutine
-% TODO talk about the actual gossip strategy?
 
 % Set document title. If no language is supplied, the document language is
 % assumed.
@@ -69,21 +69,46 @@
 \thispagestyle{tumarticle}
 
 \section{Introduction}
-% TODO(no one for now)
 
-Let's remember the team name \textbf{Whisper2Peer} :)
+In this document we will introduce the overall design of our module \textbf{Whisper2Peer}.
+We will first go through the changes to the initial assumptions, mainly regarding testing and quality of software.
+Then we will show the module architecture from a logical standpoint and the different threads used in the process.
+Since we are using golang, our threads are actually goroutines.
+Note that for simplicity we are using the both terms \emph{goroutine} and \emph{thread} interchangeable.
+We will give sample scenarios to understand how messages are processed and travel the program.
+We will also show our own abstractions over the networking.
 
-\Todo{write later, summary of the rest, not strictly needed but would be nice}
+Later we will discuss the security measure we intend to implement, and also the peer-to-peer protocol we put in place. Finally, we will explore what work remains to be done and how the workload was distributed between the team members.
+
+% \Todo{write later, summary of the rest, not strictly needed but would be nice}
 
 \section{Changes to initial assumptions}
-% TODO(Fabio)
 
-\Todo{no substantial changes but few minor ones: no gitlab CI (see moodle), no git hooks yet}
+For the most part, we committed to our initial proposal. The project is developed in golang, with a simple python script that will be used later to generate networks for end-to-end testing.
+
+As for the used libraries, we sticked to the ones mentioned in the initial report. We have chosen \texttt{capnproto} for the de-\,/\,serialization of our custom messages in the horizontal peer-to-peer communication. 
+
+The majority of the changes in direction concern the quality of software and the testing parts. While we did leverage \textit{staticcheck} for static checking, we did not get into other checkers such as \textit{golangci-lint}. 
+
+On the other hand we explored the tool \textit{go-sumtype} \cref{sumtypes} which allows us to do compile time checking for sum types. These types are not included in the language out of the box. 
+
+Finally, while we have unit testing in place we have not experimented with git hooks yet. The same goes for Gitlab CI, as it will be put in place for every team later in the project.
 
 \section{Module Architecture}
-% TODO(Fabio)
 
-\Todo{describe highlevel overview}
+We decided to divide the project into four main packages, plus two support ones. Those main packages are described in \cref{fig:overview}. The following is just a brief overview, each part will be discussed in more detail in the following subsections.
+
+\begin{itemize}
+	\item \textbf{Main}: is in charge of managing the whole module. It has to take and use the configuration parameters, orchestrate the other components and filter and relay messages. Moreover, in this package we define the data structure that holds in memory the registered \textit{Gossip Types}.
+	\item \textbf{Vertical API}: its main goal is to manage connection to other modules. It provides an abstraction over the networking part and manages under the hood the marshaling and un-marshaling of the messages.
+	\item \textbf{Horizontal API}: is very similar to the \texttt{Vertical API}, except it has to communicate with the peer's Gossip modules.
+	\item \textbf{Gossip-Strategy}: this package is in charge of instantiating a concrete strategy for disseminating the information between peers. It will leverage the \texttt{Horizontal API} to communicate with peers, focusing just on how to handle the messages.
+\end{itemize}
+
+In addition to these four packages, there are also a \textbf{Common} package, holding common data types, and an internal \textbf{Ringbuffer} package, defining a circular queue data structure used to store data to be spread in the network.  
+
+Those modules will create threads which communicate with message passing, as can be seen again in \cref{fig:overview}. This design decision allows the program to be highly scalable due to the degree of parallelization.
+
 \begin{figure}
 	\centering
 	\input{figures/overview}
@@ -98,18 +123,19 @@ It quickly shows how classes are connected\,/\,coupled and what data a class sto
 The UML class diagram for the packages of our project can be seen in \cref{fig:classDia}.
 The \PumlCircle{Struct}{S} marks a struct/class, the \PumlCircle{Interface}{I} marks interfaces and the orange \PumlCircle{Type}{T} marks a type.
 Types (as marked with \PumlCircle{Type}{T}) usually are simple type aliases for an existing class (or a built-in type of golang).
-Note that for a better overview, this diagram is mostly structured like \cref{fig:overview} with the verticalAPI on the left and the horizontalAPI on the right.
+Note that for a better overview, this diagram is mostly structured like \cref{fig:overview} with the vertical API on the left and the horizontal API on the right.
 
 In our case most of the communication is not done by function calls but by message passing.
 Thus, there are fewer functions defined on our classes than one might expect, and those present are more general like \texttt{Listen} or \texttt{run}.
 To gain a deeper understanding about the internal communication please refer to \cref{sec:msgpassing}.
-Still, getting a rough overview of what class implements which interface is also useful for the message passing.
+Still, getting a rough overview of what class implements which interface is also useful for the message passing. \label{sumtypes}
 For message passing we need to focus on the interfaces starting with \texttt{To\ldots} and \texttt{From\ldots}.
-As sum-types\,/\,unions are not natively supported by golang, we use these interfaces as a workaround (and the \emph{go-sumtype}\footnote{\url{https://github.com/BurntSushi/go-sumtype}} tool for checking.
-Then, on the golang channels we send objects of the respective interface type.
+As sum-types\,/\,unions are not natively supported by golang, our workaround is to send objects implementing the respective interface on each channel.
+When receiving on such a channel, we can safely \texttt{switch} over the object's type and handle the respective message.
+We use the tool \emph{go-sumtype}\footnote{\url{https://github.com/BurntSushi/go-sumtype}} to check if the \texttt{switch} statements really handle all cases needed (actually this only works in a specific scenario but for more on this refer to the documentation of that tool).
 
 In \cref{sec:structureNetworking} we will go more into detail regarding the networking part.
-For now, it is only important that while we implement de- and serialization on the verticalAPI ourselves, we use capnproto on the horizontalAPI for this task.
+For now, it is only important that while we implement de- and serialization on the vertical API ourselves, we use capnproto on the \texttt{horizontal API} for this task.
 The respective logic in both cases is contained in the respective \texttt{types} subpackage.
 Since the capnproto code is generated automatically (and contains some capnproto internals), we omit the \texttt{horizontalAPI/types} package while including the \texttt{verticalAPI/types} package.
 
@@ -134,18 +160,57 @@ This way we avoid the necessity to include the \texttt{verticalAPI/types} packag
 	\end{figure}
 \end{landscape}
 
-\subsection{Process architecture} \label{sec:msgpassing}
-% TODO(Fabio)
+\subsection{Process architecture}
 
-\Todo{come up with scenario (reg, announce \quad|\quad notify > validation) to explain message-passing}
-\Todo{figure for message types on different channels}
+To explain the current process architecture, we opted to first give a general overview of how the processes are spawned and supposed to communicate through channels. Secondly, we will display a few scenarios to show how the threads communicate with each other.
+
+\subsubsection{Processes (threads) Creation} \label{process-creation}
+
+\texttt{Main} is the entry point of the whole module. This thread will spawn a listener \texttt{Vertical API} thread that will keep accepting new connection to the module from other modules following the specification of the problem statement. For each new connection, two new routines are spawned: one that will receive and process messages and one that will send messages. Communication directed to or from routines created by \texttt{Vertical API} happens respectively with channels of the \texttt{ToVert} and \texttt{FromVert} types.
+
+Then, \texttt{Main} will create the \texttt{Strategy} thread, which will then spawn a listener thread for the \texttt{Horizontal API}. The latter, similarly to the \texttt{Vertical API}, will accept new connection and creates for each one two threads, one for reading and one for writing. Communication between \texttt{Main} and \texttt{Strategy} routines happens via the \texttt{FromStrat} and \texttt{ToStrat} channels, while \texttt{Strategy} communicates with threads of \texttt{Horizontal API} via the \texttt{FromHz} and \texttt{ToHz} channels.
+
+As already mentioned, there is actually no communication between \texttt{Horizontal API} goroutines and the \texttt{Main}. The channels used for communication can be seen on the arrows in \cref{fig:overview}. It is important to note that there will actually be multiple channels directed to the \textit{Vertical API} (\texttt{ToVert}), as well as multiple channels directed to the \textit{Horizontal API} (\texttt{ToHz}). This is because incoming messages from the network are aggregated on the same channel while outgoing messages will be sent to specific hosts, so different channels.
+
+
+\subsubsection{Scenario 1: Gossip Notify Message}
+
+The first scenario we want to display is the reception of a Gossip Notify message. For the sake of clarity, a single Vertical API thread is used to show both the writing and reading threads.
+
+In this case the message passing is trivial (see \cref{fig:msg-notify}). The Vertical API (\texttt{vertAPI}) receives the \textit{Gossip Notify} message (\texttt{notify}), marshals it and sends it to the main (\texttt{main}) thread where the Gossip Type is registered. It is interesting to note that what we store is the writing communication channel. As previously mentioned in \cref{process-creation}, there are multiple writing channels, one for each host. This greatly simplifies the sending procedure.
 
 \begin{figure}
 	\centering
-	\input{figures/sequence}
-	\caption{Messagepassing of one instance/scenario.}
-	\label{fig:msg}
+	\input{figures/msgpass-notify}
+	\caption{Message passing when a Gossip Notify message is received}
+	\label{fig:msg-notify}
 \end{figure}
+
+\subsubsection{Scenario 2: Gossip Announce Message}
+
+In this scenario, a Gossip Announce message is sent to the Vertical API (\texttt{vertAPI}) thread. This message (\texttt{ann}) goes to the Main (\texttt{main}) module which verifies that the type is registered and if so forwards the message to the Strategy (\texttt{strat}). The strategy then sends the message to the Horizontal API (\texttt{hzAPI}) which takes care of actually sending the message to other peers. In the form of a \textit{PUSH} message. 
+
+The delay in the Strategy, from reception to sending, is due to the implementation. Messages are sent in rounds, so they need to wait until a new sending round starts.
+
+\begin{figure}
+	\centering
+	\input{figures/msgpass-announce}
+	\caption{Gossip Announce message is received}
+	\label{fig:msg-announce}
+\end{figure}
+
+
+\subsubsection{Scenario 3: Peer Relayed a Message}
+
+In this last scenario, we depict the handling of a peer \textit{PUSH} message \cref{fig:msg-relay}. First, the message is received by the Horizontal API (\texttt{hzAPI}), then it goes to the concrete Strategy (\texttt{strat}). The strategy processes the message accordingly and asks main (\texttt{main}) to perform a Gossip Notification for such message (\texttt{notific}). If such Gossip Type is registered, Main instructs the Vertical API (\texttt{vertAPI}) to send to connected modules such message (\texttt{notific}). After that, the Vertical API receives a Gossip Validation message (\texttt{val}). On reception, this message travels the threads back to the strategy, which if the message is valid begins to spread it itself. In the figure this is the \textit{PUSH} message marked in gray. If the original message was not deemed valid, the message is not spread further.
+
+\begin{figure}
+	\centering
+	\input{figures/msgpass-relay}
+	\caption{Peer receive \textit{PUSH} message}
+	\label{fig:msg-relay}
+\end{figure}
+
 
 % \begin{figure}
 % 	\centering
@@ -154,28 +219,27 @@ This way we avoid the necessity to include the \texttt{verticalAPI/types} packag
 % 	\label{fig:fsm_msgs}
 % \end{figure}
 
-threading, multi-process, ... (a lot of intersection with the classes, but I think here we can go in depth about the communication part)
 
 \subsection{Networking} \label{sec:structureNetworking}
 
 For the networking, first we need to differentiate between the two APIs our module has.
-First, the verticalAPI and second the horizontalAPI.
+First, the vertical API and second the horizontal API.
 
-\subsubsection{verticalAPI}
-On the verticalAPI we communicate with other modules typically running on the same peer.
+\subsubsection{vertical API}
+On the vertical API we communicate with other modules typically running on the same peer.
 At this point, these modules are implemented by someone else (\eg another team in the lecture).
 Therefore, we were handed a specification which defines the format of the messages on that API.
 With the hard requirement to adhere to this specification it is not possible for us to use capnproto at this point, so we need to implement the de-\,/\,parsing on our own.
 If you have a look back at the class diagram in \cref{fig:classDia} again, this is implemented in the \texttt{verticalAPI/types} package.
 
-\subsubsection{horizontalAPI}
-On the other side we have the horizontalAPI which is only used for our module to communicate with the same module running on another peer.
+\subsubsection{horizontal API}
+On the other side we have the horizontal API which is only used for our module to communicate with the same module running on another peer.
 As a result, we are completely free to come up with a custom message format on this API.
 In our case we decided to use capnproto as a library which does the de-\,/\,parsing for us.
-Analog to the verticalAPI, the code generated by capnproto is placed in the \texttt{horizontalAPI/types} package.
+Analog to the vertical API, the code generated by capnproto is placed in the \texttt{horizontalAPI/types} package.
 
 \subsubsection{both API-modules}
-Apart from the difference in the message formats and the de-\,/\,parsing both, the horizontalAPI and the verticalAPI, modules are quite similar.
+Apart from the difference in the message formats and the de-\,/\,parsing both, the horizontal API and the vertical API, modules are quite similar.
 Both modules use two threads, one for reading from and one for writing to the socket, per connection in addition to the one thread used to establish (and dispatch) new connections.
 Thereby, they both provide a layer of abstraction on top of the raw TCP sockets where other threads can simply send a message on the respective golang channel and (try to) receive from the golang channel in the other direction.
 
@@ -189,18 +253,25 @@ Also note how this use of one thread per read\,/\,write on the connection combin
 
 
 \section{Security Measures}
-% TODO(Fabio)
 
-\Todo{not in place, but put some thought into it (PoW for participation) \tos \cf future work}
+Currently, as a node starts, it already has a list of the peer node to connect to. A peer accepts any new connection, which makes the system vulnerable to \textit{Sybil Attacks} and consequently \textit{Eclipse Attacks}. We plan to mitigate this problem by introducing an Identity Validation system based on a computational Proof of Work (PoW).
 
-E.g secure channels between peers, sybil resistance mechanism, concurrent lookup paths in DHT protocol, . . . 
+\subsection{Identity Validation}
 
-You should briefly describe the intention behind the security measure and how you want to implement it
+When a peer is asked to accept a new connection, it sends a challenge (random nonce) $r$. Based on $r$ and a variable local part $v$, the other peer computes a hash which should start with $n$ leading zeros, much like in the registration challenge for the project. $n$ can be a configuration parameter, meaning that nodes could choose how strong they want proof of work from newly connected nodes (and how strong PoWs are they willing to compute when trying to connect to a peer).
+
+This mitigates Sybil Attacks, since the attacker, in order to create multiple identities, has to perform multiple Proofs of Work. But the attacker can still share its resources by sequentially adding nodes. To counteract this possibility, the idea is to request PoW periodically. 
+
+\subsection{Periodical Proofs of Work}
+
+A node periodically asks the neighboring peers for a PoW. At the same time the node will be prompted by each of its neighbors for PoWs. This way, an attacker would have to compute such PoWs for each fake identity periodically. This limits the amount of Sybils an attacker can keep online in the network with limited resources.
+
+Currently, the idea needs to be further explored, but multiple requests for PoW could be aggregated into a single PoW so that a node does not waste too many resources into multiple PoW. Still an attacker would need to compute one PoW for each fake identity. PoWs could also be preemptively asked to facilitate even more this aggregation (since there is no global synchronization) and also mitigate DoS of peers by flooding it with PoW requests. For the same reason peers should also limit the frequency a neighboring peer is allowed to send a PoW request.
 
 
 \section{Specification of the peer-to-peer protocol}
-This module works with two protocol, one on the verticalAPI and one on the horizontalAPI.
-The one for the verticalAPI was already predetermined, its specification can be found in the \emph{specification.pdf} document.
+This module works with two protocol, one on the vertical API and one on the horizontal API.
+The one for the vertical API was already predetermined, its specification can be found in the \emph{specification.pdf} document.
 For the other one we had the freedom to develop something on our own.
 To avoid having to write the de-\,/\,parsing ourselves, we chose to use capnproto.
 Capnproto is a data serialization format which comes with libraries in multiple different languages.
@@ -208,11 +279,11 @@ With capnproto you only specify what data (\enquote{name} and type) should be in
 The concrete message format is then the concern of capnproto.
 
 With this in mind, it makes no real sense to include the concrete format of the messages but only the names of the fields and their type.
-As of now we only have one message type on the horizontalAPI, namely the \emph{push} message type.
+As of now we only have one message type on the horizontal API, namely the \emph{push} message type.
 Its fields and types can be seen in \cref{tab:push}.
 This message type is used to actively send information to the neighboring peers.
 
-The actual message sent on the horizontalAPI is not the raw \emph{push} message type but a more generic message type which is a simple union of all message types that can be sent on the horizontalAPI.
+The actual message sent on the horizontal API is not the raw \emph{push} message type but a more generic message type which is a simple union of all message types that can be sent on the horizontal API.
 At the moment there is only the \emph{push} message type but having in mind what we have planned, we will need more in the future (\cref{sec:future})
 This approach makes is possible to add more message types as we go by simply adding more types to this union.
 The nice thing at this point is that capnproto handles the complete checking which message type was actually sent (resolving the union so to speak).
@@ -227,7 +298,7 @@ This way we do not need to come up with \eg a messageType field on our own and a
 
 \section{Future Work} \label{sec:future}
 \begin{itemize}
-	\item currently only unit tests \tos end to end tests would be nice to test if everything works well together. Plan on using a simple network (for which we can make assumptions which nodes should/have to receive the message), start up the peers and instruct one node on the verticalAPI to spread a message
+	\item currently only unit tests \tos end to end tests would be nice to test if everything works well together. Plan on using a simple network (for which we can make assumptions which nodes should/have to receive the message), start up the peers and instruct one node on the vertical API to spread a message
 	\item this end to end testing already lays the foundation for larger scale benchmarking of our gossip strategy (test different parameters, use a much larger (randomly generated but fixed for reproducibility) network)
 	\item push is not the only strategy which can be used for gossip, we also plan on implementing a pull strategy (which we can benchmark as well and compare the results)
 	\item currently no security measures in place, but we plan on implementing one
@@ -248,11 +319,10 @@ This way we do not need to come up with \eg a messageType field on our own and a
 As already outlined, we split our module in various different packages.
 This enabled us to distribute the packages and work independently of each other (apart from defining the communication\,/\,interface of course).
 
-% TODO(Fabio)
-\Todo{Fabio: strategy (peer programming), vertAPI (testing), main (both)}
+Fabio focused on the developing the Strategy package, which was greatly written in peer programming, especially in the beginning when defining the whole interface. He also wrote the tests for the vertical API.
 
-Lukas worked on the horizontalAPI and the verticalAPI (from which the common package later was derived).
-Note that at least writing the de-\,/\,parsing of the verticalAPI was pretty straight forward because it is fairly similar to what we needed to do for the registration client.
+Lukas worked on the horizontal API and the vertical API (from which the common package later was derived).
+Note that at least writing the de-\,/\,parsing of the vertical API was pretty straight forward because it is fairly similar to what we needed to do for the registration client.
 
 While Fabio started working on the main package, Lukas later did some refactoring and finalized the package.
 
