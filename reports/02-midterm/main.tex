@@ -135,7 +135,7 @@ When receiving on such a channel, we can safely \texttt{switch} over the object'
 We use the tool \emph{go-sumtype}\footnote{\url{https://github.com/BurntSushi/go-sumtype}} to check if the \texttt{switch} statements really handle all cases needed (actually this only works in a specific scenario but for more on this refer to the documentation of that tool).
 
 In \cref{sec:structureNetworking} we will go more into detail regarding the networking part.
-For now, it is only important that while we implement de- and serialization on the vertical API ourselves, we use capnproto on the \texttt{horizontal API} for this task.
+For now, it is only important that while we implement de- and serialization on the vertical API ourselves, we use capnproto\footnote{\url{https://github.com/capnproto/go-capnp}} on the horizontal API for this task.
 The respective logic in both cases is contained in the respective \texttt{types} subpackage.
 Since the capnproto code is generated automatically (and contains some capnproto internals), we omit the \texttt{horizontalAPI/types} package while including the \texttt{verticalAPI/types} package.
 
@@ -252,7 +252,7 @@ Since we did not need it so far, we did not implement having multiple listening 
 Also note how this use of one thread per read\,/\,write on the connection combined with the communication via golang channels implicitly synchronizes the write operations (although in golang this is not strictly necessary to be done manually).
 
 
-\section{Security Measures}
+\section{Security Measures} \label{sec:security}
 
 Currently, as a node starts, it already has a list of the peer node to connect to. A peer accepts any new connection, which makes the system vulnerable to \textit{Sybil Attacks} and consequently \textit{Eclipse Attacks}. We plan to mitigate this problem by introducing an Identity Validation system based on a computational Proof of Work (PoW).
 
@@ -297,23 +297,19 @@ This way we do not need to come up with \eg a messageType field on our own and a
 \end{table}
 
 \section{Future Work} \label{sec:future}
-\begin{itemize}
-	\item currently only unit tests \tos end to end tests would be nice to test if everything works well together. Plan on using a simple network (for which we can make assumptions which nodes should/have to receive the message), start up the peers and instruct one node on the vertical API to spread a message
-	\item this end to end testing already lays the foundation for larger scale benchmarking of our gossip strategy (test different parameters, use a much larger (randomly generated but fixed for reproducibility) network)
-	\item push is not the only strategy which can be used for gossip, we also plan on implementing a pull strategy (which we can benchmark as well and compare the results)
-	\item currently no security measures in place, but we plan on implementing one
-		\begin{itemize}
-			\item when connecting peers have to solve a PoW challenge (sent by the remote peer)
-			\item first step in mitigating against sybil attack because attacker is limited by ressources how many peers can join the network (at once). BUT attacker might add nodes one by one and thereby kinda share time-multiplex the resource
-			\item a peer might (and should) request new PoW periodically
-			\item thereby this ties the upper limit of sybils an attacker can insert into the network to the resources the attacker can allocate for its sybils at the same (at least kinda same) time
-			\item periodical PoW might be used to DoS a node by requesting PoW over and over again. Thus, nodes should keep track of the point in time of the last PoW request of a neighbor to detect this.
-			\item When PoW fails or times out, the connection is silently closed (keeping the connection open but the node does not send/receive data from the connection anymore)
-			\item If there still is time left we intend to optimize the PoW further so that a node is not overwhelmed by too many PoW requests
-		\end{itemize}
-\end{itemize}
-% TODO do a subsection for the security part if we go into detail here
-% TODO(Lukas)
+We already built a decent architecture which allows us to easily add new components or replace existing ones.
+We plan on adding at least a pull strategy, whether we still have time for a push-pull strategy remains unclear.
+
+Additionally, we plan to also add some end-to-end tests on a simple network for which we can determine which peers should receive the message being spread.
+Having an infrastructure for this end-to-end testing should also make it possible to do some sort of benchmarking with much larger networks.
+For this we plan on generate some networks in advance (using the models presented in the lecture which are implemented in the python library networkx\footnote{\url{https://networkx.org/}}).
+We can then use these predefined networks to setup the peers and spread one (or multiple) messages in the network.
+Based on the logging we can then evaluate which peer received which message at what point in time.
+Here it comes to our advantage that everything runs on the same host which implies the clocks are perfectly in sync.
+This benchmarking approach should allow us to perform some comparisons at least with different parameters, or if we implemented an additional strategy also compare the different strategies.
+
+For now we do not have the security mesaures presented in \cref{sec:security} in place.
+We plan to implement at least the discussed proof-of-work based security measure until the end of the project.
 
 \section{Workload distribution}
 As already outlined, we split our module in various different packages.
