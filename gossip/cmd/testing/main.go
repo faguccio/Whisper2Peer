@@ -12,6 +12,7 @@ import (
 	"net"
 	"net/netip"
 	"os"
+	"slices"
 	"time"
 
 	"github.com/alexflint/go-arg"
@@ -48,6 +49,59 @@ func (p *peer) sendMsg(v Marshaler) error {
 		return errors.New("Message could not be written entirely")
 	}
 	return err
+}
+
+func (p *peer) markAllValid() {
+	var msgHdr vtypes.MessageHeader
+	buf := make([]byte, msgHdr.CalcSize())
+	var gn vtypes.GossipNotification
+
+	for {
+		// TODO code duplication with vertAPI -> maybe some refactoring later
+		buf = buf[0:msgHdr.CalcSize()]
+		// read the message header
+		nRead, err := io.ReadFull(p.conn, buf)
+		if errors.Is(err, io.EOF) {
+			return
+		}
+
+		_, err = msgHdr.Unmarshal(buf)
+		if err != nil {
+			continue
+		}
+
+		// allocate space for the message body
+		buf = slices.Grow(buf, int(msgHdr.Size)-nRead)
+		buf = buf[0:int(msgHdr.Size)]
+
+		// read the message body
+		_, err = io.ReadFull(p.conn, buf[nRead:])
+		if msgHdr.Type != vtypes.GossipNotificationType {
+			continue
+		}
+		gn.MessageHeader = msgHdr
+
+		_, err = gn.Unmarshal(buf)
+		if err != nil {
+			print("markAllValid: ", err.Error(), "\n")
+			continue
+		}
+
+		msg := vtypes.GossipValidation{
+			MessageHeader: vtypes.MessageHeader{
+				Type: vtypes.GossipValidationType,
+			},
+			Gv:            common.GossipValidation{
+				MessageId: gn.Gn.MessageId,
+			},
+		}
+		msg.Gv.SetValid(true)
+		msg.MessageHeader.RecalcSize(&msg)
+		if err = p.sendMsg(&msg); err != nil {
+			print("markAllValid: ", err.Error(), "\n")
+			return
+		}
+	}
 }
 
 type Marshaler interface {
@@ -188,6 +242,7 @@ func (t *Tester) Startup() error {
 		if err != nil {
 			return err
 		}
+		go p.markAllValid()
 	}
 
 	return nil
