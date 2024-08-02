@@ -11,6 +11,7 @@ import (
 	"io"
 	"net"
 	"net/netip"
+	"os"
 	"time"
 
 	"github.com/alexflint/go-arg"
@@ -19,6 +20,7 @@ import (
 // bookkeeping structure for known/started peers
 type peer struct {
 	idx  uint
+	id   common.ConnectionId
 	a    args.Args
 	conn net.Conn
 	dialer *net.Dialer
@@ -61,8 +63,7 @@ type Tester struct{
 	logChan chan event
 	// all events are collected here (mostly because there are no unlimited buffered channels)
 	events []event
-	wPipe io.WriteCloser
-	rPipe io.ReadCloser
+	closers []io.Closer
 }
 
 func NewTester() *Tester {
@@ -70,6 +71,7 @@ func NewTester() *Tester {
 		peers: make(map[uint]*peer),
 		logChan: make(chan event, 64),
 		events: make([]event, 0),
+		closers: make([]io.Closer, 0),
 	}
 }
 
@@ -147,8 +149,9 @@ func (t *Tester) Startup() error {
 		}
 
 		// add item for bookkeeping
-		t.peers[nodeIdx] = &peer{
+		p := &peer{
 			idx:  nodeIdx,
+			id:   common.ConnectionId(ip.String()),
 			a:    args,
 			dialer: &net.Dialer{
 				LocalAddr: &net.TCPAddr{
@@ -157,13 +160,22 @@ func (t *Tester) Startup() error {
 				},
 			},
 		}
+		t.peers[nodeIdx] = p
 
 		// create a pipe to process the generates json logs
-		t.rPipe, t.wPipe = io.Pipe()
+		var wPipe io.Writer
+		var rPipe io.Reader
+		{
+			_rPipe, _wPipe := io.Pipe()
+			t.closers = append(t.closers, _rPipe, _wPipe)
+			wPipe, rPipe = _wPipe, _rPipe
+		}
+		// print logs on stdout as well
+		wPipe = io.MultiWriter(os.Stdout, wPipe)
 
 		// start the peer
-		go filterLog(t.logChan, t.rPipe)
-		m := gossip.NewMainWithArgs(args, logInit(t.wPipe, common.ConnectionId(ip.String())))
+		go filterLog(t.logChan, rPipe)
+		m := gossip.NewMainWithArgs(args, logInit(wPipe, p.id))
 		go m.Run(ctx)
 
 		time.Sleep(500 * time.Millisecond)
@@ -193,8 +205,9 @@ func (t *Tester) Teardown() {
 	}
 	t.cancel()
 	close(t.logChan)
-	t.wPipe.Close()
-	t.rPipe.Close()
+	for _,c := range t.closers {
+		c.Close()
+	}
 }
 
 
@@ -233,7 +246,7 @@ func main() {
 	p := t.peers[1]
 	msg := vtypes.GossipAnnounce{
 		Ga:            common.GossipAnnounce{
-			TTL:      0,
+			TTL:      2,
 			Reserved: 0,
 			DataType: 1337,
 			Data:     []byte{1},
@@ -247,7 +260,7 @@ func main() {
 		panic(err)
 	}
 
-	time.Sleep(10*time.Second)
+	time.Sleep(60*time.Second)
 
 	t.Teardown()
 

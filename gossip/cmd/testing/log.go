@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"gossip/common"
 	"io"
 	"log/slog"
@@ -26,10 +25,12 @@ func logInit(w io.Writer, id common.ConnectionId) *slog.Logger {
 }
 
 type event struct {
-	Time *time.Time
+	Time time.Time
 	Level int
 	Msg string
 	Id common.ConnectionId
+	MsgId uint16
+	MsgType common.GossipType
 }
 
 func filterLog(c chan<- event, r io.Reader) {
@@ -40,7 +41,6 @@ func filterLog(c chan<- event, r io.Reader) {
 		if err != nil {
 			panic(err)
 		}
-		fmt.Printf("%+v\n", e)
 		if e.Level != -8 {
 			continue
 		}
