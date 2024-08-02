@@ -34,7 +34,7 @@ type graph struct {
 	Edges [][]uint `json:"edges"`
 }
 
-func readGraph(fn string) (graph,error) {
+func readGraph(fn string) (graph, error) {
 	var g graph
 	f, err := os.Open(fn)
 	if err != nil {
@@ -50,4 +50,3 @@ func readGraph(fn string) (graph,error) {
 
 	return g, nil
 }
-

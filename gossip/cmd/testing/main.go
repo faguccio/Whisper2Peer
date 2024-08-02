@@ -20,10 +20,10 @@ import (
 
 // bookkeeping structure for known/started peers
 type peer struct {
-	idx  uint
-	id   common.ConnectionId
-	a    args.Args
-	conn net.Conn
+	idx    uint
+	id     common.ConnectionId
+	a      args.Args
+	conn   net.Conn
 	dialer *net.Dialer
 }
 
@@ -38,12 +38,12 @@ func (p *peer) connect() error {
 }
 
 func (p *peer) sendMsg(v Marshaler) error {
-	msg,err := v.Marshal(nil)
+	msg, err := v.Marshal(nil)
 	if err != nil {
 		return err
 	}
 
-	if n,err := p.conn.Write(msg); err != nil {
+	if n, err := p.conn.Write(msg); err != nil {
 		return err
 	} else if n != len(msg) {
 		return errors.New("Message could not be written entirely")
@@ -91,7 +91,7 @@ func (p *peer) markAllValid() {
 			MessageHeader: vtypes.MessageHeader{
 				Type: vtypes.GossipValidationType,
 			},
-			Gv:            common.GossipValidation{
+			Gv: common.GossipValidation{
 				MessageId: gn.Gn.MessageId,
 			},
 		}
@@ -108,23 +108,23 @@ type Marshaler interface {
 	Marshal(buf []byte) ([]byte, error)
 }
 
-type Tester struct{
-	a Args
-	g graph
+type Tester struct {
+	a      Args
+	g      graph
 	cancel context.CancelFunc
-	peers map[uint]*peer
+	peers  map[uint]*peer
 	// the logger of each peer will indirectly write it's testing events onto this channel
 	logChan chan event
 	// all events are collected here (mostly because there are no unlimited buffered channels)
-	events []event
+	events  []event
 	closers []io.Closer
 }
 
 func NewTester() *Tester {
 	return &Tester{
-		peers: make(map[uint]*peer),
+		peers:   make(map[uint]*peer),
 		logChan: make(chan event, 64),
-		events: make([]event, 0),
+		events:  make([]event, 0),
 		closers: make([]io.Closer, 0),
 	}
 }
@@ -155,7 +155,7 @@ func (t *Tester) Startup() error {
 
 	// goroutine simply copies the events over to the events slice
 	// NOTE: when closing the channel will also terminate the goroutine
-	go func(logChan <-chan event){
+	go func(logChan <-chan event) {
 		for e := range logChan {
 			t.events = append(t.events, e)
 		}
@@ -204,9 +204,9 @@ func (t *Tester) Startup() error {
 
 		// add item for bookkeeping
 		p := &peer{
-			idx:  nodeIdx,
-			id:   common.ConnectionId(ip.String()),
-			a:    args,
+			idx: nodeIdx,
+			id:  common.ConnectionId(ip.String()),
+			a:   args,
 			dialer: &net.Dialer{
 				LocalAddr: &net.TCPAddr{
 					IP:   ip.AsSlice(),
@@ -237,7 +237,7 @@ func (t *Tester) Startup() error {
 	}
 
 	// connect on the vertival api to all peers
-	for _,p := range t.peers {
+	for _, p := range t.peers {
 		err := p.connect()
 		if err != nil {
 			return err
@@ -251,7 +251,7 @@ func (t *Tester) Startup() error {
 func (t *Tester) ProcessLogs() error {
 	// check during which time the test ran
 	tmin := time.Now()
-	tmax := time.Unix(0,0)
+	tmax := time.Unix(0, 0)
 	for _, e := range t.events {
 		if e.Time.Before(tmin) {
 			tmin = e.Time
@@ -261,7 +261,7 @@ func (t *Tester) ProcessLogs() error {
 		}
 	}
 
-	f,err := os.Create(".css")
+	f, err := os.Create(".css")
 	if err != nil {
 		panic(err)
 	}
@@ -270,10 +270,10 @@ func (t *Tester) ProcessLogs() error {
 	for _, e := range t.events {
 		// calculate when the node received the message, relative to the duration of the test [0,200]
 		// we extend percentage [0,100] to use more than two colors
-		tRel := (200*e.Time.UnixMilli() - 200*tmin.UnixMilli()) / (tmax.UnixMilli()-tmin.UnixMilli())
+		tRel := (200*e.Time.UnixMilli() - 200*tmin.UnixMilli()) / (tmax.UnixMilli() - tmin.UnixMilli())
 		var id uint
 		// search for the idx of the node
-		for k,v := range t.peers {
+		for k, v := range t.peers {
 			if v.id == e.Id {
 				id = k
 			}
@@ -299,16 +299,15 @@ func (t *Tester) ProcessLogs() error {
 }
 
 func (t *Tester) Teardown() {
-	for _,p := range t.peers {
+	for _, p := range t.peers {
 		p.close()
 	}
 	t.cancel()
 	close(t.logChan)
-	for _,c := range t.closers {
+	for _, c := range t.closers {
 		c.Close()
 	}
 }
-
 
 func main() {
 	var err error
@@ -324,9 +323,9 @@ func main() {
 	}
 
 	// register all peers for message type
-	for _,p := range t.peers {
+	for _, p := range t.peers {
 		msg := vtypes.GossipNotify{
-			Gn:            common.GossipNotify{
+			Gn: common.GossipNotify{
 				Reserved: 0,
 				DataType: 1337,
 			},
@@ -344,7 +343,7 @@ func main() {
 	// send an announcement
 	p := t.peers[1]
 	msg := vtypes.GossipAnnounce{
-		Ga:            common.GossipAnnounce{
+		Ga: common.GossipAnnounce{
 			TTL:      2,
 			Reserved: 0,
 			DataType: 1337,
@@ -359,7 +358,7 @@ func main() {
 		panic(err)
 	}
 
-	time.Sleep(60*time.Second)
+	time.Sleep(60 * time.Second)
 
 	t.Teardown()
 

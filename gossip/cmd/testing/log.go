@@ -8,10 +8,9 @@ import (
 	"time"
 )
 
-
 func logInit(w io.Writer, id common.ConnectionId) *slog.Logger {
 	log := slog.New(slog.NewJSONHandler(w, &slog.HandlerOptions{
-		Level:     common.LevelTest,
+		Level: common.LevelTest,
 		ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
 			if a.Key == slog.LevelKey {
 				level := a.Value.Any().(slog.Level)
@@ -19,17 +18,17 @@ func logInit(w io.Writer, id common.ConnectionId) *slog.Logger {
 			}
 			return a
 		},
-		},
+	},
 	))
 	return log.With("id", id)
 }
 
 type event struct {
-	Time time.Time
-	Level int
-	Msg string
-	Id common.ConnectionId
-	MsgId uint16
+	Time    time.Time
+	Level   int
+	Msg     string
+	Id      common.ConnectionId
+	MsgId   uint16
 	MsgType common.GossipType
 }
 
