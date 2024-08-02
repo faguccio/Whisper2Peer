@@ -249,8 +249,52 @@ func (t *Tester) Startup() error {
 }
 
 func (t *Tester) ProcessLogs() error {
-	fmt.Println(t.events)
-	// TODO
+	// check during which time the test ran
+	tmin := time.Now()
+	tmax := time.Unix(0,0)
+	for _, e := range t.events {
+		if e.Time.Before(tmin) {
+			tmin = e.Time
+		}
+		if e.Time.After(tmax) {
+			tmax = e.Time
+		}
+	}
+
+	f,err := os.Create(".css")
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+	// generate a css style sheet to draw colored graph
+	for _, e := range t.events {
+		// calculate when the node received the message, relative to the duration of the test [0,200]
+		// we extend percentage [0,100] to use more than two colors
+		tRel := (200*e.Time.UnixMilli() - 200*tmin.UnixMilli()) / (tmax.UnixMilli()-tmin.UnixMilli())
+		var id uint
+		// search for the idx of the node
+		for k,v := range t.peers {
+			if v.id == e.Id {
+				id = k
+			}
+		}
+		if tRel <= 100 {
+			fmt.Fprintf(f, `._%d>ellipse {
+    fill: color-mix(in srgb, yellow %d%%, green);
+}
+`, id, tRel)
+		} else if tRel <= 200 {
+			fmt.Fprintf(f, `._%d>ellipse {
+    fill: color-mix(in srgb, red %d%%, yellow);
+}
+`, id, tRel-100)
+		}
+	}
+
+	// print the stats once again
+	for _, e := range t.events {
+		fmt.Printf("%+v\n", e)
+	}
 	return nil
 }
 
