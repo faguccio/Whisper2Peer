@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"gossip/common"
@@ -111,7 +110,6 @@ type Marshaler interface {
 type Tester struct {
 	a      Args
 	g      graph
-	cancel context.CancelFunc
 	peers  map[uint]*peer
 	// the logger of each peer will indirectly write it's testing events onto this channel
 	logChan chan event
@@ -148,10 +146,6 @@ func (t *Tester) Init() error {
 func (t *Tester) Startup() error {
 	// iterator for ip address
 	ip := netip.MustParseAddr("127.0.0.1")
-
-	// make ready for terminating
-	var ctx context.Context
-	ctx, t.cancel = context.WithCancel(context.Background())
 
 	// goroutine simply copies the events over to the events slice
 	// NOTE: when closing the channel will also terminate the goroutine
@@ -230,7 +224,8 @@ func (t *Tester) Startup() error {
 		// start the peer
 		go filterLog(t.logChan, rPipe)
 		m := gossip.NewMainWithArgs(args, logInit(wPipe, p.id))
-		go m.Run(ctx)
+		go m.Run()
+		t.closers = append(t.closers, m)
 
 		time.Sleep(500 * time.Millisecond)
 		ip = ip.Next()
@@ -302,7 +297,6 @@ func (t *Tester) Teardown() {
 	for _, p := range t.peers {
 		p.close()
 	}
-	t.cancel()
 	close(t.logChan)
 	for _, c := range t.closers {
 		c.Close()
