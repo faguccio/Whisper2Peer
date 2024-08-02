@@ -108,9 +108,10 @@ type Marshaler interface {
 }
 
 type Tester struct {
-	a      Args
-	g      graph
-	peers  map[uint]*peer
+	a        Args
+	g        graph
+	peers    map[uint]*peer
+	peersLut map[common.ConnectionId]uint
 	// the logger of each peer will indirectly write it's testing events onto this channel
 	logChan chan event
 	// all events are collected here (mostly because there are no unlimited buffered channels)
@@ -120,10 +121,11 @@ type Tester struct {
 
 func NewTester() *Tester {
 	return &Tester{
-		peers:   make(map[uint]*peer),
-		logChan: make(chan event, 64),
-		events:  make([]event, 0),
-		closers: make([]io.Closer, 0),
+		peers:    make(map[uint]*peer),
+		peersLut: make(map[common.ConnectionId]uint),
+		logChan:  make(chan event, 64),
+		events:   make([]event, 0),
+		closers:  make([]io.Closer, 0),
 	}
 }
 
@@ -209,6 +211,7 @@ func (t *Tester) Startup() error {
 			},
 		}
 		t.peers[nodeIdx] = p
+		t.peersLut[p.id] = nodeIdx
 
 		// create a pipe to process the generates json logs
 		var wPipe io.Writer
@@ -244,6 +247,9 @@ func (t *Tester) Startup() error {
 }
 
 func (t *Tester) ProcessLogs() error {
+	// sort logs after time
+	slices.SortFunc(t.events, func(a event, b event) int { return a.Time.Compare(b.Time) })
+
 	// check during which time the test ran
 	tmin := time.Now()
 	tmax := time.Unix(0, 0)
@@ -266,13 +272,7 @@ func (t *Tester) ProcessLogs() error {
 		// calculate when the node received the message, relative to the duration of the test [0,200]
 		// we extend percentage [0,100] to use more than two colors
 		tRel := (200*e.Time.UnixMilli() - 200*tmin.UnixMilli()) / (tmax.UnixMilli() - tmin.UnixMilli())
-		var id uint
-		// search for the idx of the node
-		for k, v := range t.peers {
-			if v.id == e.Id {
-				id = k
-			}
-		}
+		id := t.peersLut[e.Id]
 		if tRel <= 100 {
 			fmt.Fprintf(f, `._%d>ellipse {
     fill: color-mix(in srgb, yellow %d%%, green);
@@ -284,6 +284,41 @@ func (t *Tester) ProcessLogs() error {
 }
 `, id, tRel-100)
 		}
+	}
+
+	// generate timeseries with cnt received after distance
+	f, err = os.Create("reached_dist.csv")
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+	// TODO start node
+	nodeToDist := t.g.calcDistances(1)
+	distCnt := make(map[uint]uint)
+	var distOrd []uint
+	for _, v := range nodeToDist {
+		if _, ok := distCnt[v]; !ok {
+			distCnt[v] = 0
+			distOrd = append(distOrd, v)
+		}
+	}
+	slices.Sort(distOrd)
+
+	fmt.Fprintf(f, "time")
+	for _, d := range distOrd {
+		fmt.Fprintf(f, ";%d", d)
+	}
+	fmt.Fprintf(f, "\n")
+
+	for _, e := range t.events {
+		nodeIdx := t.peersLut[e.Id]
+		dist := nodeToDist[nodeIdx]
+		distCnt[dist] += 1
+		fmt.Fprintf(f, "%d", e.Time.UnixMilli()-tmin.UnixMilli())
+		for _, d := range distOrd {
+			fmt.Fprintf(f, ";%d", distCnt[d])
+		}
+		fmt.Fprintf(f, "\n")
 	}
 
 	// print the stats once again

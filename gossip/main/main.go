@@ -40,7 +40,7 @@ type Main struct {
 func NewMainWithArgs(args args.Args, log *slog.Logger) *Main {
 	m := &Main{
 		typeStorage: *NewNotifyMap(),
-		args: args,
+		args:        args,
 	}
 
 	m.log = log
