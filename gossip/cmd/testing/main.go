@@ -252,14 +252,14 @@ func (t *Tester) ProcessLogs() error {
 
 	// check during which time the test ran
 	tmin := time.Now()
-	tmax := time.Unix(0, 0)
+	tmax := time.Now()
 	for _, e := range t.events {
 		if e.Time.Before(tmin) {
 			tmin = e.Time
 		}
-		if e.Time.After(tmax) {
-			tmax = e.Time
-		}
+		// if e.Time.After(tmax) {
+		// 	tmax = e.Time
+		// }
 	}
 
 	f, err := os.Create(".css")
@@ -269,6 +269,9 @@ func (t *Tester) ProcessLogs() error {
 	defer f.Close()
 	// generate a css style sheet to draw colored graph
 	for _, e := range t.events {
+		if !(e.Msg == "received" || e.Msg == "announce") {
+			continue
+		}
 		// calculate when the node received the message, relative to the duration of the test [0,200]
 		// we extend percentage [0,100] to use more than two colors
 		tRel := (200*e.Time.UnixMilli() - 200*tmin.UnixMilli()) / (tmax.UnixMilli() - tmin.UnixMilli())
@@ -292,15 +295,19 @@ func (t *Tester) ProcessLogs() error {
 		panic(err)
 	}
 	defer f.Close()
-	// TODO start node
+	// some orga stuff to set up the distances
+	// TODO fixed start node
 	nodeToDist := t.g.calcDistances(1)
 	distCnt := make(map[uint]uint)
+	distMaxCnt := make(map[uint]uint)
 	var distOrd []uint
 	for _, v := range nodeToDist {
 		if _, ok := distCnt[v]; !ok {
 			distCnt[v] = 0
+			distMaxCnt[v] = 0
 			distOrd = append(distOrd, v)
 		}
+		distMaxCnt[v] += 1
 	}
 	slices.Sort(distOrd)
 
@@ -310,16 +317,40 @@ func (t *Tester) ProcessLogs() error {
 	}
 	fmt.Fprintf(f, "\n")
 
+	// print the actual data (amount of nodes with specific distance received)
 	for _, e := range t.events {
+		if !(e.Msg == "received" || e.Msg == "announce") {
+			continue
+		}
 		nodeIdx := t.peersLut[e.Id]
 		dist := nodeToDist[nodeIdx]
 		distCnt[dist] += 1
-		fmt.Fprintf(f, "%d", e.Time.UnixMilli()-tmin.UnixMilli())
+		fmt.Fprintf(f, "%f", float64(e.Time.UnixMilli()-tmin.UnixMilli())/1000)
 		for _, d := range distOrd {
 			fmt.Fprintf(f, ";%d", distCnt[d])
 		}
 		fmt.Fprintf(f, "\n")
 	}
+
+	// print how many nodes exist with a specific distance
+	f, err = os.Create("cnt_dist.csv")
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+	fmt.Fprintf(f, "time")
+	for _, d := range distOrd {
+		fmt.Fprintf(f, ";%d", d)
+	}
+	fmt.Fprintf(f, "\n%f", 0.0)
+	for _, d := range distOrd {
+		fmt.Fprintf(f, ";%d", distMaxCnt[d])
+	}
+	fmt.Fprintf(f, "\n%f", float64(tmax.UnixMilli()-tmin.UnixMilli())/1000)
+	for _, d := range distOrd {
+		fmt.Fprintf(f, ";%d", distMaxCnt[d])
+	}
+	fmt.Fprintf(f, "\n")
 
 	// generate timeseries with amount of packets sent over time
 	f, err = os.Create("packets_sent.csv")
@@ -360,6 +391,7 @@ func (t *Tester) ProcessLogs() error {
 	for _, e := range t.events {
 		fmt.Printf("%+v\n", e)
 	}
+
 	return nil
 }
 
@@ -405,10 +437,11 @@ func main() {
 	}
 
 	// send an announcement
+	// TODO fixed start node
 	p := t.peers[1]
 	msg := vtypes.GossipAnnounce{
 		Ga: common.GossipAnnounce{
-			TTL:      2,
+			TTL:      3,
 			Reserved: 0,
 			DataType: 1337,
 			Data:     []byte{1},
