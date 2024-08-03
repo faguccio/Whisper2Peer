@@ -41,8 +41,6 @@ type dummyStrat struct {
 	validMessages *ringbuffer.Ringbuffer[*storedMessage]
 	// Collection of messages already relayed to other peers
 	sentMessages *ringbuffer.Ringbuffer[*storedMessage]
-	// store some statistics
-	// cntSentPackets uint
 }
 
 // Function to instantiate a new DummyStrategy.
@@ -57,7 +55,6 @@ func NewDummy(strategy Strategy, fromHz <-chan horizontalapi.FromHz, hzConnectio
 		invalidMessages: ringbuffer.NewRingbuffer[*storedMessage](strategy.stratArgs.Cache_size),
 		validMessages:   ringbuffer.NewRingbuffer[*storedMessage](strategy.stratArgs.Cache_size),
 		sentMessages:    ringbuffer.NewRingbuffer[*storedMessage](strategy.stratArgs.Cache_size),
-		// cntSentPackets:  0,
 	}
 }
 
@@ -193,6 +190,5 @@ func convertPushToNotification(pushMsg horizontalapi.Push) common.GossipNotifica
 
 // Close the root strategy
 func (dummy *dummyStrat) Close() {
-	// dummy.rootStrat.log.Log(context.Background(), common.LevelTest, "sentPackets", "cnt", dummy.cntSentPackets)
 	dummy.rootStrat.Close()
 }

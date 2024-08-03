@@ -321,6 +321,41 @@ func (t *Tester) ProcessLogs() error {
 		fmt.Fprintf(f, "\n")
 	}
 
+	// generate timeseries with amount of packets sent over time
+	f, err = os.Create("packets_sent.csv")
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+
+	sentEvents := make([]event, 0, len(t.events))
+	for _, e := range t.events {
+		if !(e.Msg == "hz packet sent") {
+			continue
+		}
+		sentEvents = append(sentEvents, e)
+	}
+	slices.SortFunc(sentEvents, func(a event, b event) int { return a.TimeBucket.Compare(b.TimeBucket) })
+
+	var currTime time.Time
+	var cnt uint
+	fmt.Fprintf(f, "time;cnt\n")
+	for _, e := range sentEvents {
+		if !(e.Msg == "hz packet sent") {
+			continue
+		}
+		if currTime.Equal(e.TimeBucket) {
+			cnt += e.Cnt
+			continue
+		}
+		if !currTime.IsZero() {
+			fmt.Fprintf(f, "%f;%d\n", float64(currTime.UnixMilli()-tmin.UnixMilli())/1000, cnt)
+		}
+		currTime = e.TimeBucket
+		cnt = e.Cnt
+	}
+	fmt.Fprintf(f, "%f;%f\n", float64(tmax.UnixMilli()-tmin.UnixMilli()+50)/1000, 0.0)
+
 	// print the stats once again
 	for _, e := range t.events {
 		fmt.Printf("%+v\n", e)

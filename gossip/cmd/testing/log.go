@@ -24,12 +24,18 @@ func logInit(w io.Writer, id common.ConnectionId) *slog.Logger {
 }
 
 type event struct {
-	Time    time.Time
-	Level   int
-	Msg     string
-	Id      common.ConnectionId
+	// logging items
+	Time  time.Time
+	Level int
+	Msg   string
+	// artificially added items (fixed)
+	Id common.ConnectionId
+	// what packet was received
 	MsgId   uint16
 	MsgType common.GossipType
+	// how many packets were sent
+	Cnt        uint
+	TimeBucket time.Time
 }
 
 func filterLog(c chan<- event, r io.Reader) {
@@ -40,7 +46,7 @@ func filterLog(c chan<- event, r io.Reader) {
 		if err != nil {
 			panic(err)
 		}
-		if e.Level != -8 {
+		if e.Level != int(common.LevelTest) {
 			continue
 		}
 		c <- e
