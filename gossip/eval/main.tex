@@ -1,0 +1,111 @@
+%!TeX program = lualatex
+\documentclass{scrartcl}
+
+\usepackage{multicol}
+\usepackage{xcolor}
+% from catppuccin palette
+\definecolor{CatBlue}{RGB/HTML}{30,102,245/1E66F5}
+\definecolor{CatSky}{RGB/HTML}{4,165,229/04A5E5}
+
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,calc}
+
+\usepackage{pgfplots}
+\usepackage{pgfplotstable}
+\pgfplotsset{compat=1.18}
+
+\pgfplotsset{
+	defaults/.style={
+		font            = {\small},
+		line width      = {0.2pt},
+		width           = {\linewidth},
+		legend style    = {at={(xticklabel cs:0.5)},yshift=-4ex,anchor=north},
+		% legend columns  = -1,
+		grid            = major,
+		grid style      = {gray!30},
+		axis lines      = middle,
+		axis line style = {->,> = {Stealth[scale=1.75]}},
+		x label style   = {at={(xticklabel cs:0.5)},anchor=north},
+		y label style   = {at={(yticklabel cs:1)},yshift=3ex,anchor=south west},
+		y tick label style={
+			/pgf/number format/.cd,
+			% precision=5,
+			% fixed zerofill,
+			/tikz/.cd,
+		},
+		% ybar,
+	}
+}
+
+% ----- Settings -----
+\KOMAoptions{
+	paper=a3,           % set papersize
+	paper=landscape,
+	fontsize=12pt,      % set fontsize to 12pt
+	parskip=half,       % half a line will seperate paragraphs
+	headings=normal,    % headings in normalsize
+	BCOR=0cm,           % no space for binding
+	DIV=15,           % calculare margins automatically, the calculated values can be found in the log file or use \areaset[BCOR]{width}{height}} to explicitly specify the textarea
+	twoside=false,      % onesided document
+	twocolumn=false,    % one columned pages
+	draft=false,         % show additional information
+	numbers=autoendperiod, % automatic punctuation in outline
+}
+
+% \parskip5pt
+% \parindent0pt
+
+\begin{document}
+
+\parbox{0.5\linewidth}{
+	\begin{tikzpicture}
+		\begin{axis}[
+			defaults,
+			xmin = 0,
+			% ymin = 1*10^6, ymax = 5*10^8,
+			% ymin = 1*10^7, ymax = 4*10^7,
+			xlabel = {Time [s]},
+			ylabel = {cnt Packets},
+			ybar,
+			enlargelimits=true,
+			]
+			\addplot+[] table[x=time,y=cnt,col sep=semicolon] {packets_sent.csv};
+			\addlegendentry{Packets sent over time}
+		\end{axis}
+	\end{tikzpicture}
+}
+
+\newpage
+
+\begin{multicols*}{2}
+	\pgfplotstableread[col sep=semicolon]{reached_dist.csv}\datatable
+	\pgfplotstableread[col sep=semicolon]{cnt_dist.csv}\disttable
+	% Get the number of columns (excluding the time column)
+	\pgfplotstablegetcolsof\datatable
+	\pgfmathtruncatemacro\ncols{\pgfplotsretval-1}
+	% Loop over each column (except the first one)
+	\foreach \col in {1,...,\ncols} {
+		\pgfplotstablegetcolumnnamebyindex{\col}\of\datatable\to\distance
+		\begin{tikzpicture}
+			\begin{axis}[
+				defaults,
+				width = {\linewidth},
+				height = {4cm},
+				% xmin = 0,
+				% ymin = 1*10^6, ymax = 5*10^8,
+				% ymin = 1*10^7, ymax = 4*10^7,
+				xlabel = {Time [s]},
+				ylabel = {nodes dist=\distance{} reached},
+				% ybar,
+				enlargelimits=true,
+				]
+				\addplot+[] table[x=time,y index=\col] \datatable;
+				\addplot+[red,line legend,sharp plot,no marks] table[x=time,y index=\col] \disttable;
+				% \addlegendentryexpanded{dist=\pgfplotsretval}
+			\end{axis}
+		\end{tikzpicture}
+		\\
+	}
+\end{multicols*}
+
+\end{document}
