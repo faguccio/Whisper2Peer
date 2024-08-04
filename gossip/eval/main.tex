@@ -78,8 +78,7 @@
 \newpage
 
 \begin{multicols*}{2}
-	\pgfplotstableread[col sep=semicolon]{reached_dist.csv}\datatable
-	\pgfplotstableread[col sep=semicolon]{cnt_dist.csv}\disttable
+	\pgfplotstableread[col sep=semicolon]{dist_reached.csv}\datatable
 	% Get the number of columns (excluding the time column)
 	\pgfplotstablegetcolsof\datatable
 	\pgfmathtruncatemacro\ncols{\pgfplotsretval-1}
@@ -100,7 +99,7 @@
 				enlargelimits=true,
 				]
 				\addplot+[] table[x=time,y index=\col] \datatable;
-				\addplot+[red,line legend,sharp plot,no marks] table[x=time,y index=\col] \disttable;
+				\addplot+[red,line legend,sharp plot,no marks] table[x=time,y index=\col,col sep=semicolon]{dist_cnt.csv};
 				% \addlegendentryexpanded{dist=\pgfplotsretval}
 			\end{axis}
 		\end{tikzpicture}
