@@ -6,10 +6,12 @@ import (
 	"io"
 	"log/slog"
 	"time"
+
+	"gossip/internal/testLog"
 )
 
 func logInit(w io.Writer, id common.ConnectionId) *slog.Logger {
-	log := slog.New(slog.NewJSONHandler(w, &slog.HandlerOptions{
+	log := slog.New(testlog.NewTestHandler(slog.NewJSONHandler(w, &slog.HandlerOptions{
 		Level: common.LevelTest,
 		ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
 			if a.Key == slog.LevelKey {
@@ -19,7 +21,7 @@ func logInit(w io.Writer, id common.ConnectionId) *slog.Logger {
 			return a
 		},
 	},
-	))
+	), common.LevelTest))
 	return log.With("id", id)
 }
 
