@@ -13,8 +13,6 @@ import (
 	"os"
 	"slices"
 	"time"
-
-	"github.com/alexflint/go-arg"
 )
 
 // bookkeeping structure for known/started peers
@@ -108,7 +106,6 @@ type Marshaler interface {
 }
 
 type Tester struct {
-	a        Args
 	g        graph
 	peers    map[uint]*peer
 	peersLut map[common.ConnectionId]uint
@@ -133,10 +130,9 @@ func NewTester() *Tester {
 func (t *Tester) Init() error {
 	var err error
 
-	arg.MustParse(&t.a)
-
 	// parse graph from provided file
-	t.g, err = readGraph(t.a.Fn)
+	// TODO graph file should be hardcoded in the end
+	t.g, err = readGraph(os.Args[1])
 	if err != nil {
 		return err
 	}
@@ -171,17 +167,17 @@ func (t *Tester) Startup() error {
 		if node.Degree != nil {
 			args.Degree = *node.Degree
 		} else {
-			args.Degree = t.a.Degree
+			args.Degree = 30
 		}
 		if node.Cache_size != nil {
 			args.Cache_size = *node.Cache_size
 		} else {
-			args.Cache_size = t.a.Cache_size
+			args.Cache_size = 50
 		}
 		if node.GossipTimer != nil {
 			args.GossipTimer = *node.GossipTimer
 		} else {
-			args.GossipTimer = t.a.GossipTimer
+			args.GossipTimer = 1
 		}
 
 		// add the neighbors
