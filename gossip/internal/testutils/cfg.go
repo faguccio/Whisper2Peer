@@ -1,38 +1,67 @@
-package main
+package testutils
 
 import (
 	"encoding/json"
 	"os"
 )
 
-// quick and dirty to detect if value was set or not
+// Represents a node in the graph
 type node struct {
+	// use pointers for a quick and dirty optional
 	Degree      *uint
 	Cache_size  *uint
 	GossipTimer *uint
 }
 
+// do custom unmarshalling to allow node to also be a simple integer (use
+// default values for config in that case)
 func (n node) UnmarshalJSON(data []byte) error {
+	// try to unmarshal as integer
 	var i uint
 	err := json.Unmarshal(data, &i)
 	if err == nil {
 		n = node{}
 		return nil
 	}
+	// unmarshal as int failed -> try unmarshal as node struct
 	return json.Unmarshal(data, &n)
 }
 
-type graph struct {
+// Represents the complete Graph
+type Graph struct {
 	Nodes []node   `json:"nodes"`
+	// edges are represented as list of tuples (also modelled as list)
 	Edges [][]uint `json:"edges"`
 }
 
+// read a graph from a json file
+func NewGraphFromJSON(fn string) (Graph, error) {
+	var g Graph
+	f, err := os.Open(fn)
+	if err != nil {
+		return g, err
+	}
+	defer f.Close()
+
+	d := json.NewDecoder(f)
+	err = d.Decode(&g)
+	if err != nil {
+		return g, err
+	}
+
+	return g, nil
+}
+
+// struct only used for bookkeeping when calculating the distances (with BFS)
 type todo_bookkeeping struct {
 	node uint
 	dist uint
 }
 
-func (g *graph) calcDistances(start uint) map[uint]uint {
+// use BFS to calculate all distances to the start node
+//
+// Returns a mapping from node(idx) to distance
+func (g *Graph) CalcDistances(start uint) map[uint]uint {
 	ret := make(map[uint]uint)
 
 	edges := make(map[uint][]uint)
@@ -70,21 +99,4 @@ func (g *graph) calcDistances(start uint) map[uint]uint {
 	}
 
 	return ret
-}
-
-func readGraph(fn string) (graph, error) {
-	var g graph
-	f, err := os.Open(fn)
-	if err != nil {
-		return g, err
-	}
-	defer f.Close()
-
-	d := json.NewDecoder(f)
-	err = d.Decode(&g)
-	if err != nil {
-		return g, err
-	}
-
-	return g, nil
 }

@@ -1,4 +1,4 @@
-package main
+package testutils
 
 import (
 	"encoding/json"
@@ -10,7 +10,7 @@ import (
 	"gossip/internal/testLog"
 )
 
-func logInit(w io.Writer, id common.ConnectionId) *slog.Logger {
+func LogInit(w io.Writer, id common.ConnectionId) *slog.Logger {
 	log := slog.New(testlog.NewTestHandler(slog.NewJSONHandler(w, &slog.HandlerOptions{
 		Level: common.LevelTest,
 		ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
@@ -25,7 +25,7 @@ func logInit(w io.Writer, id common.ConnectionId) *slog.Logger {
 	return log.With("id", id)
 }
 
-type event struct {
+type Event struct {
 	// logging items
 	Time  time.Time
 	Level int
@@ -40,10 +40,10 @@ type event struct {
 	TimeBucket time.Time
 }
 
-func filterLog(c chan<- event, r io.Reader) {
+func FilterLog(c chan<- Event, r io.Reader) {
 	d := json.NewDecoder(r)
 	for d.More() {
-		var e event
+		var e Event
 		err := d.Decode(&e)
 		if err != nil {
 			panic(err)
