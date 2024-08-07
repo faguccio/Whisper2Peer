@@ -1,13 +1,12 @@
-package main
+package gossip
 
 import (
+	"context"
 	"errors"
 	"gossip/common"
 	"gossip/internal/args"
 	gs "gossip/strats"
 	verticalapi "gossip/verticalAPI"
-	"os/signal"
-	"syscall"
 
 	"log/slog"
 	"os"
@@ -35,16 +34,13 @@ type Main struct {
 	strategyChannels gs.StrategyChannels
 }
 
-func NewMain() *Main {
+func NewMainWithArgs(args args.Args, log *slog.Logger) *Main {
 	m := &Main{
 		typeStorage: *NewNotifyMap(),
+		args: args,
 	}
 
-	// Arguments read using go-arg https://github.com/alexflint/go-arg. The annotation instruct the library on
-	// the type of comment and optionally the help message.
-	arg.MustParse(&m.args)
-
-	m.log = logInit(m.args.Hz_addr)
+	m.log = log
 	m.mlog = m.log.With("module", "main")
 
 	m.mlog.Debug("CMD ARGS mandatory",
@@ -68,7 +64,16 @@ func NewMain() *Main {
 	return m
 }
 
-func (m *Main) run() {
+func NewMain() *Main {
+	// Arguments read using go-arg https://github.com/alexflint/go-arg. The annotation instruct the library on
+	// the type of comment and optionally the help message.
+	var args args.Args
+	arg.MustParse(&args)
+
+	return NewMainWithArgs(args, logInit(args.Hz_addr))
+}
+
+func (m *Main) Run(ctx context.Context) {
 	va := verticalapi.NewVerticalApi(m.log, m.vertToMain)
 	va.Listen(m.args.Vert_addr)
 	defer va.Close()
@@ -80,9 +85,6 @@ func (m *Main) run() {
 
 	strategy.Listen()
 	defer strategy.Close()
-
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, syscall.SIGTERM, syscall.SIGINT)
 
 loop:
 	for {
@@ -103,7 +105,7 @@ loop:
 			case common.GossipNotification:
 				m.handleNotification(x)
 			}
-		case <-c:
+		case <-ctx.Done():
 			break loop
 		}
 	}
@@ -166,9 +168,4 @@ func (m *Main) handleNotification(msg common.GossipNotification) error {
 		r.Data.MainToVert <- msg
 	}
 	return nil
-}
-
-func main() {
-	m := NewMain()
-	m.run()
 }
