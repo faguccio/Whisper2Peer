@@ -25,4 +25,5 @@ mrproper:
 	$(RM) ./horizontalAPI/types/*.go
 
 build:
-	go build
+	go build -o gossip ./cmd/main
+	go build ./cmd/testing
