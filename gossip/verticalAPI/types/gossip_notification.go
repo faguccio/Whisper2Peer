@@ -16,9 +16,29 @@ type GossipNotification struct {
 // // Unmarshals the GossipNotification packet from the provided buffer.
 // //
 // // Returns the number of bytes read from the buffer.
-// func (e *GossipNotification) Unmarshal(buf []byte) (int, error) {
-// 	return 0, ErrMethodNotImplemented
-// }
+func (e *GossipNotification) Unmarshal(buf []byte) (int, error) {
+	if e.MessageHeader.Type != GossipNotificationType {
+		return 0, errors.New("wrong type")
+	}
+
+	if len(buf) < e.CalcSize() {
+		return 0, ErrNotEnoughData
+	}
+
+	idx := e.MessageHeader.CalcSize()
+
+	e.Gn.MessageId = binary.BigEndian.Uint16(buf[idx:])
+	idx += 2
+
+	e.Gn.DataType = common.GossipType(binary.BigEndian.Uint16(buf[idx:]))
+	idx += 2
+
+	// golang slices: [a:b] index b is excluded
+	e.Gn.Data = buf[idx:min(int(e.MessageHeader.Size), len(buf))]
+	idx += len(e.Gn.Data)
+
+	return idx, nil
+}
 
 // Marshals the GossipNotification packet to the provided buffer.
 //

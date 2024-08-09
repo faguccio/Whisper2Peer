@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"gossip/common"
+	"slices"
 )
 
 // This type represents a GossipNotify packet in the verticalApi.
@@ -35,10 +36,29 @@ func (e *GossipNotify) Unmarshal(buf []byte) (int, error) {
 	return idx, nil
 }
 
-// // Marshals the GossipNotify packet to the provided buffer.
-// func (e *GossipNotify) Marshal(buf []byte) error {
-// 	return ErrMethodNotImplemented
-// }
+// Marshals the GossipNotify packet to the provided buffer.
+func (e *GossipNotify) Marshal(buf []byte) ([]byte, error) {
+	if e.MessageHeader.Type != GossipNotifyType {
+		return nil, errors.New("wrong type")
+	}
+
+	buf = slices.Grow(buf, e.CalcSize())
+	buf = buf[:e.CalcSize()]
+
+	if err := e.MessageHeader.Marshal(buf); err != nil {
+		return nil, err
+	}
+
+	idx := e.MessageHeader.CalcSize()
+
+	// skip reserved
+	idx += 2
+
+	binary.BigEndian.PutUint16(buf[idx:], uint16(e.Gn.DataType))
+	idx += 2
+
+	return buf, nil
+}
 
 // Returns the size of the GossipNotify packet.
 func (e *GossipNotify) CalcSize() int {
