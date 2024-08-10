@@ -109,7 +109,7 @@ func main() {
 	}
 
 	slog.Info("processing the logs -> when was which distance reached")
-	if data,err := t.ProcessReachedDistCnt(STARTNODE, 1337, true); err == nil {
+	if data,_,err := t.ProcessReachedDistCnt(STARTNODE, 1337, true); err == nil {
 		f,err := os.Create("dist_reached.csv")
 		if err != nil {
 			panic(err)

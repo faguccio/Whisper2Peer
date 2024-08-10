@@ -37,10 +37,10 @@ func (t *Tester) ProcessReachedWhen(gtype common.GossipType, any bool) (data.Rea
 	return ret, nil
 }
 
-func (t *Tester) ProcessReachedDistCnt(startNode uint, gtype common.GossipType, all bool) (data.ReachedDistCntAll, error) {
+func (t *Tester) ProcessReachedDistCnt(startNode uint, gtype common.GossipType, all bool) (data.ReachedDistCntAll, map[uint]uint, error) {
 	ret := make(data.ReachedDistCntAll, 0)
 	if t.state != TestStateProcessing {
-		return ret, errors.New("cannot do processing if tester is not in processing state")
+		return ret, nil, errors.New("cannot do processing if tester is not in processing state")
 	}
 
 	// setup for distances
@@ -82,8 +82,7 @@ func (t *Tester) ProcessReachedDistCnt(startNode uint, gtype common.GossipType, 
 		})
 	}
 
-
-	return ret, nil
+	return ret, distCnt, nil
 }
 
 // get how many nodes exist with a specific distance

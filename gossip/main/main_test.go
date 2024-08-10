@@ -1,7 +1,11 @@
-package gossip
+package gossip_test
 
 import (
+	"context"
 	"gossip/common"
+	"gossip/internal/testutils"
+	vtypes "gossip/verticalAPI/types"
+	gossip "gossip/main"
 	"log/slog"
 	"net"
 	"os"
@@ -35,7 +39,15 @@ func NotTestMainHorizontal(test *testing.T) {
 	defer func() { os.Args = originalArgs }()
 
 	os.Args = []string{"placeholder", "-gossip", "1", "-cache", "2", "-peers", "127.0.1.1:6001,127.0.2.1:6001"}
-	go main()
+
+	m := gossip.NewMain()
+
+	// run
+	initFin := make(chan struct{}, 1)
+	go m.Run(initFin)
+	defer m.Close()
+	<- initFin
+
 	time.Sleep(2 * time.Second)
 	testLog.Debug("Endtest")
 
@@ -92,7 +104,14 @@ func NotTestMain(test *testing.T) {
 		},
 	}
 
-	go main()
+	m := gossip.NewMain()
+
+	// run
+	initFin := make(chan struct{}, 1)
+	go m.Run(initFin)
+	defer m.Close()
+	<- initFin
+
 	testLog.Debug("START MAIN TRY (NOT A REAL TEST)")
 
 	conn, err := net.Dial("tcp", "localhost:13379")
@@ -112,4 +131,122 @@ func NotTestMain(test *testing.T) {
 	}
 
 	time.Sleep(1 * time.Second)
+}
+
+func TestMainEndToEndOneHop(test *testing.T) {
+	func(){
+		t,err := testutils.NewTesterFromJSON("../test_assets/e2e.json")
+		if err != nil {
+			panic(err)
+		}
+		if err = t.Startup(); err != nil {
+			panic(err)
+		}
+		if err = t.RegisterAllPeersForType(1337); err != nil {
+			panic(err)
+		}
+		p := t.Peers[0]
+		msg := vtypes.GossipAnnounce{
+			Ga: common.GossipAnnounce{
+				TTL:      2,
+				Reserved: 0,
+				DataType: 1337,
+				Data:     []byte{1},
+			},
+			MessageHeader: vtypes.MessageHeader{
+				Type: vtypes.GossipAnnounceType,
+			},
+		}
+		msg.MessageHeader.RecalcSize(&msg)
+		if err = p.SendMsg(&msg); err != nil {
+			panic(err)
+		}
+
+		ctx,cfunc := context.WithTimeout(context.Background(), time.Minute)
+		defer cfunc()
+		// interval is two gossip rounds long
+		t.WaitUntilSilent(ctx, true, 0, 2*time.Second)
+		time.Sleep(1*time.Second)
+
+		t.Teardown()
+
+		if _,data,err := t.ProcessReachedDistCnt(0, 0, true); err == nil {
+			if len(data) != 4 {
+				test.Fatalf("something went wrong more than %d distinct distances are registered: %v", 4, data)
+			}
+
+			if data[0] != 1 {
+				test.Fatalf("message was received by %d nodes with distance 0 (should be %d nodes)", data[0], 1)
+			}
+			if data[1] != 1 {
+				test.Fatalf("message was received by %d nodes with distance 1 (should be %d nodes)", data[1], 1)
+			}
+			if data[2] != 1 {
+				test.Fatalf("message was received by %d nodes with distance 2 (should be %d nodes)", data[2], 1)
+			}
+			if data[3] != 0 {
+				test.Fatalf("message was received by %d nodes with distance 3 (should be %d nodes)", data[3], 1)
+			}
+		} else {
+			panic(data)
+		}
+	}()
+
+	func(){
+		t,err := testutils.NewTesterFromJSON("../test_assets/e2e.json")
+		if err != nil {
+			panic(err)
+		}
+		if err = t.Startup(); err != nil {
+			panic(err)
+		}
+		if err = t.RegisterAllPeersForType(1337); err != nil {
+			panic(err)
+		}
+		p := t.Peers[0]
+		msg := vtypes.GossipAnnounce{
+			Ga: common.GossipAnnounce{
+				TTL:      0,
+				Reserved: 0,
+				DataType: 1337,
+				Data:     []byte{1},
+			},
+			MessageHeader: vtypes.MessageHeader{
+				Type: vtypes.GossipAnnounceType,
+			},
+		}
+		msg.MessageHeader.RecalcSize(&msg)
+		if err = p.SendMsg(&msg); err != nil {
+			panic(err)
+		}
+
+		ctx,cfunc := context.WithTimeout(context.Background(), time.Minute)
+		defer cfunc()
+		// interval is two gossip rounds long
+		t.WaitUntilSilent(ctx, true, 0, 2*time.Second)
+		time.Sleep(1*time.Second)
+
+		t.Teardown()
+
+		if _,data,err := t.ProcessReachedDistCnt(0, 0, true); err == nil {
+			if len(data) != 4 {
+				test.Fatalf("something went wrong more than %d distinct distances are registered: %v", 4, data)
+			}
+
+			if data[0] != 1 {
+				test.Fatalf("message was received by %d nodes with distance 0 (should be %d nodes)", data[0], 1)
+			}
+			if data[1] != 1 {
+				test.Fatalf("message was received by %d nodes with distance 1 (should be %d nodes)", data[1], 1)
+			}
+			if data[2] != 1 {
+				test.Fatalf("message was received by %d nodes with distance 2 (should be %d nodes)", data[2], 1)
+			}
+			if data[3] != 1 {
+				test.Fatalf("message was received by %d nodes with distance 3 (should be %d nodes)", data[3], 1)
+			}
+		} else {
+			panic(data)
+		}
+	}()
 }
