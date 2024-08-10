@@ -31,14 +31,17 @@ func TestConcurrentAdding(test *testing.T) {
 		}()
 	}
 
+	// otherwise the insertion below can happen before the one above -> error
+	// is returned in invocation in for loop, not in the invocation below =>
+	// test fails
+	wg.Wait()
+
 	err := store.AddChannelToType(vert_type, &common.Conn[common.RegisteredModule]{Data: *modules[5], Id: common.ConnectionId(fmt.Sprint(5))})
 
 	if err == nil {
 		test.Fatalf("Registered error multiple times but no error returned")
 
 	}
-
-	wg.Wait()
 
 	registered := store.Load(vert_type)
 	if len(registered) != 100 {
