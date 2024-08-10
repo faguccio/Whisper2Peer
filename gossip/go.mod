@@ -11,6 +11,7 @@ require (
 require (
 	github.com/alexflint/go-arg v1.5.0 // indirect
 	github.com/alexflint/go-scalar v1.2.0 // indirect
+	github.com/jszwec/csvutil v1.10.0 // indirect
 	github.com/stretchr/testify v1.9.0 // indirect
 	golang.org/x/sync v0.7.0 // indirect
 )

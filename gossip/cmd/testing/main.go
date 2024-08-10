@@ -1,6 +1,9 @@
 package main
 
 import (
+	"context"
+	"encoding/csv"
+	"fmt"
 	"gossip/common"
 	"gossip/internal/testutils"
 	vtypes "gossip/verticalAPI/types"
@@ -8,6 +11,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/jszwec/csvutil"
 	"github.com/lmittmann/tint"
 )
 
@@ -40,21 +44,8 @@ func main() {
 
 	// register all peers for message type
 	slog.Info("Register all peers for message type", "dataType", 1337)
-	for _, p := range t.Peers {
-		msg := vtypes.GossipNotify{
-			Gn: common.GossipNotify{
-				Reserved: 0,
-				DataType: 1337,
-			},
-			MessageHeader: vtypes.MessageHeader{
-				Type: vtypes.GossipNotifyType,
-			},
-		}
-		msg.MessageHeader.RecalcSize(&msg)
-
-		if err = p.SendMsg(&msg); err != nil {
-			panic(err)
-		}
+	if err = t.RegisterAllPeersForType(1337); err != nil {
+		panic(err)
 	}
 
 	// send an announcement
@@ -76,28 +67,82 @@ func main() {
 		panic(err)
 	}
 
-	slog.Info("wait for dissemination", "dur", 60 * time.Second)
-	time.Sleep(60 * time.Second)
+
+
+	slog.Info("wait for dissemination")
+	ctx,cfunc := context.WithTimeout(context.Background(), time.Minute)
+	defer cfunc()
+	// interval is two gossip rounds long
+	t.WaitUntilSilent(ctx, true, 0, 2*time.Second)
+	time.Sleep(1*time.Second)
+
+
 
 	slog.Info("teardown test")
 	t.Teardown()
 
-	slog.Info("processing the logs -> gen", "file", "reached.css")
-	if err = t.ProcessLogsGenReachedWhenCSS("reached.css"); err != nil {
+	for _,e := range t.Events {
+		fmt.Printf("%+v\n", e)
+	}
+
+
+	slog.Info("processing the logs -> when was which node reached")
+	if data,err := t.ProcessReachedWhen(1337, true); err == nil {
+		if err = data.WriteCss("reached.css"); err != nil {
+			panic(err)
+		}
+	} else {
 		panic(err)
 	}
 
-	slog.Info("processing the logs -> gen", "file", "dist_cnt.csv")
-	if err = t.ProcessLogsGenDistCntCSV("dist_cnt.csv", STARTNODE); err != nil {
-		panic(err)
-	}
-	slog.Info("processing the logs -> gen", "file", "dist_reached.csv")
-	if err = t.ProcessLogsGenDistReachedCSV("dist_reached.csv", STARTNODE); err != nil {
+	slog.Info("processing the logs -> which distances are present how often")
+	if data,err := t.ProcessGraphDistCnt(STARTNODE); err == nil {
+		f,err := os.Create("dist_cnt.csv")
+		if err != nil {
+			panic(err)
+		}
+		defer f.Close()
+		w := csv.NewWriter(f)
+		defer w.Flush()
+		enc := csvutil.NewEncoder(w)
+		if err := enc.Encode(data); err != nil {
+			panic(err)
+		}
+	} else {
 		panic(err)
 	}
 
-	slog.Info("processing the logs -> gen", "file", "packets_sent.csv")
-	if err = t.ProcessLogsGenSentPacketsCSV("packets_sent.csv"); err != nil {
+	slog.Info("processing the logs -> when was which distance reached")
+	if data,err := t.ProcessReachedDistCnt(STARTNODE, 1337, true); err == nil {
+		f,err := os.Create("dist_reached.csv")
+		if err != nil {
+			panic(err)
+		}
+		defer f.Close()
+		w := csv.NewWriter(f)
+		defer w.Flush()
+		enc := csvutil.NewEncoder(w)
+		if err = enc.Encode(data); err != nil {
+			panic(err)
+		}
+	} else {
+		panic(err)
+	}
+
+	slog.Info("processing the logs -> how many packets aere sent")
+	if data,err := t.ProcessSentPackets(1337, true); err == nil {
+		f,err := os.Create("packets_sent.csv")
+		if err != nil {
+			panic(err)
+		}
+		defer f.Close()
+		w := csv.NewWriter(f)
+		defer w.Flush()
+		enc := csvutil.NewEncoder(w)
+		if err = enc.Encode(data); err != nil {
+			panic(err)
+		}
+	} else {
 		panic(err)
 	}
 }

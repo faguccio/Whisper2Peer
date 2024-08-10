@@ -27,9 +27,5 @@ How can this be compared with other graphs? This would have other nodes and edge
 
 ## testutils
 - get rid of sleep in setup (get notified via channel?)
-- log goroutine: send signal if packet on hzApi was observed
-- `tester.WaitUntilSilent(context, [gtype])` using above signal to wait until 2 round times silence (context can be used to apply a deadline)
-- registerTypre for all peers
-- filter for gtype (in processing)
 
 https://github.com/jszwec/csvutil/issues/50

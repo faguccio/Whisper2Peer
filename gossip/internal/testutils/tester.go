@@ -11,7 +11,6 @@ import (
 	"io"
 	"net"
 	"net/netip"
-	"os"
 	"slices"
 	"time"
 )
@@ -63,6 +62,7 @@ type Tester struct {
 	// guaranteed to be set when in processing state
 	tmin time.Time
 	tmax time.Time
+	durSec float64
 	// caching for distances in the processing state
 	distanceBook distanceBook
 	// context used to nofity spwaned goroutines about teardown
@@ -282,6 +282,7 @@ func (t *Tester) Teardown() error {
 			t.tmin = e.Time
 		}
 	}
+	t.durSec = float64(t.tmax.UnixMilli() - t.tmin.UnixMilli())/1000
 
 	// sort logs with time as key to ensure the right order when processing
 	slices.SortFunc(t.Events, func(a Event, b Event) int { return a.Time.Compare(b.Time) })
@@ -289,202 +290,3 @@ func (t *Tester) Teardown() error {
 	t.state = TestStateProcessing
 	return nil
 }
-
-// generate a css style sheet to draw colored graph
-func (t *Tester) ProcessLogsGenReachedWhenCSS(fn string) error {
-	if t.state != TestStateProcessing {
-		return errors.New("cannot do processing if tester is not in processing state")
-	}
-
-	f, err := os.Create(fn)
-	if err != nil {
-		panic(err)
-	}
-	defer f.Close()
-	for _, e := range t.Events {
-		if !(e.Msg == "received" || e.Msg == "announce") {
-			continue
-		}
-		// calculate when the node received the message, relative to the duration of the test [0,200]
-		// we extend percentage [0,100] to use more than two colors
-		tRel := (200*e.Time.UnixMilli() - 200*t.tmin.UnixMilli()) / (t.tmax.UnixMilli() - t.tmin.UnixMilli())
-		id := t.PeersLut[e.Id]
-		if tRel <= 100 {
-			fmt.Fprintf(f, `._%d>ellipse {
-    fill: color-mix(in srgb, yellow %d%%, green);
-}
-`, id, tRel)
-		} else if tRel <= 200 {
-			fmt.Fprintf(f, `._%d>ellipse {
-    fill: color-mix(in srgb, red %d%%, yellow);
-}
-`, id, tRel-100)
-		}
-	}
-	return nil
-}
-
-// generate timeseries with cnt received after distance
-func (t *Tester) ProcessLogsGenDistReachedCSV(fn string, startNode uint) error {
-	if t.state != TestStateProcessing {
-		return errors.New("cannot do processing if tester is not in processing state")
-	}
-
-	f, err := os.Create(fn)
-	if err != nil {
-		panic(err)
-	}
-	defer f.Close()
-
-	// setup for distances
-	distCnt := t.distanceBook.processingSetupForDistance(func(u uint) map[uint]uint {return t.G.CalcDistances(u)}, startNode)
-
-	fmt.Fprintf(f, "time")
-	for _, d := range t.distanceBook.distOrd {
-		fmt.Fprintf(f, ";%d", d)
-	}
-	fmt.Fprintf(f, "\n")
-
-	// print the actual data (amount of nodes with specific distance received)
-	for _, e := range t.Events {
-		if !(e.Msg == "received" || e.Msg == "announce") {
-			continue
-		}
-		nodeIdx := t.PeersLut[e.Id]
-		dist := t.distanceBook.nodeToDist[nodeIdx]
-		distCnt[dist] += 1
-		fmt.Fprintf(f, "%f", float64(e.Time.UnixMilli()-t.tmin.UnixMilli())/1000)
-		for _, d := range t.distanceBook.distOrd {
-			fmt.Fprintf(f, ";%d", distCnt[d])
-		}
-		fmt.Fprintf(f, "\n")
-	}
-	return nil
-}
-
-// print how many nodes exist with a specific distance
-func (t *Tester) ProcessLogsGenDistCntCSV(fn string, startNode uint) error {
-	if t.state != TestStateProcessing {
-		return errors.New("cannot do processing if tester is not in processing state")
-	}
-
-	f, err := os.Create(fn)
-	if err != nil {
-		panic(err)
-	}
-	defer f.Close()
-
-	// setup for distances
-	t.distanceBook.processingSetupForDistance(func(u uint) map[uint]uint {return t.G.CalcDistances(u)}, startNode)
-
-	fmt.Fprintf(f, "time")
-	for _, d := range t.distanceBook.distOrd {
-		fmt.Fprintf(f, ";%d", d)
-	}
-	fmt.Fprintf(f, "\n%f", 0.0)
-	for _, d := range t.distanceBook.distOrd {
-		fmt.Fprintf(f, ";%d", t.distanceBook.distMaxCnt[d])
-	}
-	fmt.Fprintf(f, "\n%f", float64(t.tmax.UnixMilli()-t.tmin.UnixMilli())/1000)
-	for _, d := range t.distanceBook.distOrd {
-		fmt.Fprintf(f, ";%d", t.distanceBook.distMaxCnt[d])
-	}
-	fmt.Fprintf(f, "\n")
-	return nil
-}
-
-// generate timeseries with amount of packets sent over time
-func (t *Tester) ProcessLogsGenSentPacketsCSV(fn string) error {
-	if t.state != TestStateProcessing {
-		return errors.New("cannot do processing if tester is not in processing state")
-	}
-
-	f, err := os.Create(fn)
-	if err != nil {
-		panic(err)
-	}
-	defer f.Close()
-
-	sentEvents := make([]Event, 0, len(t.Events))
-	for _, e := range t.Events {
-		if !(e.Msg == "hz packet sent") {
-			continue
-		}
-		sentEvents = append(sentEvents, e)
-	}
-	slices.SortFunc(sentEvents, func(a Event, b Event) int { return a.TimeBucket.Compare(b.TimeBucket) })
-
-	var currTime time.Time
-	var cnt uint
-	fmt.Fprintf(f, "time;cnt\n")
-	for _, e := range sentEvents {
-		if !(e.Msg == "hz packet sent") {
-			continue
-		}
-		if currTime.Equal(e.TimeBucket) {
-			cnt += e.Cnt
-			continue
-		}
-		if !currTime.IsZero() {
-			fmt.Fprintf(f, "%f;%d\n", float64(currTime.UnixMilli()-t.tmin.UnixMilli())/1000, cnt)
-		}
-		currTime = e.TimeBucket
-		cnt = e.Cnt
-	}
-	fmt.Fprintf(f, "%f;%f\n", float64(t.tmax.UnixMilli()-t.tmin.UnixMilli()+50)/1000, 0.0)
-
-	// print the stats once again
-	for _, e := range t.Events {
-		fmt.Printf("%+v\n", e)
-	}
-
-	return nil
-}
-
-// some orga stuff to avoid calculating the distances too often
-// this struct only contains entries which will/must not change during
-// processing (therefore no dynamic distCnt included)
-type distanceBook struct {
-	// store if distanceBook was already initialized
-	valid bool
-	// store the startNode for which the distances were calculated
-	startNode uint
-	// actual generated data
-	nodeToDist map[uint]uint
-	distOrd []uint
-	distMaxCnt map[uint]uint
-}
-
-// setup working with distances with the given start node. If the distances for
-// this start node are already calculated, don't re-calculate the distances
-func (db *distanceBook) processingSetupForDistance(genDistances func(uint)map[uint]uint, startNode uint) (map[uint]uint) {
-	distCnt := make(map[uint]uint)
-	if db.valid && db.startNode == startNode {
-		// init map with known distances
-		for d := range db.distMaxCnt {
-			distCnt[d] = 0
-		}
-		return distCnt
-	}
-
-	db.nodeToDist = genDistances(startNode)
-	db.distMaxCnt = make(map[uint]uint)
-	// collect (and count) known distances
-	for _, v := range db.nodeToDist {
-		if _, ok := distCnt[v]; !ok {
-			distCnt[v] = 0
-			db.distMaxCnt[v] = 0
-			db.distOrd = append(db.distOrd, v)
-		}
-		db.distMaxCnt[v] += 1
-	}
-	slices.Sort(db.distOrd)
-
-	db.valid = true
-	db.startNode = startNode
-
-	fmt.Printf("%+v\n", db)
-
-	return distCnt
-}
-
