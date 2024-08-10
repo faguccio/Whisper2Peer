@@ -36,7 +36,7 @@ func (t testState) String() string {
 // should be instanciated with [NewTesterFromJSON]
 //
 // The usual procedure is [NewTesterFromJSON] -> [Startup] -> some custom logic
-// / sleep -> [Teardown] -> Processing with the ProcessLogsGen* functions
+// / sleep -> [Teardown] -> Processing with the Process* functions
 type Tester struct {
 	// the graph on which the test is executed
 	G Graph
