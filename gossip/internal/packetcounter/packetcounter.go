@@ -1,6 +1,9 @@
 package packetcounter
 
-import "time"
+import (
+	"sync"
+	"time"
+)
 
 type Counter struct {
 	t   time.Time
@@ -9,6 +12,7 @@ type Counter struct {
 	do func(t time.Time, cnt uint)
 	// duration of the "buckets" to form
 	granularity time.Duration
+	mutex sync.Mutex
 }
 
 func NewCounter(do func(time.Time, uint), granularity time.Duration) *Counter {
@@ -21,6 +25,9 @@ func NewCounter(do func(time.Time, uint), granularity time.Duration) *Counter {
 }
 
 func (counter *Counter) Add(i uint) {
+	counter.mutex.Lock()
+	defer counter.mutex.Unlock()
+
 	now := time.Now().Truncate(counter.granularity)
 	if now == counter.t {
 		counter.cnt += i
@@ -36,6 +43,9 @@ func (counter *Counter) Add(i uint) {
 }
 
 func (counter *Counter) Finalize() {
+	counter.mutex.Lock()
+	defer counter.mutex.Unlock()
+
 	if !counter.t.IsZero() {
 		counter.do(counter.t, counter.cnt)
 	}
