@@ -14,13 +14,13 @@ type distanceBook struct {
 	startNode uint
 	// actual generated data
 	nodeToDist map[uint]uint
-	distOrd []uint
+	distOrd    []uint
 	distMaxCnt map[uint]uint
 }
 
 // setup working with distances with the given start node. If the distances for
 // this start node are already calculated, don't re-calculate the distances
-func (db *distanceBook) processingSetupForDistance(genDistances func(uint)map[uint]uint, startNode uint) (map[uint]uint) {
+func (db *distanceBook) processingSetupForDistance(genDistances func(uint) map[uint]uint, startNode uint) map[uint]uint {
 	distCnt := make(map[uint]uint)
 	if db.valid && db.startNode == startNode {
 		// init map with known distances

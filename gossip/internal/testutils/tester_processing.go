@@ -22,14 +22,14 @@ func (t *Tester) ProcessReachedWhen(gtype common.GossipType, any bool) (data.Rea
 			continue
 		}
 		// calculate when the node received the message, as percantage of the test duration
-		tAbs := float64(e.Time.UnixMilli()-t.tmin.UnixMilli())/1000
+		tAbs := float64(e.Time.UnixMilli()-t.tmin.UnixMilli()) / 1000
 		tRel := (tAbs) / t.durSec
 		nodeIdx := t.PeersLut[e.Id]
 
-		if _,ok := ret[nodeIdx]; !ok {
+		if _, ok := ret[nodeIdx]; !ok {
 			ret[nodeIdx] = data.ReachedWhen{
 				TimeUnixSec: tAbs,
-				TimePercent: tRel*100,
+				TimePercent: tRel * 100,
 			}
 		}
 	}
@@ -44,9 +44,9 @@ func (t *Tester) ProcessReachedDistCnt(startNode uint, gtype common.GossipType, 
 	}
 
 	// setup for distances
-	distCnt := t.distanceBook.processingSetupForDistance(func(u uint) map[uint]uint {return t.G.CalcDistances(u)}, startNode)
+	distCnt := t.distanceBook.processingSetupForDistance(func(u uint) map[uint]uint { return t.G.CalcDistances(u) }, startNode)
 
-	for _,d := range t.distanceBook.distOrd {
+	for _, d := range t.distanceBook.distOrd {
 		ret = append(ret, data.ReachedDistCnt{
 			TimeUnixSec:            0,
 			Distance:               d,
@@ -62,7 +62,7 @@ func (t *Tester) ProcessReachedDistCnt(startNode uint, gtype common.GossipType, 
 			continue
 		}
 		// calculate when the node received the message, as percantage of the test duration
-		tAbs := float64(e.Time.UnixMilli()-t.tmin.UnixMilli())/1000
+		tAbs := float64(e.Time.UnixMilli()-t.tmin.UnixMilli()) / 1000
 		nodeIdx := t.PeersLut[e.Id]
 		dist := t.distanceBook.nodeToDist[nodeIdx]
 		distCnt[dist] += 1
@@ -74,7 +74,7 @@ func (t *Tester) ProcessReachedDistCnt(startNode uint, gtype common.GossipType, 
 		})
 	}
 
-	for _,d := range t.distanceBook.distOrd {
+	for _, d := range t.distanceBook.distOrd {
 		ret = append(ret, data.ReachedDistCnt{
 			TimeUnixSec:            t.durSec,
 			Distance:               d,
@@ -86,16 +86,16 @@ func (t *Tester) ProcessReachedDistCnt(startNode uint, gtype common.GossipType, 
 }
 
 // get how many nodes exist with a specific distance
-func (t *Tester) ProcessGraphDistCnt(startNode uint) (data.CntDistancesAll,error) {
+func (t *Tester) ProcessGraphDistCnt(startNode uint) (data.CntDistancesAll, error) {
 	ret := make(data.CntDistancesAll, 0)
 	if t.state != TestStateProcessing {
 		return ret, errors.New("cannot do processing if tester is not in processing state")
 	}
 
 	// setup for distances
-	t.distanceBook.processingSetupForDistance(func(u uint) map[uint]uint {return t.G.CalcDistances(u)}, startNode)
+	t.distanceBook.processingSetupForDistance(func(u uint) map[uint]uint { return t.G.CalcDistances(u) }, startNode)
 
-	for d,c := range t.distanceBook.distMaxCnt {
+	for d, c := range t.distanceBook.distMaxCnt {
 		ret = append(ret, data.CntDistances{
 			Distance: d,
 			Cnt:      c,
@@ -133,7 +133,7 @@ func (t *Tester) ProcessSentPackets(gtype common.GossipType, all bool) (data.Sen
 		}
 		if !currTime.IsZero() {
 			ret = append(ret, data.SentPacketsCnt{
-				TimeUnixSec: float64(currTime.UnixMilli()-t.tmin.UnixMilli())/1000,
+				TimeUnixSec: float64(currTime.UnixMilli()-t.tmin.UnixMilli()) / 1000,
 				Cnt:         cnt,
 			})
 		}
@@ -142,7 +142,7 @@ func (t *Tester) ProcessSentPackets(gtype common.GossipType, all bool) (data.Sen
 	}
 	if !currTime.IsZero() {
 		ret = append(ret, data.SentPacketsCnt{
-			TimeUnixSec: float64(currTime.UnixMilli()-t.tmin.UnixMilli())/1000,
+			TimeUnixSec: float64(currTime.UnixMilli()-t.tmin.UnixMilli()) / 1000,
 			Cnt:         cnt,
 		})
 	}

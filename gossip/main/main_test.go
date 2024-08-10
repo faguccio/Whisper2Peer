@@ -4,8 +4,8 @@ import (
 	"context"
 	"gossip/common"
 	"gossip/internal/testutils"
-	vtypes "gossip/verticalAPI/types"
 	gossip "gossip/main"
+	vtypes "gossip/verticalAPI/types"
 	"log/slog"
 	"net"
 	"os"
@@ -46,7 +46,7 @@ func NotTestMainHorizontal(test *testing.T) {
 	initFin := make(chan error, 1)
 	go m.Run(initFin)
 	defer m.Close()
-	err := <- initFin
+	err := <-initFin
 	if err != nil {
 		panic(err)
 	}
@@ -113,7 +113,7 @@ func NotTestMain(test *testing.T) {
 	initFin := make(chan error, 1)
 	go m.Run(initFin)
 	defer m.Close()
-	err := <- initFin
+	err := <-initFin
 	if err != nil {
 		panic(err)
 	}
@@ -140,8 +140,8 @@ func NotTestMain(test *testing.T) {
 }
 
 func TestMainEndToEndOneHop(test *testing.T) {
-	func(){
-		t,err := testutils.NewTesterFromJSON("../test_assets/e2e.json")
+	func() {
+		t, err := testutils.NewTesterFromJSON("../test_assets/e2e.json")
 		if err != nil {
 			panic(err)
 		}
@@ -168,15 +168,15 @@ func TestMainEndToEndOneHop(test *testing.T) {
 			panic(err)
 		}
 
-		ctx,cfunc := context.WithTimeout(context.Background(), time.Minute)
+		ctx, cfunc := context.WithTimeout(context.Background(), time.Minute)
 		defer cfunc()
 		// interval is two gossip rounds long
 		t.WaitUntilSilent(ctx, true, 0, 2*time.Second)
-		time.Sleep(1*time.Second)
+		time.Sleep(1 * time.Second)
 
 		t.Teardown()
 
-		if _,data,err := t.ProcessReachedDistCnt(0, 0, true); err == nil {
+		if _, data, err := t.ProcessReachedDistCnt(0, 0, true); err == nil {
 			if len(data) != 4 {
 				test.Fatalf("something went wrong more than %d distinct distances are registered: %v", 4, data)
 			}
@@ -198,8 +198,8 @@ func TestMainEndToEndOneHop(test *testing.T) {
 		}
 	}()
 
-	func(){
-		t,err := testutils.NewTesterFromJSON("../test_assets/e2e.json")
+	func() {
+		t, err := testutils.NewTesterFromJSON("../test_assets/e2e.json")
 		if err != nil {
 			panic(err)
 		}
@@ -226,15 +226,15 @@ func TestMainEndToEndOneHop(test *testing.T) {
 			panic(err)
 		}
 
-		ctx,cfunc := context.WithTimeout(context.Background(), time.Minute)
+		ctx, cfunc := context.WithTimeout(context.Background(), time.Minute)
 		defer cfunc()
 		// interval is two gossip rounds long
 		t.WaitUntilSilent(ctx, true, 0, 2*time.Second)
-		time.Sleep(1*time.Second)
+		time.Sleep(1 * time.Second)
 
 		t.Teardown()
 
-		if _,data,err := t.ProcessReachedDistCnt(0, 0, true); err == nil {
+		if _, data, err := t.ProcessReachedDistCnt(0, 0, true); err == nil {
 			if len(data) != 4 {
 				test.Fatalf("something went wrong more than %d distinct distances are registered: %v", 4, data)
 			}

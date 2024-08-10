@@ -12,7 +12,7 @@ type Counter struct {
 	do func(t time.Time, cnt uint)
 	// duration of the "buckets" to form
 	granularity time.Duration
-	mutex sync.Mutex
+	mutex       sync.Mutex
 }
 
 func NewCounter(do func(time.Time, uint), granularity time.Duration) *Counter {

@@ -14,7 +14,7 @@ func main() {
 	// run
 	initFin := make(chan error, 1)
 	go m.Run(initFin)
-	err := <- initFin
+	err := <-initFin
 	if err != nil {
 		panic(err)
 	}

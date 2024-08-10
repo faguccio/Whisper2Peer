@@ -215,7 +215,7 @@ func TestVerticalApi(test *testing.T) {
 	// create the vertical api with above setup values
 	vert := NewVerticalApi(testLog, vertToMainChan)
 	// start the server on localhost:13377
-	
+
 	initFin := make(chan struct{}, 1)
 	if err := vert.Listen("localhost:13377", initFin); err != nil {
 		test.Fatalf("Error starting server: %v", err)

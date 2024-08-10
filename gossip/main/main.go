@@ -105,7 +105,7 @@ func (m *Main) Run(initFinished chan<- error) {
 	defer strategy.Close()
 
 	// wait asynchronously until strat and vertApi are initialized, to notify caller
-	go func(initFinished chan<- error, vInitFin <-chan struct{}, gsInitFin <-chan struct{}){
+	go func(initFinished chan<- error, vInitFin <-chan struct{}, gsInitFin <-chan struct{}) {
 		<-vInitFin
 		<-gsInitFin
 		initFinished <- nil

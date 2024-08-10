@@ -16,9 +16,10 @@ import (
 )
 
 type testState string
+
 var (
-	TestStateInit testState = "" // use zero value here
-	TestStateRunning testState = "running"
+	TestStateInit       testState = "" // use zero value here
+	TestStateRunning    testState = "running"
 	TestStateProcessing testState = "processing"
 )
 
@@ -38,9 +39,9 @@ func (t testState) String() string {
 // / sleep -> [Teardown] -> Processing with the ProcessLogsGen* functions
 type Tester struct {
 	// the graph on which the test is executed
-	G        Graph
+	G Graph
 	// mapping from nodeIdx to peer
-	Peers    map[uint]*peer
+	Peers map[uint]*peer
 	// mapping from connectionId (ip address) to nodeIdx
 	PeersLut map[common.ConnectionId]uint
 	// the logger of each peer will indirectly write it's testing events onto
@@ -53,15 +54,15 @@ type Tester struct {
 	busyChan chan common.GossipType
 	// all Events are collected here (only neededb ecause there are no
 	// unlimited buffered channels)
-	Events  []Event
+	Events []Event
 	// field for bookkeeping what needs to be closed in the end
 	closers []io.Closer
 	// store in which state the tester is
 	state testState
 	// store min/max value for time during the test.
 	// guaranteed to be set when in processing state
-	tmin time.Time
-	tmax time.Time
+	tmin   time.Time
+	tmax   time.Time
 	durSec float64
 	// caching for distances in the processing state
 	distanceBook distanceBook
@@ -72,7 +73,7 @@ type Tester struct {
 // Create a new tester
 //
 // reads all the config stuff from the json file fn
-func NewTesterFromJSON(fn string) (*Tester,error) {
+func NewTesterFromJSON(fn string) (*Tester, error) {
 	t := &Tester{
 		Peers:    make(map[uint]*peer),
 		PeersLut: make(map[common.ConnectionId]uint),
@@ -118,8 +119,8 @@ func (t *Tester) Startup(startIp string) error {
 				// if eg channel is full, don't block, simply loose/skip the
 				// nofitication
 				select {
-					case busyChan <- e.MsgType:
-					default:
+				case busyChan <- e.MsgType:
+				default:
 				}
 			}
 		}
@@ -198,7 +199,7 @@ func (t *Tester) Startup(startIp string) error {
 
 		initFin := make(chan error, 1)
 		go m.Run(initFin)
-		err := <- initFin
+		err := <-initFin
 		if err != nil {
 			return err
 		}
@@ -254,13 +255,13 @@ func (t *Tester) WaitUntilSilent(ctx context.Context, all bool, gtype common.Gos
 	timer := time.NewTimer(interval)
 	for {
 		select {
-		case gt := <- t.busyChan:
+		case gt := <-t.busyChan:
 			if all || gt == gtype {
 				timer.Reset(interval)
 			}
 		case <-ctx.Done():
 			return fmt.Errorf("Wait-context: %w", ctx.Err())
-		case <- timer.C:
+		case <-timer.C:
 			return nil
 		}
 	}
@@ -291,7 +292,7 @@ func (t *Tester) Teardown() error {
 			t.tmin = e.Time
 		}
 	}
-	t.durSec = float64(t.tmax.UnixMilli() - t.tmin.UnixMilli())/1000
+	t.durSec = float64(t.tmax.UnixMilli()-t.tmin.UnixMilli()) / 1000
 
 	// sort logs with time as key to ensure the right order when processing
 	slices.SortFunc(t.Events, func(a Event, b Event) int { return a.Time.Compare(b.Time) })

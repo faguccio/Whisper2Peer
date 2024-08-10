@@ -29,7 +29,7 @@ func (n node) UnmarshalJSON(data []byte) error {
 
 // Represents the complete Graph
 type Graph struct {
-	Nodes []node   `json:"nodes"`
+	Nodes []node `json:"nodes"`
 	// edges are represented as list of tuples (also modelled as list)
 	Edges [][]uint `json:"edges"`
 }

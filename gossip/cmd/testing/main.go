@@ -24,14 +24,13 @@ func logInit() *slog.Logger {
 	}))
 }
 
-
 func main() {
 	var err error
 	slog.SetDefault(logInit())
 
 	fn := os.Args[1]
 	slog.Info("Create tester from file", "file", fn)
-	t,err := testutils.NewTesterFromJSON(fn)
+	t, err := testutils.NewTesterFromJSON(fn)
 	if err != nil {
 		panic(err)
 	}
@@ -66,24 +65,18 @@ func main() {
 		panic(err)
 	}
 
-
-
 	slog.Info("wait for dissemination")
-	ctx,cfunc := context.WithTimeout(context.Background(), time.Minute)
+	ctx, cfunc := context.WithTimeout(context.Background(), time.Minute)
 	defer cfunc()
 	// interval is two gossip rounds long
 	t.WaitUntilSilent(ctx, true, 0, 2*time.Second)
-	time.Sleep(1*time.Second)
-
-
+	time.Sleep(1 * time.Second)
 
 	slog.Info("teardown test")
 	t.Teardown()
 
-
-
 	slog.Info("processing the logs -> when was which node reached")
-	if data,err := t.ProcessReachedWhen(1337, true); err == nil {
+	if data, err := t.ProcessReachedWhen(1337, true); err == nil {
 		if err = data.WriteCss("reached.css"); err != nil {
 			panic(err)
 		}
@@ -92,8 +85,8 @@ func main() {
 	}
 
 	slog.Info("processing the logs -> which distances are present how often")
-	if data,err := t.ProcessGraphDistCnt(STARTNODE); err == nil {
-		f,err := os.Create("dist_cnt.csv")
+	if data, err := t.ProcessGraphDistCnt(STARTNODE); err == nil {
+		f, err := os.Create("dist_cnt.csv")
 		if err != nil {
 			panic(err)
 		}
@@ -109,8 +102,8 @@ func main() {
 	}
 
 	slog.Info("processing the logs -> when was which distance reached")
-	if data,_,err := t.ProcessReachedDistCnt(STARTNODE, 1337, true); err == nil {
-		f,err := os.Create("dist_reached.csv")
+	if data, _, err := t.ProcessReachedDistCnt(STARTNODE, 1337, true); err == nil {
+		f, err := os.Create("dist_reached.csv")
 		if err != nil {
 			panic(err)
 		}
@@ -126,8 +119,8 @@ func main() {
 	}
 
 	slog.Info("processing the logs -> how many packets aere sent")
-	if data,err := t.ProcessSentPackets(1337, true); err == nil {
-		f,err := os.Create("packets_sent.csv")
+	if data, err := t.ProcessSentPackets(1337, true); err == nil {
+		f, err := os.Create("packets_sent.csv")
 		if err != nil {
 			panic(err)
 		}

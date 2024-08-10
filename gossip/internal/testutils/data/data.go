@@ -38,19 +38,19 @@ func (r *ReachedWhenAll) WriteCss(fn string) error {
 
 type ReachedDistCntAll []ReachedDistCnt
 type ReachedDistCnt struct {
-	TimeUnixSec float64
-	Distance uint
+	TimeUnixSec            float64
+	Distance               uint
 	CntReachedSameDistance uint
 }
 
 type CntDistancesAll []CntDistances
 type CntDistances struct {
 	Distance uint
-	Cnt uint
+	Cnt      uint
 }
 
 type SentPacketsCntAll []SentPacketsCnt
 type SentPacketsCnt struct {
 	TimeUnixSec float64
-	Cnt uint
+	Cnt         uint
 }

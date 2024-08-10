@@ -3,8 +3,8 @@ package testutils
 import (
 	"errors"
 	"gossip/common"
-	vtypes "gossip/verticalAPI/types"
 	"gossip/internal/args"
+	vtypes "gossip/verticalAPI/types"
 	"io"
 	"net"
 	"slices"
@@ -18,13 +18,13 @@ type marshaler interface {
 // bookkeeping structure for known/started peers
 type peer struct {
 	// index of the peer
-	idx    uint
+	idx uint
 	// identifier of the peer (most likely the ip address)
-	id     common.ConnectionId
+	id common.ConnectionId
 	// arguments which which the peer was started
-	a      args.Args
+	a args.Args
 	// open connection of the verticalAPI
-	conn   net.Conn
+	conn net.Conn
 	// dialer used when connect to the verticalAPI to be able to set the
 	// local IP address
 	dialer *net.Dialer

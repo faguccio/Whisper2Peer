@@ -65,7 +65,7 @@ func New(log *slog.Logger, args args.Args, stratChans StrategyChannels, initFini
 	hzConnection := make(chan horizontalapi.NewConn, 1)
 	hz.Listen(args.Hz_addr, hzConnection, hzInitFin)
 
-	go func(initFinished chan<-struct{}, hzInitFin <-chan struct{}) {
+	go func(initFinished chan<- struct{}, hzInitFin <-chan struct{}) {
 		<-hzInitFin
 		initFinished <- struct{}{}
 	}(initFinished, hzInitFin)
