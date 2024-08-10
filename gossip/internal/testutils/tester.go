@@ -6,6 +6,7 @@ import (
 	"gossip/common"
 	"gossip/internal/args"
 	gossip "gossip/main"
+	vtypes "gossip/verticalAPI/types"
 	"io"
 	"net"
 	"net/netip"
@@ -188,6 +189,29 @@ func (t *Tester) Startup() error {
 	}
 
 	t.state = TestStateRunning
+	return nil
+}
+
+// register all peers for a certain GossipType (so that they will relay the
+// respective messages).
+func (t *Tester) RegisterAllPeersForType(gtype common.GossipType) error {
+	var err error
+	for _, p := range t.Peers {
+		msg := vtypes.GossipNotify{
+			Gn: common.GossipNotify{
+				Reserved: 0,
+				DataType: gtype,
+			},
+			MessageHeader: vtypes.MessageHeader{
+				Type: vtypes.GossipNotifyType,
+			},
+		}
+		msg.MessageHeader.RecalcSize(&msg)
+
+		if err = p.SendMsg(&msg); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
