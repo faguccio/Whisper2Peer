@@ -2,7 +2,6 @@ package testutils
 
 import (
 	"errors"
-	"fmt"
 	"gossip/common"
 	"gossip/internal/testutils/data"
 	"slices"
@@ -96,8 +95,6 @@ func (t *Tester) ProcessGraphDistCnt(startNode uint) (data.CntDistancesAll,error
 
 	// setup for distances
 	t.distanceBook.processingSetupForDistance(func(u uint) map[uint]uint {return t.G.CalcDistances(u)}, startNode)
-
-	fmt.Printf("%+v\n", t.distanceBook.distMaxCnt)
 
 	for d,c := range t.distanceBook.distMaxCnt {
 		ret = append(ret, data.CntDistances{

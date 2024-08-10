@@ -41,7 +41,7 @@ reachedAll: reached_circo.pdf reached_dot.pdf reached_fdp.pdf reached_neato.pdf 
 reached_circo.pdf reached_dot.pdf reached_fdp.pdf reached_neato.pdf reached_sfdp.pdf reached_twopi.pdf: reached_%.pdf: $(CFG_STEM).dot .reached_%.css
 	dot "$(CFG_STEM).dot" -K$(patsubst reached_%.pdf,%,$@) -Tsvg -o "$(patsubst %.pdf,%.svg,$@)" -Gstylesheet=$(patsubst reached_%.pdf,.reached_%.css,$@)
 	chromium --headless --disable-gpu --print-to-pdf-no-header --print-to-pdf="$@" "$(patsubst %.pdf,%.svg,$@)" &>/dev/null
-	@rm "$(patsubst %.pdf,%.svg,$@)"
+	# @rm "$(patsubst %.pdf,%.svg,$@)"
 
 # render graph once to be able to obtain the size
 .print_circo.svg .print_dot.svg .print_fdp.svg .print_neato.svg .print_sfdp.svg .print_twopi.svg: .print_%.svg: $(CFG_STEM).dot

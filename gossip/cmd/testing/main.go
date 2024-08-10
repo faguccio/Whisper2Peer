@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"encoding/csv"
-	"fmt"
 	"gossip/common"
 	"gossip/internal/testutils"
 	vtypes "gossip/verticalAPI/types"
@@ -81,9 +80,6 @@ func main() {
 	slog.Info("teardown test")
 	t.Teardown()
 
-	for _,e := range t.Events {
-		fmt.Printf("%+v\n", e)
-	}
 
 
 	slog.Info("processing the logs -> when was which node reached")

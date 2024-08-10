@@ -69,7 +69,7 @@
 			ybar,
 			enlargelimits=true,
 			]
-			\addplot+[] table[x=time,y=cnt,col sep=semicolon] {packets_sent.csv};
+			\addplot+[] table[x=TimeUnixSec,y=Cnt,col sep=comma] {packets_sent.csv};
 			\addlegendentry{Packets sent over time}
 		\end{axis}
 	\end{tikzpicture}
@@ -78,13 +78,13 @@
 \newpage
 
 \begin{multicols*}{2}
-	\pgfplotstableread[col sep=semicolon]{dist_reached.csv}\datatable
+	\pgfplotstableread[col sep=comma]{dist_reached.csv}\datatable
 	% Get the number of columns (excluding the time column)
-	\pgfplotstablegetcolsof\datatable
-	\pgfmathtruncatemacro\ncols{\pgfplotsretval-1}
+	% \pgfplotstablegetcolsof\datatable
+	% \pgfmathtruncatemacro\ncols{\pgfplotsretval-1}
 	% Loop over each column (except the first one)
-	\foreach \col in {1,...,\ncols} {
-		\pgfplotstablegetcolumnnamebyindex{\col}\of\datatable\to\distance
+	\foreach \dist in {0,...,4} {
+		% \pgfplotstablegetcolumnnamebyindex{\col}\of\datatable\to\distance
 		\begin{tikzpicture}
 			\begin{axis}[
 				defaults,
@@ -94,12 +94,12 @@
 				% ymin = 1*10^6, ymax = 5*10^8,
 				% ymin = 1*10^7, ymax = 4*10^7,
 				xlabel = {Time [s]},
-				ylabel = {nodes dist=\distance{} reached},
+				ylabel = {nodes dist=\dist{} reached},
 				% ybar,
 				enlargelimits=true,
 				]
-				\addplot+[] table[x=time,y index=\col] \datatable;
-				\addplot+[red,line legend,sharp plot,no marks] table[x=time,y index=\col,col sep=semicolon]{dist_cnt.csv};
+				\addplot+[y filter/.expression={\thisrow{Distance} == \dist ? y : nan}] table[x=TimeUnixSec,y=CntReachedSameDistance] \datatable;
+				% \addplot+[red,line legend,sharp plot,no marks] table[x=time,y index=\col,col sep=semicolon]{dist_cnt.csv};
 				% \addlegendentryexpanded{dist=\pgfplotsretval}
 			\end{axis}
 		\end{tikzpicture}
