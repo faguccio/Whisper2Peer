@@ -7,6 +7,7 @@ import (
 	"gossip/internal/args"
 	gs "gossip/strats"
 	verticalapi "gossip/verticalAPI"
+	"sync"
 
 	"log/slog"
 	"os"
@@ -32,6 +33,8 @@ type Main struct {
 	typeStorage      notifyMap
 	vertToMain       chan common.FromVert
 	strategyChannels gs.StrategyChannels
+	cancel           context.CancelFunc
+	wg               sync.WaitGroup
 }
 
 func NewMainWithArgs(args args.Args, log *slog.Logger) *Main {
@@ -73,7 +76,11 @@ func NewMain() *Main {
 	return NewMainWithArgs(args, logInit(args.Hz_addr))
 }
 
-func (m *Main) Run(ctx context.Context) {
+func (m *Main) Run() {
+	var ctx context.Context
+	ctx, m.cancel = context.WithCancel(context.Background())
+	m.wg.Add(1)
+
 	va := verticalapi.NewVerticalApi(m.log, m.vertToMain)
 	va.Listen(m.args.Vert_addr)
 	defer va.Close()
@@ -110,6 +117,13 @@ loop:
 		}
 	}
 	m.mlog.Info("Main terminating")
+	m.wg.Done()
+}
+
+func (m *Main) Close() error {
+	m.cancel()
+	m.wg.Wait()
+	return nil
 }
 
 func (m *Main) handleModuleUnregister(msg common.GossipUnRegister) {
@@ -131,7 +145,7 @@ func (m *Main) handleTypeRegistration(msg common.GossipRegister) {
 
 // Handle incoming Gossip Validation messages.
 func (m *Main) handleGossipValidation(msg common.GossipValidation) {
-	m.mlog.Info("Validation data handled", "msg", msg)
+	m.mlog.Info("Validation data handled", "Message", msg)
 	m.strategyChannels.ToStrat <- msg
 }
 
@@ -145,7 +159,7 @@ func (m *Main) handleGossipAnnounce(msg common.GossipAnnounce) error {
 	}
 
 	announce_data := msg.Data
-	m.mlog.Info("Gossip Announce", "msg", announce_data)
+	m.mlog.Info("Gossip Announce", "Message", announce_data)
 	// send to gossip
 	m.strategyChannels.ToStrat <- msg
 	return nil

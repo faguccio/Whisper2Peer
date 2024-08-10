@@ -92,7 +92,7 @@ func (dummy *dummyStrat) Listen() {
 					if err1 != nil && err2 != nil && err3 != nil {
 						dummy.invalidMessages.Insert(&storedMessage{0, msg})
 						dummy.rootStrat.strategyChannels.FromStrat <- notification
-						dummy.rootStrat.log.Debug("HZ Message received:", "type", reflect.TypeOf(msg), "msg", msg)
+						dummy.rootStrat.log.Debug("HZ Message received:", "type", reflect.TypeOf(msg), "Message", msg)
 					}
 				}
 
@@ -134,7 +134,7 @@ func (dummy *dummyStrat) Listen() {
 				dummy.validMessages.Do((func(msg *storedMessage) {
 					//dummy.rootStrat.log.Debug("DST conn", "conn", dummy.openConnections[idx])
 					dummy.openConnections[idx].Data <- msg.message
-					dummy.rootStrat.log.Debug("HZ Message sent:", "dst", dummy.openConnections[idx].Id, "msg", msg)
+					dummy.rootStrat.log.Debug("HZ Message sent:", "dst", dummy.openConnections[idx].Id, "Message", msg)
 					msg.counter++
 
 					// If message was sent to args.Degree neighboughrs delete it from the set of messages

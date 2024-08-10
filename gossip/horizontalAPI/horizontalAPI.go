@@ -307,7 +307,7 @@ func (hz *HorizontalApi) writeToConnection(conn net.Conn, c Conn[<-chan ToHz]) {
 	// some cleanup can be done before actually continuing
 loop:
 	for rmsg := range c.Data {
-		hz.log.Debug("instructed to send", "msg", rmsg)
+		hz.log.Debug("instructed to send", "Message", rmsg)
 		// create a new capnproto message
 		cmsg, seg, err := capnp.NewMessage(arena)
 		if err != nil {
