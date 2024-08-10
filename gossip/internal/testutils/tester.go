@@ -193,9 +193,12 @@ func (t *Tester) Startup() error {
 		go FilterLog(ctx, t.logChan, rPipe)
 		m := gossip.NewMainWithArgs(args, LogInit(wPipe, p.id))
 
-		initFin := make(chan struct{}, 1)
+		initFin := make(chan error, 1)
 		go m.Run(initFin)
-		<- initFin
+		err := <- initFin
+		if err != nil {
+			return err
+		}
 
 		t.closers = append(t.closers, m)
 

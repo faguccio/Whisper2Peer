@@ -43,10 +43,13 @@ func NotTestMainHorizontal(test *testing.T) {
 	m := gossip.NewMain()
 
 	// run
-	initFin := make(chan struct{}, 1)
+	initFin := make(chan error, 1)
 	go m.Run(initFin)
 	defer m.Close()
-	<- initFin
+	err := <- initFin
+	if err != nil {
+		panic(err)
+	}
 
 	time.Sleep(2 * time.Second)
 	testLog.Debug("Endtest")
@@ -107,10 +110,13 @@ func NotTestMain(test *testing.T) {
 	m := gossip.NewMain()
 
 	// run
-	initFin := make(chan struct{}, 1)
+	initFin := make(chan error, 1)
 	go m.Run(initFin)
 	defer m.Close()
-	<- initFin
+	err := <- initFin
+	if err != nil {
+		panic(err)
+	}
 
 	testLog.Debug("START MAIN TRY (NOT A REAL TEST)")
 
@@ -139,7 +145,7 @@ func TestMainEndToEndOneHop(test *testing.T) {
 		if err != nil {
 			panic(err)
 		}
-		if err = t.Startup(); err != nil {
+		if err = t.Startup("127.0.0.1"); err != nil {
 			panic(err)
 		}
 		if err = t.RegisterAllPeersForType(1337); err != nil {
@@ -197,7 +203,7 @@ func TestMainEndToEndOneHop(test *testing.T) {
 		if err != nil {
 			panic(err)
 		}
-		if err = t.Startup(); err != nil {
+		if err = t.Startup("127.0.0.1"); err != nil {
 			panic(err)
 		}
 		if err = t.RegisterAllPeersForType(1337); err != nil {
