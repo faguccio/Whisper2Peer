@@ -203,7 +203,7 @@ func TestMainEndToEndOneHop(test *testing.T) {
 		if err != nil {
 			panic(err)
 		}
-		if err = t.Startup("127.0.0.1"); err != nil {
+		if err = t.Startup("127.0.1.1"); err != nil {
 			panic(err)
 		}
 		if err = t.RegisterAllPeersForType(1337); err != nil {
