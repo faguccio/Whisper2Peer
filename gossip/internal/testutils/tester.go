@@ -1,6 +1,7 @@
 package testutils
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"gossip/common"
@@ -46,6 +47,11 @@ type Tester struct {
 	// the logger of each peer will indirectly write it's testing events onto
 	// this channel
 	logChan chan Event
+	// the tester will send the types of observed package (on hzApi) to this
+	// channel when observing it. Can be used to sleep until packets with a
+	// certain type do not appear anymore. This is not completely reliable.
+	// When the (buffered) channel is full, messages might get lost.
+	busyChan chan common.GossipType
 	// all Events are collected here (only neededb ecause there are no
 	// unlimited buffered channels)
 	Events  []Event
@@ -59,6 +65,8 @@ type Tester struct {
 	tmax time.Time
 	// caching for distances in the processing state
 	distanceBook distanceBook
+	// context used to nofity spwaned goroutines about teardown
+	cfunc context.CancelFunc
 }
 
 // Create a new tester
@@ -69,6 +77,7 @@ func NewTesterFromJSON(fn string) (*Tester,error) {
 		Peers:    make(map[uint]*peer),
 		PeersLut: make(map[common.ConnectionId]uint),
 		logChan:  make(chan Event, 64),
+		busyChan: make(chan common.GossipType, 64),
 		Events:   make([]Event, 0),
 		closers:  make([]io.Closer, 0),
 	}
@@ -90,16 +99,28 @@ func (t *Tester) Startup() error {
 		return errors.New("cannot start a tester which is not in init state")
 	}
 
+	var ctx context.Context
+	ctx, t.cfunc = context.WithCancel(context.Background())
+
 	// iterator for ip address
 	ip := netip.MustParseAddr("127.0.0.1")
 
 	// goroutine simply copies the events over to the events slice
 	// NOTE: when closing the channel will also terminate the goroutine
-	go func(logChan <-chan Event) {
+	go func(logChan <-chan Event, busyChan chan<- common.GossipType) {
 		for e := range logChan {
 			t.Events = append(t.Events, e)
+			// if is packet on hz api
+			if e.Msg == "hz packet sent" {
+				// if eg channel is full, don't block, simply loose/skip the
+				// nofitication
+				select {
+					case busyChan <- e.MsgType:
+					default:
+				}
+			}
 		}
-	}(t.logChan)
+	}(t.logChan, t.busyChan)
 
 	// create peers
 	for nodeIdx, node := range t.G.Nodes {
@@ -169,7 +190,7 @@ func (t *Tester) Startup() error {
 		// wPipe = io.MultiWriter(os.Stdout, wPipe)
 
 		// start the peer
-		go FilterLog(t.logChan, rPipe)
+		go FilterLog(ctx, t.logChan, rPipe)
 		m := gossip.NewMainWithArgs(args, LogInit(wPipe, p.id))
 		go m.Run()
 		t.closers = append(t.closers, m)
@@ -185,6 +206,7 @@ func (t *Tester) Startup() error {
 			return err
 		}
 		// mark all incoming notifications as valid (so that they are disseminated further)
+		// NOTE: when closing the connection this will terminate
 		go p.markAllValid()
 	}
 
@@ -215,6 +237,26 @@ func (t *Tester) RegisterAllPeersForType(gtype common.GossipType) error {
 	return nil
 }
 
+// monitor the hzAPI and wait until for interval, no packet of gtype (or of any
+// type) was observed
+//
+// context can/should be used to e.g. specify a timeout ([context.WithTimeout])
+func (t *Tester) WaitUntilSilent(ctx context.Context, all bool, gtype common.GossipType, interval time.Duration) error {
+	timer := time.NewTimer(interval)
+	for {
+		select {
+		case gt := <- t.busyChan:
+			if all || gt == gtype {
+				timer.Reset(interval)
+			}
+		case <-ctx.Done():
+			return fmt.Errorf("Wait-context: %w", ctx.Err())
+		case <- timer.C:
+			return nil
+		}
+	}
+}
+
 // teardown the running test.
 //
 // This includes closing all connections, pipes and channels needed during the
@@ -227,6 +269,7 @@ func (t *Tester) Teardown() error {
 		p.close()
 	}
 	close(t.logChan)
+	close(t.busyChan)
 	for _, c := range t.closers {
 		c.Close()
 	}

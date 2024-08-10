@@ -1,13 +1,14 @@
 package testutils
 
 import (
+	"context"
 	"encoding/json"
 	"gossip/common"
 	"io"
 	"log/slog"
 	"time"
 
-	"gossip/internal/testLog"
+	testlog "gossip/internal/testLog"
 )
 
 func LogInit(w io.Writer, id common.ConnectionId) *slog.Logger {
@@ -40,7 +41,7 @@ type Event struct {
 	TimeBucket time.Time
 }
 
-func FilterLog(c chan<- Event, r io.Reader) {
+func FilterLog(ctx context.Context, c chan<- Event, r io.Reader) {
 	d := json.NewDecoder(r)
 	for d.More() {
 		var e Event
@@ -51,6 +52,11 @@ func FilterLog(c chan<- Event, r io.Reader) {
 		if e.Level != int(common.LevelTest) {
 			continue
 		}
-		c <- e
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			c <- e
+		}
 	}
 }
