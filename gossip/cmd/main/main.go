@@ -12,7 +12,9 @@ func main() {
 	m := gossip.NewMain()
 
 	// run
-	go m.Run()
+	initFin := make(chan struct{}, 1)
+	go m.Run(initFin)
+	<- initFin
 
 	// teardown
 	c := make(chan os.Signal, 1)

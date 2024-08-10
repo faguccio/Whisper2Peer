@@ -76,22 +76,32 @@ func NewMain() *Main {
 	return NewMainWithArgs(args, logInit(args.Hz_addr))
 }
 
-func (m *Main) Run() {
+func (m *Main) Run(initFinished chan<-struct{}) {
 	var ctx context.Context
 	ctx, m.cancel = context.WithCancel(context.Background())
 	m.wg.Add(1)
 
+	vInitFin := make(chan struct{}, 1)
+	gsInitFin := make(chan struct{}, 1)
+
 	va := verticalapi.NewVerticalApi(m.log, m.vertToMain)
-	va.Listen(m.args.Vert_addr)
+	va.Listen(m.args.Vert_addr, vInitFin)
 	defer va.Close()
 
-	strategy, err := gs.New(m.log, m.args, m.strategyChannels)
+	strategy, err := gs.New(m.log, m.args, m.strategyChannels, gsInitFin)
 	if err != nil {
 		m.mlog.Error("Error on instantiating the strategy", "err", err)
 	}
 
 	strategy.Listen()
 	defer strategy.Close()
+
+	// wait asynchronously until strat and vertApi are initialized, to notify caller
+	go func(initFinished chan<-struct{}, vInitFin <-chan struct{}, gsInitFin <-chan struct{}){
+		<-vInitFin
+		<-gsInitFin
+		initFinished <- struct{}{}
+	}(initFinished, vInitFin, gsInitFin)
 
 loop:
 	for {

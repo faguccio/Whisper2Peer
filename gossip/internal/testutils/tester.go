@@ -192,10 +192,13 @@ func (t *Tester) Startup() error {
 		// start the peer
 		go FilterLog(ctx, t.logChan, rPipe)
 		m := gossip.NewMainWithArgs(args, LogInit(wPipe, p.id))
-		go m.Run()
+
+		initFin := make(chan struct{}, 1)
+		go m.Run(initFin)
+		<- initFin
+
 		t.closers = append(t.closers, m)
 
-		time.Sleep(500 * time.Millisecond)
 		ip = ip.Next()
 	}
 

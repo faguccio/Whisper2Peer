@@ -141,12 +141,14 @@ func NewHorizontalApi(log *slog.Logger, fromHz chan<- FromHz) *HorizontalApi {
 //
 // On the channel passed as seccond argument, the horizontalApi advertises new
 // incoming connections
-func (hz *HorizontalApi) Listen(addr string, newConn chan<- NewConn) error {
+func (hz *HorizontalApi) Listen(addr string, newConn chan<- NewConn, initFinished chan<- struct{}) error {
 	var err error
 	hz.ln, err = net.Listen("tcp", addr)
 	if err != nil {
 		return fmt.Errorf("listen to port for horizontal API: %w", err)
 	}
+
+	initFinished <- struct{}{}
 
 	// accept all connections on this port
 	hz.wg.Add(1)
