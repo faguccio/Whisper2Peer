@@ -37,7 +37,7 @@ func main() {
 	}
 
 	slog.Info("Startup tester")
-	if err = t.Startup(); err != nil {
+	if err = t.Startup("127.0.0.1"); err != nil {
 		panic(err)
 	}
 

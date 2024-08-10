@@ -94,7 +94,7 @@ func NewTesterFromJSON(fn string) (*Tester,error) {
 
 // starts all the peers etc
 // the addresses for the peers whill be allocated starting with 127.0.0.1
-func (t *Tester) Startup() error {
+func (t *Tester) Startup(startIp string) error {
 	if t.state != TestStateInit {
 		return errors.New("cannot start a tester which is not in init state")
 	}
@@ -103,7 +103,10 @@ func (t *Tester) Startup() error {
 	ctx, t.cfunc = context.WithCancel(context.Background())
 
 	// iterator for ip address
-	ip := netip.MustParseAddr("127.0.0.1")
+	if startIp == "" {
+		startIp = "127.0.0.1"
+	}
+	ip := netip.MustParseAddr(startIp)
 
 	// goroutine simply copies the events over to the events slice
 	// NOTE: when closing the channel will also terminate the goroutine
