@@ -1,6 +1,7 @@
 package strats
 
 import (
+	"context"
 	"errors"
 	"gossip/common"
 	horizontalapi "gossip/horizontalAPI"
@@ -91,6 +92,7 @@ func (dummy *dummyStrat) Listen() {
 					// and send a notification to vert API
 					if err1 != nil && err2 != nil && err3 != nil {
 						dummy.invalidMessages.Insert(&storedMessage{0, msg})
+						dummy.rootStrat.log.Log(context.Background(), common.LevelTest, "received", "msgId", notification.MessageId, "msgType", notification.DataType)
 						dummy.rootStrat.strategyChannels.FromStrat <- notification
 						dummy.rootStrat.log.Debug("HZ Message received:", "type", reflect.TypeOf(msg), "Message", msg)
 					}
@@ -105,6 +107,7 @@ func (dummy *dummyStrat) Listen() {
 				switch x := x.(type) {
 				case common.GossipAnnounce:
 					pushMsg := convertAnnounceToPush(x)
+					dummy.rootStrat.log.Log(context.Background(), common.LevelTest, "announce", "msgId", pushMsg.MessageID, "msgType", pushMsg.GossipType)
 					// We consider Announce messages automatically valid
 					dummy.validMessages.Insert(&storedMessage{0, pushMsg})
 				case common.GossipValidation:
@@ -143,7 +146,6 @@ func (dummy *dummyStrat) Listen() {
 						dummy.sentMessages.Insert(msg)
 					}
 				}))
-
 			case <-dummy.rootStrat.ctx.Done():
 				// should terminate
 				return

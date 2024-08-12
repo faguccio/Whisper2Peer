@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"gossip/common"
 	hzTypes "gossip/horizontalAPI/types"
+	"gossip/internal/packetcounter"
 	"io"
 	"log/slog"
 	"net"
@@ -102,6 +103,8 @@ type HorizontalApi struct {
 	log *slog.Logger
 	// waitgroup to wait for all goroutines to terminate in the end
 	wg sync.WaitGroup
+	// keep some stats of sent packets
+	packetcounter *packetcounter.Counter
 }
 
 // Use this function to instantiate the horizontal api
@@ -115,7 +118,7 @@ type HorizontalApi struct {
 func NewHorizontalApi(log *slog.Logger, fromHz chan<- FromHz) *HorizontalApi {
 	// context is only used internally -> no need to pass it to the constructor
 	ctx, cancel := context.WithCancel(context.Background())
-	return &HorizontalApi{
+	hz := &HorizontalApi{
 		cancel:     cancel,
 		ctx:        ctx,
 		ln:         nil,
@@ -123,6 +126,12 @@ func NewHorizontalApi(log *slog.Logger, fromHz chan<- FromHz) *HorizontalApi {
 		fromHzChan: fromHz,
 		log:        log.With("module", "horzAPI"),
 	}
+
+	hz.packetcounter = packetcounter.NewCounter(func(t time.Time, cnt uint) {
+		hz.log.Log(context.Background(), common.LevelTest, "hz packet sent", "timeBucket", t, "cnt", cnt)
+	}, 1*time.Second)
+
+	return hz
 }
 
 // Listen on the specified address for incoming horizontal api connections.
@@ -132,12 +141,14 @@ func NewHorizontalApi(log *slog.Logger, fromHz chan<- FromHz) *HorizontalApi {
 //
 // On the channel passed as seccond argument, the horizontalApi advertises new
 // incoming connections
-func (hz *HorizontalApi) Listen(addr string, newConn chan<- NewConn) error {
+func (hz *HorizontalApi) Listen(addr string, newConn chan<- NewConn, initFinished chan<- struct{}) error {
 	var err error
 	hz.ln, err = net.Listen("tcp", addr)
 	if err != nil {
 		return fmt.Errorf("listen to port for horizontal API: %w", err)
 	}
+
+	initFinished <- struct{}{}
 
 	// accept all connections on this port
 	hz.wg.Add(1)
@@ -351,6 +362,7 @@ loop:
 			}
 		}
 		// sent the message on the channel
+		hz.packetcounter.Add(1)
 		if err := encoder.Encode(cmsg); err != nil {
 			// might error because the connection has closed -> check if should
 			// terminate
@@ -391,6 +403,8 @@ func (hz *HorizontalApi) Close() error {
 			err = e
 		}
 	}
+
+	hz.packetcounter.Finalize()
 
 	//
 	fin := make(chan struct{})

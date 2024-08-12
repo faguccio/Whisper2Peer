@@ -64,12 +64,14 @@ func NewVerticalApi(log *slog.Logger, vertToMainChan chan<- common.FromVert) *Ve
 //
 // This function spawns a new goroutine accepting new connections and
 // terminates afterwards.
-func (v *VerticalApi) Listen(addr string) error {
+func (v *VerticalApi) Listen(addr string, initFinished chan<- struct{}) error {
 	var err error
 	v.ln, err = net.Listen("tcp", addr)
 	if err != nil {
 		return fmt.Errorf("listen to port for vertical API: %w", err)
 	}
+
+	initFinished <- struct{}{}
 
 	// accept all connections on this port
 	v.wg.Add(1)

@@ -43,7 +43,7 @@ type StrategyChannels struct {
 // listen on the given address.
 // It instantiate a strategy too. The caller has to call Listen to start the strategy and Close
 // to end it.
-func New(log *slog.Logger, args args.Args, stratChans StrategyChannels) (StrategyCloser, error) {
+func New(log *slog.Logger, args args.Args, stratChans StrategyChannels, initFinished chan<- struct{}) (StrategyCloser, error) {
 
 	fromHz := make(chan horizontalapi.FromHz, 1)
 	hz := horizontalapi.NewHorizontalApi(log, fromHz)
@@ -58,10 +58,17 @@ func New(log *slog.Logger, args args.Args, stratChans StrategyChannels) (Strateg
 		log:              log.With("module", "strategy"),
 	}
 
-	hzConnection := make(chan horizontalapi.NewConn, 1)
-	hz.Listen(args.Hz_addr, hzConnection)
-
 	openConnections, err := hz.AddNeighbors(&net.Dialer{LocalAddr: &net.TCPAddr{IP: net.ParseIP(strings.SplitN(args.Hz_addr, ":", 2)[0]), Port: 0}}, args.Peer_addrs...)
+
+	hzInitFin := make(chan struct{}, 1)
+
+	hzConnection := make(chan horizontalapi.NewConn, 1)
+	hz.Listen(args.Hz_addr, hzConnection, hzInitFin)
+
+	go func(initFinished chan<- struct{}, hzInitFin <-chan struct{}) {
+		<-hzInitFin
+		initFinished <- struct{}{}
+	}(initFinished, hzInitFin)
 
 	if err != nil {
 		return nil, fmt.Errorf("The error occured while initiating the gossip module %w", err)

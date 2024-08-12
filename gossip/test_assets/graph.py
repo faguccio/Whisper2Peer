@@ -31,7 +31,7 @@ p_barabasi = p_model.add_parser("barabasi")
 p_barabasi.add_argument("-m", type=int, help="Number of edges to attach from a new node to existing nodes", required=True)
 
 args = parser.parse_args()
-assert args.file == "-" or not os.path.exists(args.file)
+assert args.file == "-" or (not os.path.exists(args.file+".json") and not os.path.exists(args.file+".dot"))
 
 if args.model == "erdos":
     G = nx.erdos_renyi_graph(n=args.nodes, p=args.p, seed=seed)
@@ -41,6 +41,8 @@ elif args.model == "powerlaw":
     G = nx.powerlaw_cluster_graph(n=args.nodes, m=args.m, p=args.p, seed=seed)
 elif args.model == "barabasi":
     G = nx.barabasi_albert_graph(n=args.nodes, m=args.m, seed=seed)
+else:
+    assert False
 
 # some properties
 print("node degree clustering")
@@ -51,8 +53,15 @@ if args.file == "-":
     json.dump({'nodes': list(nx.nodes(G)), 'edges': list(nx.edges(G))}, sys.stderr)
     sys.stderr.write("\n")
 else:
-    with open(args.file, "w") as f:
+    with open(args.file+".json", "w") as f:
         json.dump({'nodes': list(nx.nodes(G)), 'edges': list(nx.edges(G))}, f)
+    with open(args.file+".dot", "w") as f:
+        print(r"strict graph{", file=f)
+        for i,n in enumerate(nx.nodes(G)):
+            print(f"{n}[class=\"_{i}\"];", file=f)
+        for a,b in nx.edges(G):
+            print(f"{a} -- {b};", file=f)
+        print(r"}", file=f)
 
 if args.view:
     pos = nx.spring_layout(G, seed=seed)  # Seed for reproducible layout
