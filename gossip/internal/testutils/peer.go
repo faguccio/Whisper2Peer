@@ -63,7 +63,7 @@ func (p *peer) SendMsg(v marshaler) error {
 	} else if n != len(msg) {
 		return errors.New("Message could not be written entirely")
 	}
-	return err
+	return nil
 }
 
 // receives any message sent to the vertAPI and sends for all notification a
