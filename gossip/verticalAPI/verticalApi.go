@@ -30,6 +30,7 @@ type VerticalApi struct {
 	ln net.Listener
 	// store all open connections so that they can be closed in the end
 	conns map[net.Conn]struct{}
+	connsMutex sync.Mutex
 	// collection of channels for the backchannel to the main package
 	vertToMainChan chan<- common.FromVert
 	// logging for this module
@@ -90,7 +91,9 @@ func (v *VerticalApi) Listen(addr string, initFinished chan<- struct{}) error {
 				continue
 			}
 
+			v.connsMutex.Lock()
 			v.conns[conn] = struct{}{}
+			v.connsMutex.Unlock()
 
 			mainToVert := make(chan common.ToVert)
 			regMod := common.RegisteredModule{
@@ -117,7 +120,11 @@ func (v *VerticalApi) handleConnection(conn net.Conn, regMod common.Conn[common.
 	// if this read routine terminates, make sure the connection is cleaned up
 	// properly
 	// avoid double Close when the vertical api is being closed
-	defer delete(v.conns, conn)
+	defer func() {
+		v.connsMutex.Lock()
+		delete(v.conns, conn)
+		v.connsMutex.Unlock()
+	}()
 	// close the main > vert channel to signal the connection is closed
 	// also this causes the write routine to terminate
 	defer close(regMod.Data.MainToVert)
@@ -275,12 +282,14 @@ func (v *VerticalApi) Close() error {
 	if e := v.ln.Close(); e != nil {
 		err = e
 	}
+	v.connsMutex.Lock()
 	for c := range v.conns {
 		// interrupt read of the connection routine
 		if e := c.Close(); e != nil {
 			err = e
 		}
 	}
+	v.connsMutex.Unlock()
 	v.wg.Wait()
 	return err
 }
