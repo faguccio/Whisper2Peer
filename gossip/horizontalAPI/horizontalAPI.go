@@ -97,6 +97,7 @@ type HorizontalApi struct {
 	ln net.Listener
 	// store all open connections so that they can be closed in the end
 	conns map[net.Conn]struct{}
+	connsMutex sync.Mutex
 	// channel on which data which was received is being passed
 	fromHzChan chan<- FromHz
 	// logging for this module
@@ -173,7 +174,9 @@ func (hz *HorizontalApi) Listen(addr string, newConn chan<- NewConn, initFinishe
 				Id:   ConnectionId(conn.RemoteAddr().String()),
 			}
 
+			hz.connsMutex.Lock()
 			hz.conns[conn] = struct{}{}
+			hz.connsMutex.Unlock()
 			hz.log.Info("Incoming connection from", "addr", conn.RemoteAddr().String())
 
 			hz.wg.Add(2)
@@ -197,7 +200,9 @@ func (hz *HorizontalApi) AddNeighbors(dialer *net.Dialer, addrs ...string) ([]Co
 			return nil, err
 		}
 
+		hz.connsMutex.Lock()
 		hz.conns[conn] = struct{}{}
+		hz.connsMutex.Unlock()
 		hz.log.Info("Added connection to", "addr", conn.RemoteAddr().String())
 
 		toHz := make(chan ToHz)
@@ -223,7 +228,11 @@ func (hz *HorizontalApi) handleConnection(conn net.Conn, connData Conn[chan<- To
 	// if this read routine terminates, make sure the connection is cleaned up
 	// properly
 	// avoid double Close when the horizontal api is being closed
-	defer delete(hz.conns, conn)
+	defer func() {
+		hz.connsMutex.Lock()
+		delete(hz.conns, conn)
+		hz.connsMutex.Unlock()
+	}()
 	// close the > hz channel to signal the connection is closed
 	// also this causes the write routine to terminate
 	defer close(connData.Data)
@@ -397,12 +406,14 @@ func (hz *HorizontalApi) Close() error {
 	// close the listener
 	hz.ln.Close()
 
+	hz.connsMutex.Lock()
 	for c := range hz.conns {
 		// interrupt read of the connection routine
 		if e := c.Close(); e != nil {
 			err = e
 		}
 	}
+	hz.connsMutex.Unlock()
 
 	hz.packetcounter.Finalize()
 
