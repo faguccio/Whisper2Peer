@@ -4,15 +4,12 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding"
-	"fmt"
 	"io"
 	"sync"
 
 	"golang.org/x/exp/constraints"
 )
 
-var USE_PARALLEL int = 2
-var LOG_OUTPUT bool = true
 const WORKERS = 32
 
 type Marshaller[T constraints.Integer] interface {
@@ -23,26 +20,33 @@ type Marshaller[T constraints.Integer] interface {
 	StripPrefixLen() uint
 	PrefixLen() uint
 	WriteNonce(io.Writer)
+	Clone() Marshaller[T]
 }
 
+// implementation which is exposed to the outside
+func ProofOfWork[T constraints.Integer](pred func(digest []byte) bool, e Marshaller[T]) T {
+	return parallelProofOfWork3(pred, e)
+}
+
+// internal implementation 2
 func parallelProofOfWork2[T constraints.Integer](pred func(digest []byte) bool, e Marshaller[T]) T {
 	result := make(chan T)
-	ctx,cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background())
 	var wg sync.WaitGroup
 
 	for i := 0; i < WORKERS; i++ {
 		wg.Add(1)
 		// c,_ := context.WithCancel(ctx)
-		go func(ctx context.Context, id T, e Marshaller[T]){
+		go func(ctx context.Context, id T, e Marshaller[T]) {
 			h := sha256.New()
 			digest := [sha256.Size]byte{}
 
 			m := make([]byte, 0)
-			m,_ = e.Marshal(m)
+			m, _ = e.Marshal(m)
 			m = m[e.StripPrefixLen():]
 			m1 := m[:e.PrefixLen()]
 
-			loop:
+		loop:
 			for e.SetNonce(id); true; e.AddToNonce(WORKERS) {
 				select {
 				case <-ctx.Done():
@@ -61,28 +65,29 @@ func parallelProofOfWork2[T constraints.Integer](pred func(digest []byte) bool, 
 				}
 			}
 			wg.Done()
-		}(ctx, T(i), e)
+		}(ctx, T(i), e.Clone())
 	}
-	r := <- result
+	r := <-result
 	cancel()
 	wg.Wait()
 	return r
 }
 
+// internal implementation 3
 func parallelProofOfWork3[T constraints.Integer](pred func(digest []byte) bool, e Marshaller[T]) T {
 	result := make(chan T)
-	ctx,cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background())
 	var wg sync.WaitGroup
 
 	for i := 0; i < WORKERS; i++ {
 		wg.Add(1)
 		// c,_ := context.WithCancel(ctx)
-		go func(ctx context.Context, id T, e Marshaller[T]){
+		go func(ctx context.Context, id T, e Marshaller[T]) {
 			h := sha256.New()
 			digest := [sha256.Size]byte{}
 
 			m := make([]byte, 0)
-			m,_ = e.Marshal(m)
+			m, _ = e.Marshal(m)
 			m = m[e.StripPrefixLen():]
 			m1 := m[:e.PrefixLen()]
 
@@ -90,8 +95,8 @@ func parallelProofOfWork3[T constraints.Integer](pred func(digest []byte) bool, 
 			h.Write(m1)
 			hm := h.(encoding.BinaryMarshaler)
 			hu := h.(encoding.BinaryUnmarshaler)
-			stat,_ := hm.MarshalBinary()
-			loop:
+			stat, _ := hm.MarshalBinary()
+		loop:
 			for e.SetNonce(id); true; e.AddToNonce(WORKERS) {
 				select {
 				case <-ctx.Done():
@@ -109,9 +114,9 @@ func parallelProofOfWork3[T constraints.Integer](pred func(digest []byte) bool, 
 				}
 			}
 			wg.Done()
-		}(ctx, T(i), e)
+		}(ctx, T(i), e.Clone())
 	}
-	r := <- result
+	r := <-result
 	cancel()
 	wg.Wait()
 	return r
