@@ -12,8 +12,8 @@ round
 
 # Gossip Strategy
 - [x] respect TTL
-- send to conf param neighbors (instead of just one)
-- think about pull maybe in the future
+- [x] send to conf param neighbors (instead of just one)
+- Implement PULL messages 
 
 # Testing (py)
 - test param to log with json -> add log level below debug for this
