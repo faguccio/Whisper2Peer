@@ -8,11 +8,10 @@ import (
 	ringbuffer "gossip/internal/ringbuffer"
 	"reflect"
 
-	"math/big"
-	"time"
-
 	"crypto/rand"
+	"math/big"
 	mrand "math/rand"
+	"time"
 )
 
 var (
@@ -133,17 +132,24 @@ func (dummy *dummyStrat) Listen() {
 				// Recurrent timer signal
 			case <-ticker.C:
 				// A random peer is selected and we relay all messages to that peer.
-				idx := mrand.Intn(len(dummy.openConnections))
-				dummy.validMessages.Do((func(msg *storedMessage) {
-					//dummy.rootStrat.log.Debug("DST conn", "conn", dummy.openConnections[idx])
-					dummy.openConnections[idx].Data <- msg.message
-					dummy.rootStrat.log.Debug("HZ Message sent:", "dst", dummy.openConnections[idx].Id, "Message", msg)
-					msg.counter++
+				amount := min(len(dummy.openConnections), int(dummy.rootStrat.stratArgs.Degree))
+				perm := mrand.Perm(amount)
 
-					// If message was sent to args.Degree neighboughrs delete it from the set of messages
-					if msg.counter >= int(dummy.rootStrat.stratArgs.Degree) {
-						dummy.validMessages.Remove(msg)
-						dummy.sentMessages.Insert(msg)
+				//idx := mrand.Intn(len(dummy.openConnections))
+				dummy.validMessages.Do((func(msg *storedMessage) {
+					//TODO loop over amount of connections and send the messages
+					for i := 0; i < amount; i++ {
+						idx := perm[i]
+						//dummy.rootStrat.log.Debug("DST conn", "conn", dummy.openConnections[idx])
+						dummy.openConnections[idx].Data <- msg.message
+						dummy.rootStrat.log.Debug("HZ Message sent:", "dst", dummy.openConnections[idx].Id, "Message", msg)
+						msg.counter++
+
+						// If message was sent to args.Degree neighboughrs delete it from the set of messages
+						if msg.counter >= int(dummy.rootStrat.stratArgs.Degree) {
+							dummy.validMessages.Remove(msg)
+							dummy.sentMessages.Insert(msg)
+						}
 					}
 				}))
 			case <-dummy.rootStrat.ctx.Done():

@@ -8,6 +8,7 @@ with sequence of nonces and PoW
 - optimization: Peers can also ask for PoW challenge to include in the current
 round
 - DDOS protection: store when last PoW request was received from that peer
+- Don't store state -> send (nonce, enc(nonce, ip, ...)) 
 
 # Gossip Strategy
 - [x] respect TTL
