@@ -375,31 +375,39 @@ var data [4096]byte = [4096]byte{
 	0xe4, 0x42, 0x3a, 0xa9, 0x26, 0x8,
 }
 
+var t TM
+
 var inputs = []struct {
 	length int
 }{
-	{length: 4},
-	{length: 8},
 	{length: 16},
+	{length: 32},
 	{length: 64},
+	{length: 70},
+	{length: 128},
+	{length: 150},
 	{length: 256},
 	{length: 1024},
+	{length: 1500}, // classic MTU
 	{length: 2048},
+	{length: 2500},
+	{length: 3000},
+	{length: 3500},
 	{length: 4096},
 }
-
-// TODO add interm values (not that large steps in the end)
 
 func BenchmarkPoW2(b *testing.B) {
 	randomSource_ := rand.NewSource(1337).(rand.Source64)
 	randomSource := rand.New(randomSource_)
 
 	for _, v := range inputs {
+		l := v.length - binary.Size(t.header) - binary.Size(t.nonce)
+		hdr := uint16(randomSource.Int())
 		b.Run(fmt.Sprintf("data_len=%d", v.length), func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				x := TM{
-					header: uint16(randomSource.Int()),
-					data:   data[:v.length],
+					header: hdr,
+					data:   data[:l],
 					nonce:  0,
 				}
 
