@@ -412,13 +412,13 @@ func BenchmarkPoW2(b *testing.B) {
 				}
 
 				y := parallelProofOfWork2(func(digest []byte) bool {
-					return first24bits0(digest)
+					return First24bits0(digest)
 				}, &x)
 				x.nonce = y
 
 				buf, _ := x.Marshal(nil)
 				digest := sha256.Sum256(buf[x.StripPrefixLen():])
-				if !first24bits0(digest[:]) {
+				if !First24bits0(digest[:]) {
 					b.Fatalf("Returned nonce does not fulfull the predicate")
 				}
 			}
@@ -440,22 +440,18 @@ func BenchmarkPoW3(b *testing.B) {
 				}
 
 				y := parallelProofOfWork3(func(digest []byte) bool {
-					return first24bits0(digest)
+					return First24bits0(digest)
 				}, &x)
 				x.nonce = y
 
 				buf, _ := x.Marshal(nil)
 				digest := sha256.Sum256(buf[x.StripPrefixLen():])
-				if !first24bits0(digest[:]) {
+				if !First24bits0(digest[:]) {
 					b.Fatalf("Returned nonce does not fulfull the predicate")
 				}
 			}
 		})
 	}
-}
-
-func first24bits0(digest []byte) bool {
-	return digest[0] == 0 && digest[1] == 0 && digest[2] == 0
 }
 
 type TM struct {
@@ -506,7 +502,7 @@ func (x *TM) WriteNonce(w io.Writer) {
 	w.Write(binary.BigEndian.AppendUint64(nil, x.nonce))
 }
 
-func (x *TM) Clone() Marshaller[uint64] {
+func (x *TM) Clone() POWMarshaller[uint64] {
 	return &TM{
 		header: x.header,
 		data:   x.data,
