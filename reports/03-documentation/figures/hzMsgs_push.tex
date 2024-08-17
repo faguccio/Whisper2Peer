@@ -1,0 +1,15 @@
+\begin{tabularx}{.85\linewidth}{llX}
+	\toprule
+	Field & Type & Description
+	\\
+	\midrule
+	ttl & uint8 & Time to live: specifies nodes until which distance to the transmitting node should be reached ($\text{TTL} = 0 \text{ means } \infty$)
+	\\
+	gossipType & uint16 & Type of the payload (set by the module talking on the verticalAPI)
+	\\
+	messageID & uint16 & Identifier of this message (randomely chosen by the strategy)
+	\\
+	payload & Data & Bytes of data that is spread in the network
+	\\
+	\bottomrule
+\end{tabularx}

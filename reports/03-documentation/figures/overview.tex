@@ -1,0 +1,196 @@
+\scalebox{0.75}{
+	\newlength\widthV
+	\newlength\widthM
+	\newlength\widthG
+	\newlength\widthH
+	\settowidth\widthV{\footnotesize two threads (read+write) per}
+	\settowidth\widthM{\footnotesize store which module registered}
+	\settowidth\widthG{Gossip-Strategy}
+	\settowidth\widthH{\footnotesize two threads (read+write) per}
+	\newlength\distance
+	\setlength\distance{\dimexpr1.3\linewidth-\widthV-\widthM-\widthG-\widthH-0.34em*8}
+	\newlength\myheadsep
+	\setlength\myheadsep{.0ex}
+	\begin{tikzpicture}[
+		node distance=0.33\distance,
+		every node/.style={align=left,},
+		thick,
+		]
+		% first create the headers
+		\node[text width=\widthV] (v) {Vertical API \hfill (tcp)};
+		\node[yshift=-\myheadsep,fit=(v),inner ysep=0pt] (vertAPI) {};
+
+		\node[text width=\widthM,right=of v.north east,anchor=north west,align=center] (m) {Main};
+		\node[yshift=-\myheadsep,fit=(m),inner ysep=0pt] (main) {};
+
+		\node[text width=\widthG,right=of m.north east,anchor=north west,align=center] (g) {Gossip-Strategy};
+		\node[yshift=-\myheadsep,fit=(g),inner ysep=0pt] (gStrat) {};
+
+		\node[text width=\widthH,right=of g.north east,anchor=north west] (h) {Horizontal API \hfill (tcp)};
+		\node[yshift=-\myheadsep,fit=(h),inner ysep=0pt] (horAPI) {};
+
+		% fill the vertical API box
+		\coordinate (tmp) at (vertAPI.south);
+		\node[anchor=north west,font=\tt] (v1) at (tmp -| vertAPI.west) {
+				bind+listen
+				\\
+				while true:
+				\\
+				\mbox{    }accept \tos dispatch
+			};
+		\coordinate (tmp) at (v1.south);
+		\path let
+			\p1 = ($(vertAPI.west)!0.2!(vertAPI.east)$),
+			\p2 = ($(vertAPI.west)!0.5!(vertAPI.east)$),
+			\p3 = ($(vertAPI.west)!0.8!(vertAPI.east)$),
+			in
+			node[anchor=north west,align=center] (t2) at (tmp -| vertAPI.west) {
+				\footnotesize
+				two threads (read+write) per
+				\\
+				\footnotesize
+				open connection
+			}
+			coordinate (tmp) at (t2.south)
+			coordinate[yshift=-6ex] (end) at (t2.south)
+			(\p1 |- tmp) edge[thick,decorate,decoration={snake,amplitude=2pt,segment length=2ex}] (\p1 |- end)
+			node[anchor=center] at ($(end)!.5!(tmp)$) {\ldots}
+			(\p3 |- tmp) edge[thick,decorate,decoration={snake,amplitude=2pt,segment length=2ex}] (\p3 |- end)
+			coordinate (tmp) at (end)
+			node[anchor=north] (t3) at (tmp) {
+				\footnotesize
+				(un)marshal / conn $\leftrightarrow$ main
+			}
+			coordinate[] (tmp) at (t3.south)
+			;
+		\coordinate (endV) at (tmp);
+
+		% fill the main box
+		\coordinate (tmp) at (main.south);
+		\node[anchor=north west,font=\tt] (m1) at (tmp -| main.west) {
+				config+setup
+				\\
+				while true:
+				\\
+				\mbox{    }filter+relay messages
+			};
+		\coordinate (tmp) at (m1.south);
+		\node[anchor=north west] (m2) at (tmp -| main.west) {
+				\footnotesize
+				store which module registered
+				\\
+				\footnotesize
+				for what type
+			};
+		\coordinate[yshift=-1ex] (tmp) at (m2.south);
+		\path let
+			\p2 = ($(main.west)!0.5!(main.east)$),
+			in
+			coordinate[yshift=-6ex] (end) at (tmp)
+			(\p2 |- tmp) edge[thick,decorate,decoration={snake,amplitude=2pt,segment length=2ex}] (\p2 |- end)
+			coordinate (tmp) at (end)
+			;
+		\coordinate (endM) at (tmp);
+
+		% fill the gossip strategy box
+		\coordinate (tmp) at (gStrat.south);
+		\node[anchor=north west,font=\tt] (g1) at (tmp -| gStrat.west) {
+				while true:
+				\\
+				\mbox{    }execute strat
+				\\
+				\hfil\&\&
+				\\
+				\mbox{    }bookkeeping
+			};
+		\coordinate (tmp) at (g1.south);
+		\node[anchor=north west,text width=\widthG] (g2) at (tmp -| gStrat.west) {
+				\footnotesize
+				execute the actual strategy, like push or pull
+			};
+		\coordinate[yshift=-1ex] (tmp) at (g2.south);
+		\path let
+			\p2 = ($(gStrat.west)!0.5!(gStrat.east)$),
+			in
+			coordinate[yshift=-6ex] (end) at (tmp)
+			(\p2 |- tmp) edge[thick,decorate,decoration={snake,amplitude=2pt,segment length=2ex}] (\p2 |- end)
+			coordinate (tmp) at (end)
+			;
+		\coordinate (endG) at (tmp);
+
+		% fill the horizontal API box
+		\coordinate (tmp) at (horAPI.south);
+		\node[anchor=north west,font=\tt] (h1) at (tmp -| horAPI.west) {
+				connect to neighbors
+				\\
+				bind+listen
+				\\
+				while true:
+				\\
+				\mbox{    }accept \tos dispatch
+			};
+		\coordinate (tmp) at (h1.south);
+		\path let
+			\p1 = ($(horAPI.west)!0.2!(horAPI.east)$),
+			\p2 = ($(horAPI.west)!0.5!(horAPI.east)$),
+			\p3 = ($(horAPI.west)!0.8!(horAPI.east)$),
+			in
+			node[anchor=north west,align=center] (t2) at (tmp -| horAPI.west) {
+				\footnotesize two threads (read+write) per\\
+				\footnotesize open connection
+			}
+			coordinate (tmp) at (t2.south)
+			coordinate[yshift=-6ex] (end) at (t2.south)
+			(\p1 |- tmp) edge[thick,decorate,decoration={snake,amplitude=2pt,segment length=2ex}] (\p1 |- end)
+			node[anchor=center] at ($(end)!.5!(tmp)$) {\ldots}
+			(\p3 |- tmp) edge[thick,decorate,decoration={snake,amplitude=2pt,segment length=2ex}] (\p3 |- end)
+			coordinate (tmp) at (end)
+			node[anchor=north] (t3) at (tmp) {\footnotesize (un)marshal / main $\leftrightarrow$ conn}
+			coordinate[] (tmp) at (t3.south)
+			;
+		\coordinate (endH) at (tmp);
+
+		% determine the max/min coordinates
+		\node[fit=(endV) (endM) (endG) (endH)] (end) {};
+		\coordinate (end) at (end.south);
+
+		% draw the arrows vert <> main
+		\path[every node/.style={font=\footnotesize,},] let
+			\p1 = ($(vertAPI.south)!.33!(end)$),
+			\p2 = ($(vertAPI.south)!.63!(end)$),
+			\p3 = ($(vertAPI.south)!.69!(end)$),
+			in
+			(\p1 -| vertAPI.east) edge[->] node[above] {vertToMain} (\p1 -| main.west)
+			(\p2 -| vertAPI.east) edge[<-] coordinate[pos=0] (a1)  node[above] {mainToVert} (\p2 -| main.west)
+			(\p3 -| vertAPI.east) edge[<-] coordinate[pos=1] (a2) (\p3 -| main.west)
+			node at ($(a1)!.5!(a2)$) {\ldots}
+			;
+
+		% draw the arrows main <> gossip strategy
+		\path[every node/.style={font=\footnotesize,},] let
+			\p1 = ($(vertAPI.south)!.33!(end)$),
+			\p2 = ($(vertAPI.south)!.66!(end)$),
+			in
+			(\p1 -| main.east) edge[<-] node[above] {stratToMain} (\p1 -| gStrat.west)
+			(\p2 -| main.east) edge[->] coordinate[pos=0] (a1)  node[above] {mainToStrat} (\p2 -| gStrat.west)
+			;
+
+		% draw the arrows gossip strategy -> hor
+		\path[every node/.style={font=\footnotesize,},] let
+			\p1 = ($(gStrat.south)!.33!(end)$),
+			\p2 = ($(gStrat.south)!.63!(end)$),
+			\p3 = ($(gStrat.south)!.69!(end)$),
+			in
+			(\p1 -| gStrat.east) edge[<-] node[above] {horToStrat} (\p1 -| horAPI.west)
+			(\p2 -| gStrat.east) edge[->] coordinate[pos=0] (a1)  node[above] {stratToHor} (\p2 -| horAPI.west)
+			(\p3 -| gStrat.east) edge[->] coordinate[pos=1] (a2) (\p3 -| horAPI.west)
+			node at ($(a1)!.5!(a2)$) {\ldots}
+			;
+
+		% draw the boxes
+		\node[inner sep=0pt,fit=(vertAPI.south west) (vertAPI.south east) (end -| vertAPI),draw] (wholeV) {};
+		\node[inner sep=0pt,fit=(main.south west) (main.south east) (end -| main),draw] (wholeM) {};
+		\node[inner sep=0pt,fit=(gStrat.south west) (gStrat.south east) (end -| gStrat),draw] (wholeG) {};
+		\node[inner sep=0pt,fit=(horAPI.south west) (horAPI.south east) (end -| horAPI),draw] (wholeH) {};
+	\end{tikzpicture}
+}
