@@ -255,4 +255,52 @@ func TestMainEndToEndOneHop(test *testing.T) {
 			panic(data)
 		}
 	}()
+
+	func() {
+		t, err := testutils.NewTesterFromJSON("../test_assets/erdos.json")
+		if err != nil {
+			panic(err)
+		}
+		if err = t.Startup("127.0.2.1"); err != nil {
+			panic(err)
+		}
+		if err = t.RegisterAllPeersForType(1337); err != nil {
+			panic(err)
+		}
+		p := t.Peers[0]
+		msg := vtypes.GossipAnnounce{
+			Ga: common.GossipAnnounce{
+				TTL:      10,
+				Reserved: 0,
+				DataType: 1337,
+				Data:     []byte{1},
+			},
+			MessageHeader: vtypes.MessageHeader{
+				Type: vtypes.GossipAnnounceType,
+			},
+		}
+		msg.MessageHeader.RecalcSize(&msg)
+		if err = p.SendMsg(&msg); err != nil {
+			panic(err)
+		}
+
+		ctx, cfunc := context.WithTimeout(context.Background(), time.Minute)
+		defer cfunc()
+		// interval is two gossip rounds long
+		t.WaitUntilSilent(ctx, true, 0, 2*time.Second)
+		time.Sleep(1 * time.Second)
+
+		t.Teardown()
+
+		data, err := t.ProcessReachedWhen(common.GossipType(1337), true)
+		// Just checking all nodes have received the message
+		if err != nil {
+			panic(err)
+		}
+
+		if len(data) != 20 {
+			test.Fatalf("message was received by %d nodes (should be %d nodes)", len(data), 20)
+		}
+	}()
+
 }

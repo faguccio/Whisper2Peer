@@ -8,11 +8,12 @@ with sequence of nonces and PoW
 - optimization: Peers can also ask for PoW challenge to include in the current
 round
 - DDOS protection: store when last PoW request was received from that peer
+- Don't store state -> send (nonce, enc(nonce, ip, ...)) 
 
 # Gossip Strategy
 - [x] respect TTL
-- send to conf param neighbors (instead of just one)
-- think about pull maybe in the future
+- [x] send to conf param neighbors (instead of just one)
+- Implement PULL messages 
 
 # Testing (py)
 - test param to log with json -> add log level below debug for this
