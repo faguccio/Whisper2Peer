@@ -119,12 +119,12 @@ func NewMain() *Main {
 
 	// if set also read the ini arguments
 	if cargs.ConfigFile != nil {
-		cfg, err := ini.Load(cargs.ConfigFile)
+		cfg, err := ini.Load(*cargs.ConfigFile)
 		if err != nil {
 			panic(err)
 		}
 		var iargs UserArgs
-		if err = cfg.Section("gossip").MapTo(iargs); err != nil {
+		if err = cfg.Section("gossip").MapTo(&iargs); err != nil {
 			panic(err)
 		}
 
