@@ -136,11 +136,6 @@ func NewMain() *Main {
 	// merge in the end as cli takes predecence
 	args = cargs.Merge(args)
 
-
-	fmt.Printf("%+v\n", args)
-
-	panic(nil)
-
 	return NewMainWithArgs(args, logInit(args.Hz_addr))
 }
 
