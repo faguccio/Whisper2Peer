@@ -5,8 +5,7 @@
 ## PoW
 - collect requests from neighbors -> do PoW on sequence of nonces -> respond
 with sequence of nonces and PoW
-- optimization: Peers can also ask for PoW challenge to include in the current
-round
+  - optimization: Peers can also ask for PoW challenge to include in the current round
 - DDOS protection: store when last PoW request was received from that peer
 - Don't store state -> send (nonce, enc(nonce, ip, ...)) 
 
@@ -22,6 +21,11 @@ round
     - #sent messages
     - who received it (distance, how many should received it, how many actually received it)
     - time axis
+
+# Project "Deployment"
+
+- [ ] Add Dockerfile
+- [ ] Read from `.ini`
 
 # Report
 - state machine for sent messages etc

@@ -99,6 +99,7 @@ func (dummy *dummyStrat) Listen() {
 
 				// New connection is established.
 			case newPeer := <-dummy.hzConnection:
+				// Insert here proof of work
 				dummy.openConnections = append(dummy.openConnections, horizontalapi.Conn[chan<- horizontalapi.ToHz](newPeer))
 
 				// Message from the vertical API
