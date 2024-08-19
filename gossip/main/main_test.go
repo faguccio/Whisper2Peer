@@ -294,8 +294,12 @@ func TestMainEndToEndOneHop(test *testing.T) {
 
 		data, err := t.ProcessReachedWhen(common.GossipType(1337), true)
 		// Just checking all nodes have received the message
-		if err != nil || len(data) == 19 {
+		if err != nil {
 			panic(err)
+		}
+
+		if len(data) != 20 {
+			test.Fatalf("message was received by %d nodes (should be %d nodes)", len(data), 20)
 		}
 	}()
 

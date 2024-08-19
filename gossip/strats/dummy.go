@@ -137,7 +137,6 @@ func (dummy *dummyStrat) Listen() {
 
 				//idx := mrand.Intn(len(dummy.openConnections))
 				dummy.validMessages.Do((func(msg *storedMessage) {
-					//TODO loop over amount of connections and send the messages
 					for i := 0; i < amount; i++ {
 						idx := perm[i]
 						//dummy.rootStrat.log.Debug("DST conn", "conn", dummy.openConnections[idx])
