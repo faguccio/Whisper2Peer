@@ -1,11 +1,36 @@
 package args
 
+// Represents the arguments used actually/internally by the application
+
+// You can use [NewFromDefaults] to obtain this struct with default values set
 type Args struct {
-	Degree      uint     `arg:"-d,--degree" default:"30" help:"Gossip parameter degree: Number of peers the current peer has to exchange information with"`
-	Cache_size  uint     `arg:"-c,--cache" default:"50" help:"Gossip parameter cache_size: Maximum number of data items to be held as part of the peer’s knowledge base. Older items will be removed to ensure space for newer items if the peer’s knowledge base exceeds this limit"`
-	GossipTimer uint     `arg:"-t,--gtimer" default:"1" help:"How often the gossip strategy should perform a strategy cycle, if applicable" default:"1"`
-	Hz_addr     string   `arg:"-h,--haddr" default:"127.0.0.1:6001" help:"Address to listen for incoming peer connections, ip:port"`
-	Vert_addr   string   `arg:"-v,--vaddr" default:"127.0.0.1:7001" help:"Address to listen for incoming peer connections, ip:port"`
-	Peer_addrs  []string `arg:"positional" help:"List of horizontal peers to connect to, [ip]:port"`
-	// Strategy string ``
+	// Gossip parameter degree: Number of peers the current peer has to
+	// exchange information with
+	Degree      uint
+	// Gossip parameter cache_size: Maximum number of data items to be held as
+	// part of the peer’s knowledge base. Older items will be removed to ensure
+	// space for newer items if the peer’s knowledge base exceeds this limit
+	Cache_size  uint
+	// How often the gossip strategy should perform a strategy cycle, if
+	// applicable
+	GossipTimer uint
+	// Address to listen for incoming peer connections, ip:port
+	Hz_addr     string
+	// Address to listen for incoming peer connections, ip:port
+	Vert_addr   string
+	// List of horizontal peers to connect to, [ip]:port
+	Peer_addrs  []string
+	// Strategy string
+}
+
+// Returns a new [Args] struct with sane default values
+func NewFromDefaults() Args {
+	return Args{
+		Degree: 30,
+		Cache_size: 50,
+		GossipTimer: 1,
+		Hz_addr: "127.0.0.1:6001",
+		Vert_addr: "127.0.0.1:7001",
+		Peer_addrs: nil,
+	}
 }
