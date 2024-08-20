@@ -65,6 +65,40 @@ func (Push) canFromHz() {}
 // mark this type as being sendable via ToHz channels
 func (Push) canToHz() {}
 
+// Represent a ConnReq message from/to the horizontalApi
+type ConnReq struct {
+}
+
+// mark this type as being sendable via FromHz channels
+func (ConnReq) canFromHz() {}
+
+// mark this type as being sendable via ToHz channels
+func (ConnReq) canToHz() {}
+
+// Represents a ConnChall message from/to the horizontalApi
+type ConnChall struct {
+	Chall  uint64
+	Cookie []byte
+}
+
+// mark this type as being sendable via FromHz channels
+func (ConnChall) canFromHz() {}
+
+// mark this type as being sendable via ToHz channels
+func (ConnChall) canToHz() {}
+
+// Represents a ConnPoW message from/to the horizontalApi
+type ConnPoW struct {
+	Nonce  uint64
+	Cookie []byte
+}
+
+// mark this type as being sendable via FromHz channels
+func (ConnPoW) canFromHz() {}
+
+// mark this type as being sendable via ToHz channels
+func (ConnPoW) canToHz() {}
+
 type Unregister ConnectionId
 
 // mark this type as being sendable via FromHz channels
@@ -96,7 +130,7 @@ type HorizontalApi struct {
 	// store the listener so that it can be closed in the end
 	ln net.Listener
 	// store all open connections so that they can be closed in the end
-	conns map[net.Conn]struct{}
+	conns      map[net.Conn]struct{}
 	connsMutex sync.Mutex
 	// channel on which data which was received is being passed
 	fromHzChan chan<- FromHz
@@ -302,7 +336,62 @@ loop:
 				p.Payload = slices.Clone(p.Payload)
 				// send the push message to the channel
 				hz.fromHzChan <- p
-			// TODO(horizontal types) add new ones here
+			case msg.Body().HasConnReq():
+				// retrieve the ConnReq message
+				_, err := msg.Body().ConnReq()
+				if err != nil {
+					hz.log.Error("read the ConnReq message failed", "err", err)
+					goto continue_read
+				}
+				p := ConnReq{}
+				// send the connection request to the channel
+				hz.fromHzChan <- p
+			case msg.Body().HasConnChall():
+				// retrieve the ConnChall message
+				chall, err := msg.Body().ConnChall()
+				if err != nil {
+					hz.log.Error("read the ConnChall message failed", "err", err)
+					goto continue_read
+				}
+				// copy the capnproto ConnChall message to an internal
+				// representation to make the handling in other packages easier
+
+				p := ConnChall{
+					Chall: chall.Challenge(),
+				}
+				// cookie is no scalar type -> retrival might error
+				p.Cookie, err = chall.Cookie()
+				if err != nil {
+					hz.log.Error("obtaining the cookie failed", "err", err)
+					goto continue_read
+				}
+				// p cookie is still a "pointer" into the capnproto message ->
+				// empty if memory is freeed => make a copy of it
+				p.Cookie = slices.Clone(p.Cookie)
+				hz.fromHzChan <- p
+			case msg.Body().HasConnPoW():
+				// retrieve the ConnPoW message
+				pow, err := msg.Body().ConnPoW()
+				if err != nil {
+					hz.log.Error("read the ConnPoW message failed", "err", err)
+					goto continue_read
+				}
+				// copy the capnproto ConnPoW message to an internal
+				// representation to make the handling in other packages easier
+				p := ConnPoW{
+					Nonce: pow.Nonce(),
+				}
+				// cookie is no scalar type -> retrival might error
+				p.Cookie, err = pow.Cookie()
+				if err != nil {
+					hz.log.Error("obtaining the cookie failed", "err", err)
+					goto continue_read
+				}
+				// p cookie is still a "pointer" into the capnproto message ->
+				// empty if memory is freeed => make a copy of it
+				p.Cookie = slices.Clone(p.Cookie)
+				hz.fromHzChan <- p
+
 			default:
 				hz.log.Error("no valid message was sent", "type was", msg.Body().Which().String())
 				goto continue_read
@@ -367,7 +456,61 @@ loop:
 					hz.log.Error("setting sending message to push failed", "err", err)
 					goto continue_write
 				}
-				// TODO(horizontal types) add new ones here
+			case ConnReq:
+				// create the ConnReq message
+				req, err := hzTypes.NewConnReq(seg)
+				if err != nil {
+					hz.log.Error("creating new sending message failed", "err", err)
+					goto continue_write
+				}
+
+				// combine ConnReq and the message
+				if err := msg.Body().SetConnReq(req); err != nil {
+					hz.log.Error("setting sending message to connReq failed", "err", err)
+					goto continue_write
+				}
+			case ConnChall:
+				// create the ConnChall message
+				chall, err := hzTypes.NewConnChall(seg)
+				if err != nil {
+					hz.log.Error("creating new ConnChall message failed", "err", err)
+					goto continue_write
+				}
+				// populate the message
+				// setting scalar value cannot lead to error
+				chall.SetChallenge(rmsg.Chall)
+
+				// cookie is no scalar type -> setting might error
+				if err := chall.SetCookie(rmsg.Cookie); err != nil {
+					hz.log.Error("setting the cookie for the ConnChall message failed", "err", err)
+					goto continue_write
+				}
+				// combine connChall and the message
+				if err := msg.Body().SetConnChall(chall); err != nil {
+					hz.log.Error("setting sending message to ConnChall failed", "err", err)
+					goto continue_write
+				}
+			case ConnPoW:
+				// create the ConnPow message
+				pow, err := hzTypes.NewConnPoW(seg)
+				if err != nil {
+					hz.log.Error("creating new ConnPoW message failed", "err", err)
+					goto continue_write
+				}
+				// populate the message
+				// setting scalar value cannot lead to error
+				pow.SetNonce(rmsg.Nonce)
+
+				// cookie is no scalar type -> setting might error
+				if err := pow.SetCookie(rmsg.Cookie); err != nil {
+					hz.log.Error("setting the cookie for the ConnPoW message failed", "err", err)
+					goto continue_write
+				}
+				// combine connChall and the message
+				if err := msg.Body().SetConnPoW(pow); err != nil {
+					hz.log.Error("setting sending message to ConnPow failed", "err", err)
+					goto continue_write
+				}
 			}
 		}
 		// sent the message on the channel

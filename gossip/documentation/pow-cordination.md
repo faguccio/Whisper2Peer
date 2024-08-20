@@ -8,6 +8,7 @@ When a peer A is asking for a proof of work, it needs to maintain state (I.E. ab
 
 Peer A is trying to connect to peer B. In the gossip strategy, before appending the connection to the open connection, the following steps are performed:
 
+0. Peer A send a `CONN_REQ`
 1. Peer A send a message `CONN_INIT` which can either contain the PoW or a special code asking for a the challenge
 2. Peer B process the message. If it was a valid PoW, A is a new peer of B and B will send `CONN_OK` message. Otherwise, `B` will send a message `CONN_CHALL` which contains the challenge for the PoW.
 3. If no `CONN_OK` was sent, connection is rejected
