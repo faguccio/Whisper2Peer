@@ -43,6 +43,8 @@
 	},
 }
 
+\input{listingsSetup}
+
 \definecolor{Type}{HTML}{FF7700}
 \definecolor{Interface}{HTML}{B4A7E5}
 \colorlet{Struct}{Aquamarine}
@@ -192,14 +194,6 @@ In this last scenario, we depict the handling of a peer \textit{PUSH} message \c
 \end{figure}
 
 
-% \begin{figure}
-% 	\centering
-% 	\input{figures/fsm_msgs}
-% 	\caption{Finite state machine for message caching.}
-% 	\label{fig:fsm_msgs}
-% \end{figure}
-
-
 \subsection{Networking} \label{sec:structureNetworking}
 
 For the networking, first we need to differentiate between the two APIs our module has.
@@ -231,6 +225,53 @@ In general this architecture also allows us to have multiple listening (read) an
 Since we did not need it so far, we did not implement having multiple listening threads.
 Also note how this use of one thread per read\,/\,write on the connection combined with the communication via golang channels implicitly synchronizes the write operations (although in golang this is not strictly necessary to be done manually).
 
+
+\section{Gossip Strategies}
+\Todo{text here how to instanciate different ones and what the idea here is (also with the main/root strategy as kind of library)}
+\Todo{3 caches (of size cache size messages) and state machine should be a common scheme}
+
+\begin{figure}
+	\centering
+	\input{figures/fsm_msgs}
+	\caption{Finite state machine for message caching.}
+	\label{fig:fsm_msgs}
+\end{figure}
+
+\subsection{Push Strategy}
+The push strategy is straight forward.
+Every peer pushes new updates to a random subset of its neighbors.
+
+\begin{minipage}{0.50\linewidth}
+	\begin{lstlisting}[
+		language=pseudo,
+		morekeywords={[3]{main,hz}},
+		morekeywords={[4]{msg,degree,cache\_size}},
+		caption={Pseudo code of the push gossip strategy}
+	]
+		on push from hz(msg):
+			if msg is new (unseen) (not in any of the three caches):
+				emit a notification to the main module
+				mark msg as invalid for now
+
+		on announce from main(msg):
+			append msg to valid messages
+
+		on validation from main(msg):
+			if ttl == 1:
+				move msg from invalid messages to sent messages
+			else:
+				move msg from invalid messages to valid messages
+
+		on gossip round():
+			S = random subset of the neighbors of size degree
+			send all valid messages to S
+			if a message was sent more than degree times:
+				move msg from valid to sent messages
+	\end{lstlisting}
+\end{minipage}
+
+\section{Benchmarking}
+\Todo{explain roughly hos we benchmark and also present the results}
 
 \section{Security Measures} \label{sec:security}
 \Todo{will eventually be outdated}
