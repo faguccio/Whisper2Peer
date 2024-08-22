@@ -78,12 +78,12 @@ We decided to divide the project into four main packages, plus two support ones.
 	\item \textbf{Main}: is in charge of managing the whole module. It has to take and use the configuration parameters, orchestrate the other components and filter and relay messages. Moreover, in this package we define the data structure that holds in memory the registered \textit{Gossip Types}.
 	\item \textbf{Vertical API}: its main goal is to manage connection to other modules. It provides an abstraction over the networking part and manages under the hood the marshaling and un-marshaling of the messages.
 	\item \textbf{Horizontal API}: is very similar to the \texttt{Vertical API}, except it has to communicate with the peer's Gossip modules.
-	\item \textbf{Gossip-Strategy}: this package is in charge of instantiating a concrete strategy for disseminating the information between peers. It will leverage the \texttt{Horizontal API} to communicate with peers, focusing just on how to handle the messages.
+	\item \textbf{Gossip-Strategy}: this package is in charge of instantiating a concrete strategy for disseminating the information between peers. It leverages the \texttt{Horizontal API} to communicate with peers, focusing just on how to handle the messages.
 \end{itemize}
 
 In addition to these four packages, there are also a \textbf{Common} package, holding common data types, and an internal \textbf{Ringbuffer} package, defining a circular queue data structure used to store data to be spread in the network.  
 
-Those modules will create threads which communicate with message passing, as can be seen again in \cref{fig:overview}. This design decision allows the program to be highly scalable due to the degree of parallelization.
+Those modules create threads which communicate with message passing, as can be seen again in \cref{fig:overview}. This design decision allows the program to be highly scalable due to the degree of parallelization.
 
 \begin{figure}
 	\centering
@@ -143,11 +143,11 @@ To explain the current process architecture, we opted to first give a general ov
 
 \subsubsection{Processes (threads) Creation} \label{process-creation}
 
-\texttt{Main} is the entry point of the whole module. This thread will spawn a listener \texttt{Vertical API} thread that will keep accepting new connection to the module from other modules following the specification of the problem statement. For each new connection, two new routines are spawned: one that will receive and process messages and one that will send messages. Communication directed to or from routines created by \texttt{Vertical API} happens respectively with channels of the \texttt{ToVert} and \texttt{FromVert} types.
+\texttt{Main} is the entry point of the whole module. This thread spawns a listener \texttt{Vertical API} thread that keeps accepting new connection to the module from other modules following the specification of the problem statement. For each new connection, two new routines are spawned: one that receives and processes messages and one that sends messages. Communication directed to or from routines created by \texttt{Vertical API} happens respectively with channels of the \texttt{ToVert} and \texttt{FromVert} types.
 
-Then, \texttt{Main} will create the \texttt{Strategy} thread, which will then spawn a listener thread for the \texttt{Horizontal API}. The latter, similarly to the \texttt{Vertical API}, will accept new connection and creates for each one two threads, one for reading and one for writing. Communication between \texttt{Main} and \texttt{Strategy} routines happens via the \texttt{FromStrat} and \texttt{ToStrat} channels, while \texttt{Strategy} communicates with threads of \texttt{Horizontal API} via the \texttt{FromHz} and \texttt{ToHz} channels.
+Then, \texttt{Main} creates the \texttt{Strategy} thread, which then spawns a listener thread for the \texttt{Horizontal API}. The latter, similarly to the \texttt{Vertical API}, accepts new connection and creates for each one two threads, one for reading and one for writing. Communication between \texttt{Main} and \texttt{Strategy} routines happens via the \texttt{FromStrat} and \texttt{ToStrat} channels, while \texttt{Strategy} communicates with threads of \texttt{Horizontal API} via the \texttt{FromHz} and \texttt{ToHz} channels.
 
-As already mentioned, there is actually no communication between \texttt{Horizontal API} goroutines and the \texttt{Main}. The channels used for communication can be seen on the arrows in \cref{fig:overview}. It is important to note that there will actually be multiple channels directed to the \textit{Vertical API} (\texttt{ToVert}), as well as multiple channels directed to the \textit{Horizontal API} (\texttt{ToHz}). This is because incoming messages from the network are aggregated on the same channel while outgoing messages will be sent to specific hosts, so different channels.
+As already mentioned, there is actually no communication between \texttt{Horizontal API} goroutines and the \texttt{Main}. The channels used for communication can be seen on the arrows in \cref{fig:overview}. It is important to note that there will actually be multiple channels directed to the \textit{Vertical API} (\texttt{ToVert}), as well as multiple channels directed to the \textit{Horizontal API} (\texttt{ToHz}). This is because incoming messages from the network are aggregated on the same channel while outgoing messages are sent to specific hosts, so different channels.
 
 
 \subsubsection{Scenario 1: Gossip Notify Message}
