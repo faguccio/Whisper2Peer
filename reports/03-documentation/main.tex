@@ -126,6 +126,9 @@ One additional special case might be the \texttt{common} package.
 First this was contained in the \texttt{verticalAPI/types} package but as we progressed, we figured it would be a good idea to extract the definition of some message types we use throughout the whole module.
 This way we avoid the necessity to include the \texttt{verticalAPI/types} package everywhere.
 
+Note: The way we split the application into modules you can also think of the modules (shown in \cref{fig:overview}) as layers.
+In this view, the layers from bottom up would be \texttt{horizontalAPI}, \texttt{strategy}, \texttt{main}, \texttt{verticalAPI}.
+
 \begin{landscape}
 	\pagestyle{empty}
 	\begin{figure}
