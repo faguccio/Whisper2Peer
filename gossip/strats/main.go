@@ -70,6 +70,14 @@ func New(log *slog.Logger, args args.Args, stratChans StrategyChannels, initFini
 		initFinished <- struct{}{}
 	}(initFinished, hzInitFin)
 
+	// Request PoW (and compute it) here
+	for _, conn := range openConnections {
+		req := horizontalapi.ConnReq{}
+		conn.Data <- req
+		chall := <-fromHz
+		fmt.Println(chall)
+	}
+
 	if err != nil {
 		return nil, fmt.Errorf("The error occured while initiating the gossip module %w", err)
 	}

@@ -53,6 +53,7 @@ type ToHz interface {
 
 // Represents a push message from/to the horizontalApi
 type Push struct {
+	//Id         ConnectionId
 	TTL        uint8
 	GossipType common.GossipType
 	MessageID  uint16
@@ -67,6 +68,7 @@ func (Push) canToHz() {}
 
 // Represent a ConnReq message from/to the horizontalApi
 type ConnReq struct {
+	Id ConnectionId
 }
 
 // mark this type as being sendable via FromHz channels
@@ -343,7 +345,9 @@ loop:
 					hz.log.Error("read the ConnReq message failed", "err", err)
 					goto continue_read
 				}
-				p := ConnReq{}
+				p := ConnReq{
+					Id: connData.Id,
+				}
 				// send the connection request to the channel
 				hz.fromHzChan <- p
 			case msg.Body().HasConnChall():

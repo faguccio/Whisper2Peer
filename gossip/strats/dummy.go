@@ -2,20 +2,28 @@ package strats
 
 import (
 	"context"
+	"encoding/binary"
 	"errors"
+	"fmt"
 	"gossip/common"
 	horizontalapi "gossip/horizontalAPI"
 	ringbuffer "gossip/internal/ringbuffer"
+	"math"
 	"reflect"
+	"slices"
 
 	"crypto/rand"
 	"math/big"
 	mrand "math/rand"
 	"time"
+
+	"golang.org/x/crypto/chacha20poly1305"
 )
 
 var (
 	ErrNoMessageFound error = errors.New("No message found when extracting")
+	// TODO generate
+	secretKey []byte = []byte("secrets_secrets_secrets_secrets_")
 )
 
 // Some messages might use a counter of how many peers the message was relayed to
@@ -46,6 +54,7 @@ type dummyStrat struct {
 //
 // strategy must be the baseStrategy. openConnection a list of ToHz channels, one for each peer
 func NewDummy(strategy Strategy, fromHz <-chan horizontalapi.FromHz, hzConnection <-chan horizontalapi.NewConn, openConnections []horizontalapi.Conn[chan<- horizontalapi.ToHz]) dummyStrat {
+
 	return dummyStrat{
 		rootStrat:       strategy,
 		fromHz:          fromHz,
@@ -95,6 +104,27 @@ func (dummy *dummyStrat) Listen() {
 						dummy.rootStrat.strategyChannels.FromStrat <- notification
 						dummy.rootStrat.log.Debug("HZ Message received:", "type", reflect.TypeOf(msg), "Message", msg)
 					}
+				case horizontalapi.ConnReq:
+
+					n, err := rand.Int(rand.Reader, big.NewInt(int64(math.MaxInt64)))
+					if err != nil {
+						panic(err)
+					}
+					chall := n.Uint64()
+
+					// Create ConnChall message
+					cookie := createCookie(chall, string(msg.Id))
+					m := horizontalapi.ConnChall{
+						Chall:  chall,
+						Cookie: cookie,
+					}
+
+					// Send message to correct peer
+					peer := findConnection(dummy.openConnections, msg.Id)
+					if peer == nil {
+						dummy.rootStrat.log.Error("No open connection found for challReq", "conn Id", msg.Id)
+					}
+					peer.Data <- m
 				}
 
 				// New connection is established.
@@ -158,6 +188,72 @@ func (dummy *dummyStrat) Listen() {
 			}
 		}
 	}()
+}
+
+// Return the corresponding connection given an Id and a list of connection
+func findConnection(connections []horizontalapi.Conn[chan<- horizontalapi.ToHz], id horizontalapi.ConnectionId) *horizontalapi.Conn[chan<- horizontalapi.ToHz] {
+	for _, conn := range connections {
+		if conn.Id == id {
+			return &conn
+		}
+	}
+	return nil
+}
+
+func createCookie(chall uint64, dest string) []byte {
+	// Create chacha20 cipher
+
+	aead, err := chacha20poly1305.New(secretKey)
+	if err != nil {
+		panic(err)
+	}
+
+	// Serialize the cookie as a byte array
+	bchall := make([]byte, 8)
+	binary.LittleEndian.PutUint64(bchall, chall)
+	timestamp := make([]byte, 8)
+	binary.LittleEndian.PutUint64(timestamp, uint64(time.Now().Unix()))
+	plaintext := slices.Concat(bchall, timestamp, []byte(dest))
+
+	//ciphertext := make([]byte, len(plaintext))
+	fmt.Println(plaintext)
+
+	// TODO: I am using as the nonce the challange for the PoW (appendend with 0s, ugh).
+	// I think if we want to stick with ChaCha20 we need to change the protocol messages to include the
+	// ChaCha Nonce, otherwise we need to store state? 64 random bits could also be enough for uniqueness
+	ciphertext := aead.Seal(nil, slices.Concat(bchall, []byte{0, 0, 0, 0}), plaintext, nil)
+
+	//(ciphertext, plaintext)
+	fmt.Println(ciphertext)
+
+	return ciphertext
+}
+
+func readCookie(cookie []byte, chall uint64) (readChall uint64, timestamp time.Time, dest string) {
+	// Create chacha20 cipher
+	aead, err := chacha20poly1305.New(secretKey)
+	if err != nil {
+		panic(err)
+	}
+
+	bchall := make([]byte, 8)
+	binary.LittleEndian.PutUint64(bchall, chall)
+
+	// Decrypt the cookie
+	//plaintext := make([]byte, len(cookie))
+	plaintext, err := aead.Open(nil, slices.Concat(bchall, []byte{0, 0, 0, 0}), cookie, nil)
+	if err != nil {
+		return
+	}
+	fmt.Println(plaintext)
+
+	// Deserialize cookie
+	readChall = binary.LittleEndian.Uint64(plaintext[0:8])
+	t := binary.LittleEndian.Uint64(plaintext[8:16])
+	timestamp = time.Unix(int64(t), 0)
+	dest = string(plaintext[16:])
+
+	return
 }
 
 // Go throught a ringbuffer of messages and return the one with a matching ID, error if none is found
