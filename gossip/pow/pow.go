@@ -18,11 +18,12 @@ const WORKERS = 32
 // adjusted to fulfil the predicate.
 //
 // NOTE: The (marshalled) struct must have the following structure:
-//       | PREFIX_a | PREFIX_b | NONCE |
-//       prefix_a is not involved in the PoW computation
-//       prefix_b are the remaining data
-//       nonce is the number (of generic type T) which is incremented to
-//         fulfil the predicate
+//
+//	| PREFIX_a | PREFIX_b | NONCE |
+//	prefix_a is not involved in the PoW computation
+//	prefix_b are the remaining data
+//	nonce is the number (of generic type T) which is incremented to
+//	  fulfil the predicate
 type POWMarshaller[T constraints.Integer] interface {
 	// marshal the (whole) struct to a bytes slice
 	Marshal([]byte) ([]byte, error)
@@ -129,6 +130,7 @@ func parallelProofOfWork3[T constraints.Integer](pred func(digest []byte) bool, 
 					_ = hu.UnmarshalBinary(stat)
 					e.WriteNonce(h)
 					if pred(h.Sum(digest[:0])) {
+
 						select {
 						case result <- e.Nonce():
 						default:
@@ -149,4 +151,28 @@ func parallelProofOfWork3[T constraints.Integer](pred func(digest []byte) bool, 
 // predicate which checks if the first 24 bits of a slice are 0
 func First24bits0(digest []byte) bool {
 	return digest[0] == 0 && digest[1] == 0 && digest[2] == 0
+}
+
+// predicate which checks if the first 8 bits of a slice are 0
+func First8bits0(digest []byte) bool {
+	return digest[0] == 0
+}
+
+// check weather the input has a valid proof of work for the predicate
+func CheckProofOfWork[T constraints.Integer](pred func(digest []byte) bool, e POWMarshaller[T]) bool {
+	nonce := e.Nonce()
+	e.SetNonce(0)
+	h := sha256.New()
+	digest := [sha256.Size]byte{}
+	m := make([]byte, 0)
+	m, _ = e.Marshal(m)
+	m = m[e.StripPrefixLen():]
+	m1 := m[:e.PrefixLen()]
+
+	e.SetNonce(nonce)
+	h.Reset()
+	h.Write(m1)
+	e.WriteNonce(h)
+
+	return pred(h.Sum(digest[:0]))
 }

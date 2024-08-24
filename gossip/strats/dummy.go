@@ -8,6 +8,7 @@ import (
 	"gossip/common"
 	horizontalapi "gossip/horizontalAPI"
 	ringbuffer "gossip/internal/ringbuffer"
+	pow "gossip/pow"
 	"math"
 	"reflect"
 	"slices"
@@ -125,11 +126,20 @@ func (dummy *dummyStrat) Listen() {
 						dummy.rootStrat.log.Error("No open connection found for challReq", "conn Id", msg.Id)
 					}
 					peer.Data <- m
+
+				case horizontalapi.ConnPoW:
+					mypow := powMarsh{PowNonce: msg.PowNonce, Cookie: msg.Cookie}
+					flag := pow.CheckProofOfWork(func(digest []byte) bool {
+						return pow.First8bits0(digest)
+					}, &mypow)
+
+					if flag {
+						// Flag the connection as valid or add it to the valid Ids
+					}
 				}
 
 				// New connection is established.
 			case newPeer := <-dummy.hzConnection:
-				// Insert here proof of work
 				dummy.openConnections = append(dummy.openConnections, horizontalapi.Conn[chan<- horizontalapi.ToHz](newPeer))
 
 				// Message from the vertical API
@@ -216,7 +226,7 @@ func createCookie(chall uint64, dest string) []byte {
 	plaintext := slices.Concat(bchall, timestamp, []byte(dest))
 
 	//ciphertext := make([]byte, len(plaintext))
-	fmt.Println(plaintext)
+	//fmt.Println(plaintext)
 
 	// TODO: I am using as the nonce the challange for the PoW (appendend with 0s, ugh).
 	// I think if we want to stick with ChaCha20 we need to change the protocol messages to include the
@@ -224,7 +234,7 @@ func createCookie(chall uint64, dest string) []byte {
 	ciphertext := aead.Seal(nil, slices.Concat(bchall, []byte{0, 0, 0, 0}), plaintext, nil)
 
 	//(ciphertext, plaintext)
-	fmt.Println(ciphertext)
+	//fmt.Println(ciphertext)
 
 	return ciphertext
 }

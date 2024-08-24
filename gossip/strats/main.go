@@ -2,11 +2,15 @@ package strats
 
 import (
 	"context"
+	"encoding/binary"
 	"fmt"
 	"gossip/common"
 	horizontalapi "gossip/horizontalAPI"
 	"gossip/internal/args"
+	pow "gossip/pow"
+	"io"
 	"net"
+	"slices"
 	"strings"
 
 	"log/slog"
@@ -74,8 +78,25 @@ func New(log *slog.Logger, args args.Args, stratChans StrategyChannels, initFini
 	for _, conn := range openConnections {
 		req := horizontalapi.ConnReq{}
 		conn.Data <- req
-		chall := <-fromHz
-		fmt.Println(chall)
+		x := <-fromHz
+		switch chall := x.(type) {
+		case horizontalapi.ConnChall:
+
+			mypow := powMarsh{
+				PowNonce: 0,
+				Cookie:   chall.Cookie,
+			}
+
+			nonce := pow.ProofOfWork(func(digest []byte) bool {
+				return pow.First8bits0(digest)
+			}, &mypow)
+
+			mypow.PowNonce = nonce
+			conn.Data <- horizontalapi.ConnPoW{PowNonce: mypow.PowNonce, Cookie: mypow.Cookie}
+		default:
+			log.Debug("Second message during validation is not a ConnChall", "message", "chall")
+			continue
+		}
 	}
 
 	if err != nil {
@@ -91,4 +112,62 @@ func New(log *slog.Logger, args args.Args, stratChans StrategyChannels, initFini
 func (strt *Strategy) Close() {
 	strt.cancel()
 	strt.hz.Close()
+}
+
+// Make the ConnPoW message implement the interface POWMarshaller
+type powMarsh horizontalapi.ConnPoW
+
+// marshal the (whole) struct to a bytes slice
+func (x *powMarsh) Marshal(buf []byte) ([]byte, error) {
+	buf = slices.Grow(buf, binary.Size(x.PowNonce)+len(x.Cookie))
+	buf = buf[:binary.Size(x.PowNonce)+len(x.Cookie)]
+
+	idx := 0
+
+	binary.BigEndian.PutUint64(buf[idx:], x.PowNonce)
+	idx += binary.Size(x.PowNonce)
+
+	copy(buf[idx:], x.Cookie[:])
+	idx += len(x.Cookie)
+
+	return buf, nil
+}
+
+// obtain the nonce of the struct
+func (x *powMarsh) Nonce() uint64 {
+	return x.PowNonce
+}
+
+// set the nonce of the struct
+func (x *powMarsh) SetNonce(n uint64) {
+	x.PowNonce = n
+}
+
+func (x *powMarsh) AddToNonce(n uint64) {
+	x.PowNonce += n
+}
+
+// how many bytes in the beginning of the bytes slice (from marshal) should
+// be skipped (and not be included in the PoW)
+func (x *powMarsh) StripPrefixLen() uint {
+	return 0
+}
+
+// remaining length of the struct minus the skipped part and minus the
+// length of the nonce
+func (x *powMarsh) PrefixLen() uint {
+	return uint(binary.Size(x.Cookie))
+}
+
+// write the nonce to an arbitrary writer (used to write the nonce to the
+// hash object)
+func (x *powMarsh) WriteNonce(w io.Writer) {
+	w.Write(binary.BigEndian.AppendUint64(nil, x.PowNonce))
+}
+
+func (x *powMarsh) Clone() pow.POWMarshaller[uint64] {
+	return &powMarsh{
+		PowNonce: x.PowNonce,
+		Cookie:   x.Cookie,
+	}
 }

@@ -53,7 +53,7 @@ type ToHz interface {
 
 // Represents a push message from/to the horizontalApi
 type Push struct {
-	//Id         ConnectionId
+	Id         ConnectionId
 	TTL        uint8
 	GossipType common.GossipType
 	MessageID  uint16
@@ -91,8 +91,8 @@ func (ConnChall) canToHz() {}
 
 // Represents a ConnPoW message from/to the horizontalApi
 type ConnPoW struct {
-	Nonce  uint64
-	Cookie []byte
+	PowNonce uint64
+	Cookie   []byte
 }
 
 // mark this type as being sendable via FromHz channels
@@ -383,7 +383,7 @@ loop:
 				// copy the capnproto ConnPoW message to an internal
 				// representation to make the handling in other packages easier
 				p := ConnPoW{
-					Nonce: pow.Nonce(),
+					PowNonce: pow.Nonce(),
 				}
 				// cookie is no scalar type -> retrival might error
 				p.Cookie, err = pow.Cookie()
@@ -503,7 +503,7 @@ loop:
 				}
 				// populate the message
 				// setting scalar value cannot lead to error
-				pow.SetNonce(rmsg.Nonce)
+				pow.SetNonce(rmsg.PowNonce)
 
 				// cookie is no scalar type -> setting might error
 				if err := pow.SetCookie(rmsg.Cookie); err != nil {
