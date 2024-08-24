@@ -91,6 +91,7 @@ func (ConnChall) canToHz() {}
 
 // Represents a ConnPoW message from/to the horizontalApi
 type ConnPoW struct {
+	Id       ConnectionId
 	PowNonce uint64
 	Cookie   []byte
 }
@@ -323,6 +324,7 @@ loop:
 				// retrieving scalar values can be done without the possibility
 				// of an error
 				p := Push{
+					Id:         connData.Id,
 					TTL:        push.Ttl(),
 					GossipType: common.GossipType(push.GossipType()),
 					MessageID:  push.MessageID(),
@@ -383,6 +385,7 @@ loop:
 				// copy the capnproto ConnPoW message to an internal
 				// representation to make the handling in other packages easier
 				p := ConnPoW{
+					Id:       connData.Id,
 					PowNonce: pow.Nonce(),
 				}
 				// cookie is no scalar type -> retrival might error

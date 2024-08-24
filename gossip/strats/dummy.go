@@ -23,14 +23,24 @@ import (
 
 var (
 	ErrNoMessageFound error = errors.New("No message found when extracting")
+)
+
+var (
 	// TODO generate
 	secretKey []byte = []byte("secrets_secrets_secrets_secrets_")
+	POW_TIME         = 5 * time.Second
 )
 
 // Some messages might use a counter of how many peers the message was relayed to
 type storedMessage struct {
 	counter int
 	message horizontalapi.Push
+}
+
+type gossipConnection struct {
+	connection horizontalapi.Conn[chan<- horizontalapi.ToHz]
+	timestamp  time.Time
+	flag       bool
 }
 
 // This struct contains all the fields used by the Dummy Strategy.
@@ -42,7 +52,7 @@ type dummyStrat struct {
 	// Channel were new connection are notified
 	hzConnection <-chan horizontalapi.NewConn
 	// Array of peers channels, where messages can be sent
-	openConnections []horizontalapi.Conn[chan<- horizontalapi.ToHz]
+	openConnections []gossipConnection
 	// Collection of messages received from a peer which needs to be validated through the vertical api
 	invalidMessages *ringbuffer.Ringbuffer[*storedMessage]
 	// Collection of messages which need to be relayed to other peers.
@@ -54,7 +64,7 @@ type dummyStrat struct {
 // Function to instantiate a new DummyStrategy.
 //
 // strategy must be the baseStrategy. openConnection a list of ToHz channels, one for each peer
-func NewDummy(strategy Strategy, fromHz <-chan horizontalapi.FromHz, hzConnection <-chan horizontalapi.NewConn, openConnections []horizontalapi.Conn[chan<- horizontalapi.ToHz]) dummyStrat {
+func NewDummy(strategy Strategy, fromHz <-chan horizontalapi.FromHz, hzConnection <-chan horizontalapi.NewConn, openConnections []gossipConnection) dummyStrat {
 
 	return dummyStrat{
 		rootStrat:       strategy,
@@ -84,14 +94,13 @@ func (dummy *dummyStrat) Listen() {
 				switch msg := x.(type) {
 				case horizontalapi.Unregister:
 					// remove the connection with the respective ID from the list of connections
-					for i, j := range dummy.openConnections {
-						if j.Id == horizontalapi.ConnectionId(msg) {
-							dummy.openConnections[i] = dummy.openConnections[len(dummy.openConnections)-1]
-							dummy.openConnections = dummy.openConnections[:len(dummy.openConnections)-1]
-							break
-						}
-					}
+					dummy.removeConnection(horizontalapi.ConnectionId(msg))
+
 				case horizontalapi.Push:
+					if !dummy.checkConnectionValidity(msg.Id) {
+						continue
+					}
+
 					notification := convertPushToNotification(msg)
 					_, err1 := findFirstMessage(dummy.sentMessages, msg.MessageID)
 					_, err2 := findFirstMessage(dummy.validMessages, msg.MessageID)
@@ -105,6 +114,7 @@ func (dummy *dummyStrat) Listen() {
 						dummy.rootStrat.strategyChannels.FromStrat <- notification
 						dummy.rootStrat.log.Debug("HZ Message received:", "type", reflect.TypeOf(msg), "Message", msg)
 					}
+
 				case horizontalapi.ConnReq:
 
 					n, err := rand.Int(rand.Reader, big.NewInt(int64(math.MaxInt64)))
@@ -125,7 +135,7 @@ func (dummy *dummyStrat) Listen() {
 					if peer == nil {
 						dummy.rootStrat.log.Error("No open connection found for challReq", "conn Id", msg.Id)
 					}
-					peer.Data <- m
+					peer.connection.Data <- m
 
 				case horizontalapi.ConnPoW:
 					mypow := powMarsh{PowNonce: msg.PowNonce, Cookie: msg.Cookie}
@@ -133,14 +143,31 @@ func (dummy *dummyStrat) Listen() {
 						return pow.First8bits0(digest)
 					}, &mypow)
 
-					if flag {
-						// Flag the connection as valid or add it to the valid Ids
+					// check if time taken for giving pow is within the limits
+					peer := findConnection(dummy.openConnections, msg.Id)
+					if peer == nil {
+						dummy.rootStrat.log.Error("No open connection found for challPoW", "conn Id", msg.Id)
+						continue
+					}
+					diff := time.Now().Sub(peer.timestamp)
+
+					// Validate connection or remove it
+					if flag && diff < POW_TIME {
+						peer.flag = true
+						peer.timestamp = time.Now()
+					} else {
+						dummy.removeConnection(msg.Id)
 					}
 				}
 
-				// New connection is established.
+				// Accept any connection and flag it as invalid.
 			case newPeer := <-dummy.hzConnection:
-				dummy.openConnections = append(dummy.openConnections, horizontalapi.Conn[chan<- horizontalapi.ToHz](newPeer))
+				conn := gossipConnection{
+					connection: horizontalapi.Conn[chan<- horizontalapi.ToHz](newPeer),
+					timestamp:  time.Now(),
+					flag:       false,
+				}
+				dummy.openConnections = append(dummy.openConnections, conn)
 
 				// Message from the vertical API
 			case x := <-dummy.rootStrat.strategyChannels.ToStrat:
@@ -180,9 +207,12 @@ func (dummy *dummyStrat) Listen() {
 				dummy.validMessages.Do((func(msg *storedMessage) {
 					for i := 0; i < amount; i++ {
 						idx := perm[i]
+						if !dummy.openConnections[idx].flag {
+							continue
+						}
 						//dummy.rootStrat.log.Debug("DST conn", "conn", dummy.openConnections[idx])
-						dummy.openConnections[idx].Data <- msg.message
-						dummy.rootStrat.log.Debug("HZ Message sent:", "dst", dummy.openConnections[idx].Id, "Message", msg)
+						dummy.openConnections[idx].connection.Data <- msg.message
+						dummy.rootStrat.log.Debug("HZ Message sent:", "dst", dummy.openConnections[idx].connection.Id, "Message", msg)
 						msg.counter++
 
 						// If message was sent to args.Degree neighboughrs delete it from the set of messages
@@ -201,10 +231,10 @@ func (dummy *dummyStrat) Listen() {
 }
 
 // Return the corresponding connection given an Id and a list of connection
-func findConnection(connections []horizontalapi.Conn[chan<- horizontalapi.ToHz], id horizontalapi.ConnectionId) *horizontalapi.Conn[chan<- horizontalapi.ToHz] {
-	for _, conn := range connections {
-		if conn.Id == id {
-			return &conn
+func findConnection(connections []gossipConnection, id horizontalapi.ConnectionId) *gossipConnection {
+	for i, conn := range connections {
+		if conn.connection.Id == id {
+			return &connections[i]
 		}
 	}
 	return nil
@@ -298,6 +328,24 @@ func convertPushToNotification(pushMsg horizontalapi.Push) common.GossipNotifica
 		Data:      pushMsg.Payload,
 	}
 	return notification
+}
+
+func (dummy *dummyStrat) removeConnection(id horizontalapi.ConnectionId) {
+	for i, conn := range dummy.openConnections {
+		if conn.connection.Id == id {
+			dummy.openConnections[i] = dummy.openConnections[len(dummy.openConnections)-1]
+			dummy.openConnections = dummy.openConnections[:len(dummy.openConnections)-1]
+			break
+		}
+	}
+}
+
+func (dummy *dummyStrat) checkConnectionValidity(id horizontalapi.ConnectionId) bool {
+	conn := findConnection(dummy.openConnections, id)
+	if conn == nil {
+		return false
+	}
+	return conn.flag
 }
 
 // Close the root strategy

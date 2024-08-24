@@ -12,6 +12,7 @@ import (
 	"net"
 	"slices"
 	"strings"
+	"time"
 
 	"log/slog"
 )
@@ -74,6 +75,8 @@ func New(log *slog.Logger, args args.Args, stratChans StrategyChannels, initFini
 		initFinished <- struct{}{}
 	}(initFinished, hzInitFin)
 
+	var gossipConnections []gossipConnection
+
 	// Request PoW (and compute it) here
 	for _, conn := range openConnections {
 		req := horizontalapi.ConnReq{}
@@ -93,6 +96,12 @@ func New(log *slog.Logger, args args.Args, stratChans StrategyChannels, initFini
 
 			mypow.PowNonce = nonce
 			conn.Data <- horizontalapi.ConnPoW{PowNonce: mypow.PowNonce, Cookie: mypow.Cookie}
+			gossipConnections = append(gossipConnections, gossipConnection{
+				connection: conn,
+				timestamp:  time.Now(),
+				flag:       true,
+			})
+
 		default:
 			log.Debug("Second message during validation is not a ConnChall", "message", "chall")
 			continue
@@ -104,7 +113,7 @@ func New(log *slog.Logger, args args.Args, stratChans StrategyChannels, initFini
 	}
 
 	// Hardcoded strategy, later switching on args argument
-	dummyStrat := NewDummy(strategy, fromHz, hzConnection, openConnections)
+	dummyStrat := NewDummy(strategy, fromHz, hzConnection, gossipConnections)
 	return &dummyStrat, nil
 }
 
