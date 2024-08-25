@@ -43,6 +43,12 @@ type gossipConnection struct {
 	flag       bool
 }
 
+type connCookie struct {
+	chall     uint64
+	timestamp time.Time
+	dest      horizontalapi.ConnectionId
+}
+
 // This struct contains all the fields used by the Dummy Strategy.
 type dummyStrat struct {
 	// The base strategy, which takes care of instantiating the HZ API and contains many common fields
@@ -121,27 +127,51 @@ func (dummy *dummyStrat) Listen() {
 					if err != nil {
 						panic(err)
 					}
+
 					chall := n.Uint64()
 
+					cookie := connCookie{
+						chall:     chall,
+						timestamp: time.Now(),
+						dest:      msg.Id,
+					}
+
 					// Create ConnChall message
-					cookie := createCookie(chall, string(msg.Id))
 					m := horizontalapi.ConnChall{
 						Chall:  chall,
-						Cookie: cookie,
+						Cookie: cookie.createCookie(),
 					}
 
 					// Send message to correct peer
 					peer := findConnection(dummy.openConnections, msg.Id)
 					if peer == nil {
 						dummy.rootStrat.log.Error("No open connection found for challReq", "conn Id", msg.Id)
+						continue
 					}
 					peer.connection.Data <- m
 
 				case horizontalapi.ConnPoW:
 					mypow := powMarsh{PowNonce: msg.PowNonce, Cookie: msg.Cookie}
+
 					flag := pow.CheckProofOfWork(func(digest []byte) bool {
 						return pow.First8bits0(digest)
 					}, &mypow)
+
+					// The following code is commented as for now HZ messages do not include the ChaCha20 nonce
+					// which could also be the same as the chall argument, but has to be sent as plaintext
+					// var cookie connCookie
+
+					// cookie.readCookie(msg.Cookie, chall)
+
+					// // check dest is valid
+					// if cookie.dest != msg.Id {
+					// 	dummy.rootStrat.log.Debug("Mismatched connectionId between received connPow and sender", "expected conn Id", cookie.dest, "actual Id", msg.Id)
+					// }
+
+					// diff := time.Now().Sub(cookie.timestamp)
+					// if diff > POW_TIME {
+					// 	dummy.rootStrat.log.Debug("POW for accepting connection was given not within the time limit", "expected conn Id", cookie.dest, "actual Id", msg.Id)
+					// }
 
 					// check if time taken for giving pow is within the limits
 					peer := findConnection(dummy.openConnections, msg.Id)
@@ -149,10 +179,9 @@ func (dummy *dummyStrat) Listen() {
 						dummy.rootStrat.log.Error("No open connection found for challPoW", "conn Id", msg.Id)
 						continue
 					}
-					diff := time.Now().Sub(peer.timestamp)
 
 					// Validate connection or remove it
-					if flag && diff < POW_TIME {
+					if flag {
 						peer.flag = true
 						peer.timestamp = time.Now()
 					} else {
@@ -240,36 +269,59 @@ func findConnection(connections []gossipConnection, id horizontalapi.ConnectionI
 	return nil
 }
 
-func createCookie(chall uint64, dest string) []byte {
-	// Create chacha20 cipher
+func (x *connCookie) Marshal() []byte {
+	timestamp := x.timestamp.UnixNano()
+	buf := make([]byte, binary.Size(x.chall)+binary.Size(timestamp)+len(x.dest))
 
+	idx := 0
+
+	binary.BigEndian.PutUint64(buf[idx:], x.chall)
+	idx += binary.Size(x.chall)
+
+	binary.BigEndian.PutUint64(buf[idx:], uint64(timestamp))
+	idx += binary.Size(timestamp)
+
+	copy(buf[idx:], x.dest[:])
+	idx += len(x.dest)
+
+	return buf
+}
+
+func (x *connCookie) Unmarshal(buf []byte) {
+	idx := 0
+
+	cookieChall := binary.BigEndian.Uint64(buf[idx:binary.Size(x.chall)])
+	idx += binary.Size(x.chall)
+
+	t := binary.BigEndian.Uint64(buf[idx : idx+8])
+	timestamp := time.Unix(0, int64(t))
+	idx += 8
+
+	dest := make([]byte, len(buf[idx:]))
+
+	copy(dest, buf[idx:])
+	x.chall = cookieChall
+	x.timestamp = timestamp
+	x.dest = horizontalapi.ConnectionId(string(dest))
+}
+
+func (x *connCookie) createCookie() []byte {
+	// Create chacha20 cipher
 	aead, err := chacha20poly1305.New(secretKey)
 	if err != nil {
 		panic(err)
 	}
 
-	// Serialize the cookie as a byte array
-	bchall := make([]byte, 8)
-	binary.LittleEndian.PutUint64(bchall, chall)
-	timestamp := make([]byte, 8)
-	binary.LittleEndian.PutUint64(timestamp, uint64(time.Now().Unix()))
-	plaintext := slices.Concat(bchall, timestamp, []byte(dest))
-
-	//ciphertext := make([]byte, len(plaintext))
-	//fmt.Println(plaintext)
+	payload := x.Marshal()
 
 	// TODO: I am using as the nonce the challange for the PoW (appendend with 0s, ugh).
 	// I think if we want to stick with ChaCha20 we need to change the protocol messages to include the
 	// ChaCha Nonce, otherwise we need to store state? 64 random bits could also be enough for uniqueness
-	ciphertext := aead.Seal(nil, slices.Concat(bchall, []byte{0, 0, 0, 0}), plaintext, nil)
-
-	//(ciphertext, plaintext)
-	//fmt.Println(ciphertext)
-
+	ciphertext := aead.Seal(nil, slices.Concat(payload[0:8], []byte{0, 0, 0, 0}), payload, nil)
 	return ciphertext
 }
 
-func readCookie(cookie []byte, chall uint64) (readChall uint64, timestamp time.Time, dest string) {
+func (x *connCookie) readCookie(cookie []byte, chall uint64) {
 	// Create chacha20 cipher
 	aead, err := chacha20poly1305.New(secretKey)
 	if err != nil {
@@ -277,23 +329,17 @@ func readCookie(cookie []byte, chall uint64) (readChall uint64, timestamp time.T
 	}
 
 	bchall := make([]byte, 8)
-	binary.LittleEndian.PutUint64(bchall, chall)
+	binary.BigEndian.PutUint64(bchall, chall)
 
 	// Decrypt the cookie
 	//plaintext := make([]byte, len(cookie))
 	plaintext, err := aead.Open(nil, slices.Concat(bchall, []byte{0, 0, 0, 0}), cookie, nil)
 	if err != nil {
+		fmt.Println("Error while decrypting the cookie", "err", err)
 		return
 	}
-	fmt.Println(plaintext)
 
-	// Deserialize cookie
-	readChall = binary.LittleEndian.Uint64(plaintext[0:8])
-	t := binary.LittleEndian.Uint64(plaintext[8:16])
-	timestamp = time.Unix(int64(t), 0)
-	dest = string(plaintext[16:])
-
-	return
+	x.Unmarshal(plaintext)
 }
 
 // Go throught a ringbuffer of messages and return the one with a matching ID, error if none is found

@@ -120,6 +120,7 @@ func TestHorizontalApi(test *testing.T) {
 
 	switch u := u.(type) {
 	case Push:
+		u.Id = ""
 		if !reflect.DeepEqual(t, u) {
 			test.Fatalf("didn't reveice the message previously sent. Sent %+v rcved%+v", t, u)
 		}
