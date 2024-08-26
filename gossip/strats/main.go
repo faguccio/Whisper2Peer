@@ -45,7 +45,6 @@ type StrategyChannels struct {
 type gossipConnection struct {
 	connection horizontalapi.Conn[chan<- horizontalapi.ToHz]
 	timestamp  time.Time
-	flag       bool
 }
 
 // This function instantiate a new Strategy.
@@ -105,7 +104,6 @@ func New(log *slog.Logger, args args.Args, stratChans StrategyChannels, initFini
 			gossipConnections = append(gossipConnections, gossipConnection{
 				connection: conn,
 				timestamp:  time.Now(),
-				flag:       true,
 			})
 
 		default:

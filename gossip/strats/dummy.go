@@ -52,6 +52,8 @@ type dummyStrat struct {
 	hzConnection <-chan horizontalapi.NewConn
 	// Array of peers channels, where messages can be sent
 	openConnections []gossipConnection
+	// Array of peers channels yet to be validated
+	inProgressConnections []gossipConnection
 	// Collection of messages received from a peer which needs to be validated through the vertical api
 	invalidMessages *ringbuffer.Ringbuffer[*storedMessage]
 	// Collection of messages which need to be relayed to other peers.
@@ -105,7 +107,7 @@ func (dummy *dummyStrat) Listen() {
 				switch msg := x.(type) {
 				case horizontalapi.Unregister:
 					// remove the connection with the respective ID from the list of connections
-					dummy.removeConnection(horizontalapi.ConnectionId(msg))
+					removeConnection(dummy.openConnections, horizontalapi.ConnectionId(msg))
 
 				case horizontalapi.Push:
 					if !dummy.checkConnectionValidity(msg.Id) {
@@ -135,7 +137,7 @@ func (dummy *dummyStrat) Listen() {
 					}
 
 					// Send message to correct peer
-					peer := findConnection(dummy.openConnections, msg.Id)
+					peer := findConnection(dummy.inProgressConnections, msg.Id)
 					if peer == nil {
 						dummy.rootStrat.log.Error("No open connection found for challReq", "conn Id", msg.Id)
 						continue
@@ -149,7 +151,7 @@ func (dummy *dummyStrat) Listen() {
 
 					if err != nil {
 						dummy.rootStrat.log.Debug("Failed to decrypt cookie, dropping connection", "connection ID", msg.Id)
-						dummy.removeConnection(msg.Id)
+						removeConnection(dummy.inProgressConnections, msg.Id)
 						continue
 					}
 
@@ -160,14 +162,14 @@ func (dummy *dummyStrat) Listen() {
 
 					if !powValidity {
 						dummy.rootStrat.log.Debug("Invalid pow, dropping connection", "expected conn Id", cookieRead.dest, "actual Id", msg.Id)
-						dummy.removeConnection(msg.Id)
+						removeConnection(dummy.inProgressConnections, msg.Id)
 						continue
 					}
 
 					// check dest is valid
 					if cookieRead.dest != msg.Id {
 						dummy.rootStrat.log.Debug("Mismatched connectionId between received connPow and sender", "expected conn Id", cookieRead.dest, "actual Id", msg.Id)
-						dummy.removeConnection(msg.Id)
+						removeConnection(dummy.inProgressConnections, msg.Id)
 						continue
 					}
 
@@ -175,29 +177,30 @@ func (dummy *dummyStrat) Listen() {
 					diff := time.Now().Sub(cookieRead.timestamp)
 					if diff > POW_TIME {
 						dummy.rootStrat.log.Debug("POW for accepting connection was given not within the time limit", "expected conn Id", cookieRead.dest, "actual Id", msg.Id)
-						dummy.removeConnection(msg.Id)
+						removeConnection(dummy.inProgressConnections, msg.Id)
 						continue
 					}
 
-					peer := findConnection(dummy.openConnections, msg.Id)
+					peer := findConnection(dummy.inProgressConnections, msg.Id)
 					if peer == nil {
 						dummy.rootStrat.log.Error("No open connection found for challPoW", "conn Id", msg.Id)
 						continue
 					}
 
 					// Validate connection or remove it
-					peer.flag = true
 					peer.timestamp = time.Now()
+					removeConnection(dummy.inProgressConnections, msg.Id)
+					dummy.openConnections = append(dummy.openConnections, *peer)
+
 				}
 
-				// Accept any connection and flag it as invalid.
+			// Accept any connection and put it in the inProgress slice.
 			case newPeer := <-dummy.hzConnection:
 				conn := gossipConnection{
 					connection: horizontalapi.Conn[chan<- horizontalapi.ToHz](newPeer),
 					timestamp:  time.Now(),
-					flag:       false,
 				}
-				dummy.openConnections = append(dummy.openConnections, conn)
+				dummy.inProgressConnections = append(dummy.inProgressConnections, conn)
 
 				// Message from the vertical API
 			case x := <-dummy.rootStrat.strategyChannels.ToStrat:
@@ -230,16 +233,15 @@ func (dummy *dummyStrat) Listen() {
 				// Recurrent timer signal
 			case <-ticker.C:
 				// A random peer is selected and we relay all messages to that peer.
-				amount := min(len(dummy.openConnections), int(dummy.rootStrat.stratArgs.Degree))
-				perm := mrand.Perm(amount)
 
-				//idx := mrand.Intn(len(dummy.openConnections))
+				// Create a permutation over the length of valid connections
+				perm := mrand.Perm(len(dummy.openConnections))
+				amount := min(len(dummy.openConnections), int(dummy.rootStrat.stratArgs.Degree))
+
 				dummy.validMessages.Do((func(msg *storedMessage) {
 					for i := 0; i < amount; i++ {
 						idx := perm[i]
-						if !dummy.openConnections[idx].flag {
-							continue
-						}
+
 						//dummy.rootStrat.log.Debug("DST conn", "conn", dummy.openConnections[idx])
 						dummy.openConnections[idx].connection.Data <- msg.message
 						dummy.rootStrat.log.Debug("HZ Message sent:", "dst", dummy.openConnections[idx].connection.Id, "Message", msg)
@@ -377,22 +379,20 @@ func convertPushToNotification(pushMsg horizontalapi.Push) common.GossipNotifica
 	return notification
 }
 
-func (dummy *dummyStrat) removeConnection(id horizontalapi.ConnectionId) {
-	for i, conn := range dummy.openConnections {
+func removeConnection(connections []gossipConnection, id horizontalapi.ConnectionId) {
+	for i, conn := range connections {
 		if conn.connection.Id == id {
-			dummy.openConnections[i] = dummy.openConnections[len(dummy.openConnections)-1]
-			dummy.openConnections = dummy.openConnections[:len(dummy.openConnections)-1]
+			connections[i] = connections[len(connections)-1]
+			connections = connections[:len(connections)-1]
 			break
 		}
 	}
 }
 
+// Returns weather the connection is valid or not (for now, just return if it is present in the openConnection)
 func (dummy *dummyStrat) checkConnectionValidity(id horizontalapi.ConnectionId) bool {
 	conn := findConnection(dummy.openConnections, id)
-	if conn == nil {
-		return false
-	}
-	return conn.flag
+	return conn != nil
 }
 
 // Close the root strategy
