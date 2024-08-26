@@ -4,6 +4,5 @@ $Go.package("types");
 $Go.import("gossip/horizontalAPI/types");
 
 struct ConnChall $Go.doc("Respond with a new challenge for the initial PoW on the horizontalApi.") {
-	challenge @0 :UInt64 $Go.doc("actual challenge for the PoW");
-	cookie    @1 :Data   $Go.doc("encrypted data used at the responder to validate the PoW");
+	cookie    @0 :Data   $Go.doc("encrypted data used at the responder to validate the PoW, also serves as challenge");
 }

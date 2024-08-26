@@ -14,12 +14,12 @@ type ConnChall capnp.Struct
 const ConnChall_TypeID = 0xa38eefc82dcb0278
 
 func NewConnChall(s *capnp.Segment) (ConnChall, error) {
-	st, err := capnp.NewStruct(s, capnp.ObjectSize{DataSize: 8, PointerCount: 1})
+	st, err := capnp.NewStruct(s, capnp.ObjectSize{DataSize: 0, PointerCount: 1})
 	return ConnChall(st), err
 }
 
 func NewRootConnChall(s *capnp.Segment) (ConnChall, error) {
-	st, err := capnp.NewRootStruct(s, capnp.ObjectSize{DataSize: 8, PointerCount: 1})
+	st, err := capnp.NewRootStruct(s, capnp.ObjectSize{DataSize: 0, PointerCount: 1})
 	return ConnChall(st), err
 }
 
@@ -55,14 +55,6 @@ func (s ConnChall) Message() *capnp.Message {
 func (s ConnChall) Segment() *capnp.Segment {
 	return capnp.Struct(s).Segment()
 }
-func (s ConnChall) Challenge() uint64 {
-	return capnp.Struct(s).Uint64(0)
-}
-
-func (s ConnChall) SetChallenge(v uint64) {
-	capnp.Struct(s).SetUint64(0, v)
-}
-
 func (s ConnChall) Cookie() ([]byte, error) {
 	p, err := capnp.Struct(s).Ptr(0)
 	return []byte(p.Data()), err
@@ -81,7 +73,7 @@ type ConnChall_List = capnp.StructList[ConnChall]
 
 // NewConnChall creates a new list of ConnChall.
 func NewConnChall_List(s *capnp.Segment, sz int32) (ConnChall_List, error) {
-	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 8, PointerCount: 1}, sz)
+	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 0, PointerCount: 1}, sz)
 	return capnp.StructList[ConnChall](l), err
 }
 
