@@ -362,9 +362,7 @@ loop:
 				// copy the capnproto ConnChall message to an internal
 				// representation to make the handling in other packages easier
 
-				p := ConnChall{
-					Chall: chall.Challenge(),
-				}
+				p := ConnChall{}
 				// cookie is no scalar type -> retrival might error
 				p.Cookie, err = chall.Cookie()
 				if err != nil {
@@ -484,9 +482,6 @@ loop:
 					goto continue_write
 				}
 				// populate the message
-				// setting scalar value cannot lead to error
-				chall.SetChallenge(rmsg.Chall)
-
 				// cookie is no scalar type -> setting might error
 				if err := chall.SetCookie(rmsg.Cookie); err != nil {
 					hz.log.Error("setting the cookie for the ConnChall message failed", "err", err)

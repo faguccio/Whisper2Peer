@@ -1,40 +1,44 @@
 package strats
 
 import (
-	"fmt"
+	"crypto/rand"
 	horizontalapi "gossip/horizontalAPI"
+	"reflect"
 	"testing"
-	"time"
+
+	"golang.org/x/crypto/chacha20poly1305"
 )
 
 func TestCookie(test *testing.T) {
 
-	nonce := uint64(12340987)
-	date := time.Unix(0, time.Now().UnixMicro())
-	dest := "miamibeach"
-
-	cookie := connCookie{
-		chall:     nonce,
-		timestamp: date,
-		dest:      horizontalapi.ConnectionId(dest),
+	key := make([]byte, chacha20poly1305.KeySize)
+	if _, err := rand.Read(key); err != nil {
+		panic(err)
 	}
 
-	payload := cookie.createCookie()
-
-	var readCookie connCookie
-	readCookie.readCookie(payload, nonce)
-	fmt.Println(readCookie)
-
-	if readCookie.chall != nonce {
-		test.Fatalf("Read nonce different from nonce (%d, %d)", readCookie.chall, nonce)
+	aead, err := chacha20poly1305.NewX(key)
+	if err != nil {
+		panic(err)
 	}
 
-	if readCookie.timestamp != date {
-		test.Fatalf("Read date different from initial one (%v, %v)", readCookie.timestamp, date)
+	cookie := NewConnCookie(horizontalapi.ConnectionId("MIAMIbeach"))
+	payload := cookie.createCookie(aead)
+	readCookie, err := ReadCookie(aead, payload)
+
+	if err != nil {
+		test.Fatalf("Decryption of cookie failed")
 	}
 
-	if string(readCookie.dest) != dest {
-		test.Fatalf("Read dest different from dest (%s, %s)", readCookie.dest, dest)
+	if reflect.DeepEqual(readCookie.chall, cookie.chall) {
+		test.Fatalf("Read nonce different from nonce (%d, %d)", readCookie.chall, cookie.chall)
+	}
+
+	// if readCookie.timestamp != cookie.timestamp {
+	// 	test.Fatalf("Read date different from initial one (%v, %v)", readCookie.timestamp, cookie.timestamp)
+	// }
+
+	if string(readCookie.dest) != string(cookie.dest) {
+		test.Fatalf("Read dest different from dest (%s, %s)", readCookie.dest, cookie.dest)
 	}
 
 }

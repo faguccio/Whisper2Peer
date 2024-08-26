@@ -9,10 +9,10 @@ import (
 	horizontalapi "gossip/horizontalAPI"
 	ringbuffer "gossip/internal/ringbuffer"
 	pow "gossip/pow"
-	"math"
 	"reflect"
 	"slices"
 
+	"crypto/cipher"
 	"crypto/rand"
 	"math/big"
 	mrand "math/rand"
@@ -27,8 +27,7 @@ var (
 
 var (
 	// TODO generate
-	secretKey []byte = []byte("secrets_secrets_secrets_secrets_")
-	POW_TIME         = 5 * time.Second
+	POW_TIME = 5 * time.Second
 )
 
 // Some messages might use a counter of how many peers the message was relayed to
@@ -38,7 +37,7 @@ type storedMessage struct {
 }
 
 type connCookie struct {
-	chall     uint64
+	chall     []byte
 	timestamp time.Time
 	dest      horizontalapi.ConnectionId
 }
@@ -59,12 +58,23 @@ type dummyStrat struct {
 	validMessages *ringbuffer.Ringbuffer[*storedMessage]
 	// Collection of messages already relayed to other peers
 	sentMessages *ringbuffer.Ringbuffer[*storedMessage]
+	// ChaCha20 cipher
+	cipher cipher.AEAD
 }
 
 // Function to instantiate a new DummyStrategy.
 //
 // strategy must be the baseStrategy. openConnection a list of ToHz channels, one for each peer
 func NewDummy(strategy Strategy, fromHz <-chan horizontalapi.FromHz, hzConnection <-chan horizontalapi.NewConn, openConnections []gossipConnection) dummyStrat {
+	key := make([]byte, chacha20poly1305.KeySize)
+	if _, err := rand.Read(key); err != nil {
+		panic(err)
+	}
+
+	aead, err := chacha20poly1305.NewX(key)
+	if err != nil {
+		panic(err)
+	}
 
 	return dummyStrat{
 		rootStrat:       strategy,
@@ -74,6 +84,7 @@ func NewDummy(strategy Strategy, fromHz <-chan horizontalapi.FromHz, hzConnectio
 		invalidMessages: ringbuffer.NewRingbuffer[*storedMessage](strategy.stratArgs.Cache_size),
 		validMessages:   ringbuffer.NewRingbuffer[*storedMessage](strategy.stratArgs.Cache_size),
 		sentMessages:    ringbuffer.NewRingbuffer[*storedMessage](strategy.stratArgs.Cache_size),
+		cipher:          aead,
 	}
 }
 
@@ -116,24 +127,11 @@ func (dummy *dummyStrat) Listen() {
 					}
 
 				case horizontalapi.ConnReq:
+					cookie := NewConnCookie(msg.Id)
 
-					n, err := rand.Int(rand.Reader, big.NewInt(int64(math.MaxInt64)))
-					if err != nil {
-						panic(err)
-					}
-
-					chall := n.Uint64()
-
-					cookie := connCookie{
-						chall:     chall,
-						timestamp: time.Now(),
-						dest:      msg.Id,
-					}
-
-					// Create ConnChall message
+					// Create ConnChall message with the encrypted cookie
 					m := horizontalapi.ConnChall{
-						Chall:  chall,
-						Cookie: cookie.createCookie(),
+						Cookie: cookie.createCookie(dummy.cipher),
 					}
 
 					// Send message to correct peer
@@ -263,14 +261,27 @@ func findConnection(connections []gossipConnection, id horizontalapi.ConnectionI
 	return nil
 }
 
+func NewConnCookie(dest horizontalapi.ConnectionId) connCookie {
+	nonce := make([]byte, chacha20poly1305.NonceSizeX)
+	if _, err := rand.Read(nonce); err != nil {
+		panic(err)
+	}
+
+	return connCookie{
+		chall:     nonce,
+		timestamp: time.Unix(0, time.Now().UnixMicro()),
+		dest:      dest,
+	}
+}
+
 func (x *connCookie) Marshal() []byte {
 	timestamp := x.timestamp.UnixNano()
-	buf := make([]byte, binary.Size(x.chall)+binary.Size(timestamp)+len(x.dest))
+	buf := make([]byte, len(x.chall)+binary.Size(timestamp)+len(x.dest))
 
 	idx := 0
 
-	binary.BigEndian.PutUint64(buf[idx:], x.chall)
-	idx += binary.Size(x.chall)
+	copy(buf[idx:], x.chall[:])
+	idx += len(x.chall)
 
 	binary.BigEndian.PutUint64(buf[idx:], uint64(timestamp))
 	idx += binary.Size(timestamp)
@@ -284,56 +295,43 @@ func (x *connCookie) Marshal() []byte {
 func (x *connCookie) Unmarshal(buf []byte) {
 	idx := 0
 
-	cookieChall := binary.BigEndian.Uint64(buf[idx:binary.Size(x.chall)])
-	idx += binary.Size(x.chall)
-
 	t := binary.BigEndian.Uint64(buf[idx : idx+8])
 	timestamp := time.Unix(0, int64(t))
 	idx += 8
 
-	dest := make([]byte, len(buf[idx:]))
+	x.chall = make([]byte, chacha20poly1305.NonceSizeX)
+	copy(x.chall, buf[idx:idx+chacha20poly1305.NonceSizeX])
+	idx += chacha20poly1305.NonceSizeX
 
+	dest := make([]byte, len(buf[idx:]))
 	copy(dest, buf[idx:])
-	x.chall = cookieChall
+
 	x.timestamp = timestamp
 	x.dest = horizontalapi.ConnectionId(string(dest))
 }
 
-func (x *connCookie) createCookie() []byte {
-	// Create chacha20 cipher
-	aead, err := chacha20poly1305.New(secretKey)
-	if err != nil {
-		panic(err)
-	}
-
+func (x *connCookie) createCookie(aead cipher.AEAD) []byte {
 	payload := x.Marshal()
 
-	// TODO: I am using as the nonce the challange for the PoW (appendend with 0s, ugh).
-	// I think if we want to stick with ChaCha20 we need to change the protocol messages to include the
-	// ChaCha Nonce, otherwise we need to store state? 64 random bits could also be enough for uniqueness
-	ciphertext := aead.Seal(nil, slices.Concat(payload[0:8], []byte{0, 0, 0, 0}), payload, nil)
-	return ciphertext
+	ciphertext := aead.Seal(nil, x.chall, payload, nil)
+	// Cipher nonce is appended as the first (24) bytes of the cookie
+	cookie := slices.Concat(x.chall, ciphertext)
+	return cookie
 }
 
-func (x *connCookie) readCookie(cookie []byte, chall uint64) {
-	// Create chacha20 cipher
-	aead, err := chacha20poly1305.New(secretKey)
-	if err != nil {
-		panic(err)
-	}
+func ReadCookie(aead cipher.AEAD, cookie []byte) (*connCookie, error) {
+	cipherNonce := cookie[0:chacha20poly1305.NonceSizeX]
+	cookie = cookie[chacha20poly1305.NonceSizeX:]
 
-	bchall := make([]byte, 8)
-	binary.BigEndian.PutUint64(bchall, chall)
-
-	// Decrypt the cookie
-	//plaintext := make([]byte, len(cookie))
-	plaintext, err := aead.Open(nil, slices.Concat(bchall, []byte{0, 0, 0, 0}), cookie, nil)
+	plaintext, err := aead.Open(nil, cipherNonce, cookie, nil)
 	if err != nil {
 		fmt.Println("Error while decrypting the cookie", "err", err)
-		return
+		return nil, err
 	}
 
-	x.Unmarshal(plaintext)
+	var c connCookie
+	c.Unmarshal(plaintext)
+	return &c, nil
 }
 
 // Go throught a ringbuffer of messages and return the one with a matching ID, error if none is found
