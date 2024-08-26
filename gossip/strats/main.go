@@ -145,7 +145,6 @@ func (x *powMarsh) Marshal(buf []byte) ([]byte, error) {
 	binary.BigEndian.PutUint64(buf[idx:], x.PowNonce)
 	idx += binary.Size(x.PowNonce)
 
-	fmt.Println(buf)
 	return buf, nil
 }
 

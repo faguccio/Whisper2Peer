@@ -145,27 +145,40 @@ func (dummy *dummyStrat) Listen() {
 				case horizontalapi.ConnPoW:
 					mypow := powMarsh{PowNonce: msg.PowNonce, Cookie: msg.Cookie}
 
-					flag := pow.CheckProofOfWork(func(digest []byte) bool {
+					cookieRead, err := ReadCookie(dummy.cipher, mypow.Cookie)
+
+					if err != nil {
+						dummy.rootStrat.log.Debug("Failed to decrypt cookie, dropping connection", "connection ID", msg.Id)
+						dummy.removeConnection(msg.Id)
+						continue
+					}
+
+					// Check proof of work
+					powValidity := pow.CheckProofOfWork(func(digest []byte) bool {
 						return pow.First8bits0(digest)
 					}, &mypow)
 
-					// The following code is commented as for now HZ messages do not include the ChaCha20 nonce
-					// which could also be the same as the chall argument, but has to be sent as plaintext
-					// var cookie connCookie
+					if !powValidity {
+						dummy.rootStrat.log.Debug("Invalid pow, dropping connection", "expected conn Id", cookieRead.dest, "actual Id", msg.Id)
+						dummy.removeConnection(msg.Id)
+						continue
+					}
 
-					// cookie.readCookie(msg.Cookie, chall)
-
-					// // check dest is valid
-					// if cookie.dest != msg.Id {
-					// 	dummy.rootStrat.log.Debug("Mismatched connectionId between received connPow and sender", "expected conn Id", cookie.dest, "actual Id", msg.Id)
-					// }
-
-					// diff := time.Now().Sub(cookie.timestamp)
-					// if diff > POW_TIME {
-					// 	dummy.rootStrat.log.Debug("POW for accepting connection was given not within the time limit", "expected conn Id", cookie.dest, "actual Id", msg.Id)
-					// }
+					// check dest is valid
+					if cookieRead.dest != msg.Id {
+						dummy.rootStrat.log.Debug("Mismatched connectionId between received connPow and sender", "expected conn Id", cookieRead.dest, "actual Id", msg.Id)
+						dummy.removeConnection(msg.Id)
+						continue
+					}
 
 					// check if time taken for giving pow is within the limits
+					diff := time.Now().Sub(cookieRead.timestamp)
+					if diff > POW_TIME {
+						dummy.rootStrat.log.Debug("POW for accepting connection was given not within the time limit", "expected conn Id", cookieRead.dest, "actual Id", msg.Id)
+						dummy.removeConnection(msg.Id)
+						continue
+					}
+
 					peer := findConnection(dummy.openConnections, msg.Id)
 					if peer == nil {
 						dummy.rootStrat.log.Error("No open connection found for challPoW", "conn Id", msg.Id)
@@ -173,12 +186,8 @@ func (dummy *dummyStrat) Listen() {
 					}
 
 					// Validate connection or remove it
-					if flag {
-						peer.flag = true
-						peer.timestamp = time.Now()
-					} else {
-						dummy.removeConnection(msg.Id)
-					}
+					peer.flag = true
+					peer.timestamp = time.Now()
 				}
 
 				// Accept any connection and flag it as invalid.
@@ -269,7 +278,7 @@ func NewConnCookie(dest horizontalapi.ConnectionId) connCookie {
 
 	return connCookie{
 		chall:     nonce,
-		timestamp: time.Unix(0, time.Now().UnixMicro()),
+		timestamp: time.Unix(0, time.Now().UnixNano()),
 		dest:      dest,
 	}
 }
@@ -280,11 +289,11 @@ func (x *connCookie) Marshal() []byte {
 
 	idx := 0
 
-	copy(buf[idx:], x.chall[:])
-	idx += len(x.chall)
-
 	binary.BigEndian.PutUint64(buf[idx:], uint64(timestamp))
 	idx += binary.Size(timestamp)
+
+	copy(buf[idx:], x.chall[:])
+	idx += len(x.chall)
 
 	copy(buf[idx:], x.dest[:])
 	idx += len(x.dest)

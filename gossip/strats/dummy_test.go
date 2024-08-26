@@ -29,13 +29,13 @@ func TestCookie(test *testing.T) {
 		test.Fatalf("Decryption of cookie failed")
 	}
 
-	if reflect.DeepEqual(readCookie.chall, cookie.chall) {
+	if !reflect.DeepEqual(readCookie.chall, cookie.chall) {
 		test.Fatalf("Read nonce different from nonce (%d, %d)", readCookie.chall, cookie.chall)
 	}
 
-	// if readCookie.timestamp != cookie.timestamp {
-	// 	test.Fatalf("Read date different from initial one (%v, %v)", readCookie.timestamp, cookie.timestamp)
-	// }
+	if readCookie.timestamp != cookie.timestamp {
+		test.Fatalf("Read date different from initial one (%v, %v)", readCookie.timestamp, cookie.timestamp)
+	}
 
 	if string(readCookie.dest) != string(cookie.dest) {
 		test.Fatalf("Read dest different from dest (%s, %s)", readCookie.dest, cookie.dest)
