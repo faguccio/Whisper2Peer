@@ -42,6 +42,12 @@ type StrategyChannels struct {
 	ToStrat   chan common.ToStrat
 }
 
+type gossipConnection struct {
+	connection horizontalapi.Conn[chan<- horizontalapi.ToHz]
+	timestamp  time.Time
+	flag       bool
+}
+
 // This function instantiate a new Strategy.
 //
 // The function internally spawn the horizontal API and connect to all given peers and start to
@@ -133,12 +139,13 @@ func (x *powMarsh) Marshal(buf []byte) ([]byte, error) {
 
 	idx := 0
 
-	binary.BigEndian.PutUint64(buf[idx:], x.PowNonce)
-	idx += binary.Size(x.PowNonce)
-
 	copy(buf[idx:], x.Cookie[:])
 	idx += len(x.Cookie)
 
+	binary.BigEndian.PutUint64(buf[idx:], x.PowNonce)
+	idx += binary.Size(x.PowNonce)
+
+	fmt.Println(buf)
 	return buf, nil
 }
 

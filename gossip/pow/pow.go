@@ -160,19 +160,7 @@ func First8bits0(digest []byte) bool {
 
 // check weather the input has a valid proof of work for the predicate
 func CheckProofOfWork[T constraints.Integer](pred func(digest []byte) bool, e POWMarshaller[T]) bool {
-	nonce := e.Nonce()
-	e.SetNonce(0)
-	h := sha256.New()
-	digest := [sha256.Size]byte{}
-	m := make([]byte, 0)
-	m, _ = e.Marshal(m)
-	m = m[e.StripPrefixLen():]
-	m1 := m[:e.PrefixLen()]
-
-	e.SetNonce(nonce)
-	h.Reset()
-	h.Write(m1)
-	e.WriteNonce(h)
-
-	return pred(h.Sum(digest[:0]))
+	buf, _ := e.Marshal(nil)
+	digest := sha256.Sum256(buf[e.StripPrefixLen():])
+	return pred(digest[:])
 }

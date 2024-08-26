@@ -37,12 +37,6 @@ type storedMessage struct {
 	message horizontalapi.Push
 }
 
-type gossipConnection struct {
-	connection horizontalapi.Conn[chan<- horizontalapi.ToHz]
-	timestamp  time.Time
-	flag       bool
-}
-
 type connCookie struct {
 	chall     uint64
 	timestamp time.Time
