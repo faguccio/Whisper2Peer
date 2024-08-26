@@ -81,6 +81,7 @@ func New(log *slog.Logger, args args.Args, stratChans StrategyChannels, initFini
 	}(initFinished, hzInitFin)
 
 	var gossipConnections []gossipConnection
+	connectionMap := make(map[horizontalapi.ConnectionId]gossipConnection)
 
 	// Request PoW (and compute it) here
 	for _, conn := range openConnections {
@@ -101,10 +102,12 @@ func New(log *slog.Logger, args args.Args, stratChans StrategyChannels, initFini
 
 			mypow.PowNonce = nonce
 			conn.Data <- horizontalapi.ConnPoW{PowNonce: mypow.PowNonce, Cookie: mypow.Cookie}
-			gossipConnections = append(gossipConnections, gossipConnection{
+			newConnection := gossipConnection{
 				connection: conn,
 				timestamp:  time.Now(),
-			})
+			}
+			gossipConnections = append(gossipConnections, newConnection)
+			connectionMap[conn.Id] = newConnection
 
 		default:
 			log.Debug("Second message during validation is not a ConnChall", "message", "chall")
@@ -117,7 +120,7 @@ func New(log *slog.Logger, args args.Args, stratChans StrategyChannels, initFini
 	}
 
 	// Hardcoded strategy, later switching on args argument
-	dummyStrat := NewDummy(strategy, fromHz, hzConnection, gossipConnections)
+	dummyStrat := NewDummy(strategy, fromHz, hzConnection, gossipConnections, connectionMap)
 	return &dummyStrat, nil
 }
 
