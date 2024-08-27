@@ -5,14 +5,9 @@
 
 ## PoW
 - collect requests from neighbors -> do PoW on sequence of nonces -> respond
-<<<<<<< Updated upstream
-with sequence of nonces and PoW
-  - optimization: Peers can also ask for PoW challenge to include in the current round
-=======
 with sequence of nonces and PoW (don't penalize node with lots of neighbors)
 - optimization: Peers can also ask for PoW challenge to include in the current
 round
->>>>>>> Stashed changes
 - DDOS protection: store when last PoW request was received from that peer
 - Don't store state -> send (nonce, enc(nonce, ip, ...)) 
 
