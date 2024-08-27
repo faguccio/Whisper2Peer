@@ -1,3 +1,4 @@
+// Package strats implements the different gossip strategies that can be used.
 package strats
 
 import (
