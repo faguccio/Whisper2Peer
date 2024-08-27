@@ -59,6 +59,8 @@ func (uarg *UserArgs) Merge(arg args.Args) args.Args {
 	return arg
 }
 
+
+// initialize a [slog.Logger]
 func logInit(identifier any) *slog.Logger {
 	return slog.New(tint.NewHandler(os.Stdout, &tint.Options{
 		Level:      slog.LevelDebug,
@@ -67,6 +69,10 @@ func logInit(identifier any) *slog.Logger {
 	})).With("id", identifier)
 }
 
+// Main is the struct which connects the verticalAPI to the actual gossip
+// strategy
+//
+// Use either [NewMainWithArgs] or [NewMain] to instanciate
 type Main struct {
 	log              *slog.Logger
 	mlog             *slog.Logger
@@ -78,6 +84,8 @@ type Main struct {
 	wg               sync.WaitGroup
 }
 
+// Used to instanciate [Main] with a certain set of arguments (does not attempt
+// to parse arguments from anywhere)
 func NewMainWithArgs(args args.Args, log *slog.Logger) *Main {
 	m := &Main{
 		typeStorage: *NewNotifyMap(),
@@ -108,6 +116,9 @@ func NewMainWithArgs(args args.Args, log *slog.Logger) *Main {
 	return m
 }
 
+// Used to instanciate [Main] without special arguments. Will start parsing the
+// cli arguments and depending on the arguments continue with parsing arguments
+// from an ini file.
 func NewMain() *Main {
 	// obtain the arguments with the default values set
 	args := args.NewFromDefaults()
@@ -138,6 +149,11 @@ func NewMain() *Main {
 	return NewMainWithArgs(args, logInit(args.Hz_addr))
 }
 
+// Start this component.
+//
+// This function will send `nil` on `initFinished` if initializing the
+// verticalAPI and the gossip strategy was completed. If one of those processes
+// resulted in an error, it will send that error instead of `nil`.
 func (m *Main) Run(initFinished chan<- error) {
 	var err error
 	var ctx context.Context
@@ -200,12 +216,14 @@ loop:
 	m.wg.Done()
 }
 
+// terminate the main component
 func (m *Main) Close() error {
 	m.cancel()
 	m.wg.Wait()
 	return nil
 }
 
+// Handle when a vertical api connection was closed
 func (m *Main) handleModuleUnregister(msg common.GossipUnRegister) {
 	m.typeStorage.RemoveChannel(common.ConnectionId(msg))
 	m.mlog.Info("Unregistered module", "module", msg)
@@ -245,6 +263,7 @@ func (m *Main) handleGossipAnnounce(msg common.GossipAnnounce) error {
 	return nil
 }
 
+// handler for notification messages from the horizontalAPI
 func (m *Main) handleNotification(msg common.GossipNotification) error {
 	typeToCheck := common.GossipType(msg.DataType)
 	res := m.typeStorage.Load(typeToCheck)

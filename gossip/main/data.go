@@ -6,19 +6,23 @@ import (
 	"sync"
 )
 
-// This struct is a dummy channel for specifying MainToVert channels where I can instruct the verticalapi module to send a Gossip Notification message
-
+// This struct is a dummy channel for specifying MainToVert channels where I
+// can instruct the verticalapi module to send a Gossip Notification message
+//
+// NewNotifyMap should be used to instanciate this.
 type notifyMap struct {
 	data map[common.GossipType][]*common.Conn[common.RegisteredModule]
 	sync.RWMutex
 }
 
+// Use this function to instanciate the notifyMap
 func NewNotifyMap() *notifyMap {
 	return &notifyMap{
 		data: make(map[common.GossipType]([]*common.Conn[common.RegisteredModule])),
 	}
 }
 
+// getter for the nnotifyMap
 func (nm *notifyMap) Load(gossip_type common.GossipType) []*common.Conn[common.RegisteredModule] {
 	nm.RLock()
 	defer nm.RUnlock()
@@ -51,6 +55,8 @@ func (nm *notifyMap) AddChannelToType(gossip_type common.GossipType, new_channel
 	return nil
 }
 
+
+// remove from the notifyMap
 func (nm *notifyMap) RemoveChannel(unreg common.ConnectionId) {
 	nm.Lock()
 	defer nm.Unlock()
