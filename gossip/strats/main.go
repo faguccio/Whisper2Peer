@@ -116,7 +116,7 @@ func New(log *slog.Logger, args args.Args, stratChans StrategyChannels, initFini
 	}
 
 	if err != nil {
-		return nil, fmt.Errorf("The error occured while initiating the gossip module %w", err)
+		return nil, fmt.Errorf("the error occured while initiating the gossip module %w", err)
 	}
 
 	// Hardcoded strategy, later switching on args argument
