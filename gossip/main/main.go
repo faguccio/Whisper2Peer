@@ -3,7 +3,6 @@ package gossip
 import (
 	"context"
 	"errors"
-	"fmt"
 	"gossip/common"
 	"gossip/internal/args"
 	gs "gossip/strats"
@@ -22,13 +21,13 @@ import (
 // Arguments read using go-arg https://github.com/alexflint/go-arg. The annotation instruct the library on
 // the type of comment and optionally the help message.
 type UserArgs struct {
-	Degree      *uint     `ini:"degree" arg:"-d,--degree" help:"Gossip parameter degree: Number of peers the current peer has to exchange information with"`
-	Cache_size  *uint     `ini:"cache_size" arg:"--cache" help:"Gossip parameter cache_size: Maximum number of data items to be held as part of the peer’s knowledge base. Older items will be removed to ensure space for newer items if the peer’s knowledge base exceeds this limit"`
-	GossipTimer *uint     `ini:"gtimer" arg:"-t,--gtimer" help:"How often the gossip strategy should perform a strategy cycle, if applicable"`
-	Hz_addr     *string   `ini:"p2p address" arg:"-h,--haddr" help:"Address to listen for incoming peer connections, ip:port"`
-	Vert_addr   *string   `ini:"api address" arg:"-v,--vaddr" help:"Address to listen for incoming peer connections, ip:port"`
-	Peer_addrs  []string  `ini:"hconns" arg:"positional" help:"List of horizontal peers to connect to, [ip]:port"`
-	ConfigFile  *string   `arg:"-c,--config_file" help:"Path to the configuration file (cli arguments always take predecence)"`
+	Degree      *uint    `ini:"degree" arg:"-d,--degree" help:"Gossip parameter degree: Number of peers the current peer has to exchange information with"`
+	Cache_size  *uint    `ini:"cache_size" arg:"--cache" help:"Gossip parameter cache_size: Maximum number of data items to be held as part of the peer’s knowledge base. Older items will be removed to ensure space for newer items if the peer’s knowledge base exceeds this limit"`
+	GossipTimer *uint    `ini:"gtimer" arg:"-t,--gtimer" help:"How often the gossip strategy should perform a strategy cycle, if applicable"`
+	Hz_addr     *string  `ini:"p2p address" arg:"-h,--haddr" help:"Address to listen for incoming peer connections, ip:port"`
+	Vert_addr   *string  `ini:"api address" arg:"-v,--vaddr" help:"Address to listen for incoming peer connections, ip:port"`
+	Peer_addrs  []string `ini:"hconns" arg:"positional" help:"List of horizontal peers to connect to, [ip]:port"`
+	ConfigFile  *string  `arg:"-c,--config_file" help:"Path to the configuration file (cli arguments always take predecence)"`
 	// Strategy string ``
 }
 
