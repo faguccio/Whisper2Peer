@@ -1,3 +1,4 @@
+// Package pow implements efficient proof-of-work workers/solvers.
 package pow
 
 import (

@@ -1,3 +1,7 @@
+// Package horizontalapi manages all connections on the horizontalAPI. It
+// provides a layer of abstraction so that other code does not handle capnproto
+// things and/or (un)marshalling and manages the state of the tcp connections
+// (including open and teardown).
 package horizontalapi
 
 import (

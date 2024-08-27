@@ -1,3 +1,5 @@
+// Package packetcounter counts the amount of packets sent in a certain window
+// of time.
 package packetcounter
 
 import (
@@ -5,6 +7,10 @@ import (
 	"time"
 )
 
+// counter represents the packetcounter
+//
+// You should be using [NewCounter] to instanciate new instances of the
+// packetcounter
 type Counter struct {
 	t   time.Time
 	cnt uint
@@ -15,6 +21,13 @@ type Counter struct {
 	mutex       sync.Mutex
 }
 
+// constructor for the packetcounter.
+//
+// `do` is the function called after the window of time has been exceeded. It
+// will be provided with the start-time of the window and the amount of packets
+// counted in that window of time.
+//
+// `granularity` is the duration of one window
 func NewCounter(do func(time.Time, uint), granularity time.Duration) *Counter {
 	return &Counter{
 		t:           time.Time{},
@@ -24,6 +37,7 @@ func NewCounter(do func(time.Time, uint), granularity time.Duration) *Counter {
 	}
 }
 
+// count one packet at time.Now()
 func (counter *Counter) Add(i uint) {
 	counter.mutex.Lock()
 	defer counter.mutex.Unlock()
@@ -42,6 +56,8 @@ func (counter *Counter) Add(i uint) {
 	counter.t = now
 }
 
+// some packets might be counted but `do` was not called in the end. This
+// function does the call to `do` if needed.
 func (counter *Counter) Finalize() {
 	counter.mutex.Lock()
 	defer counter.mutex.Unlock()
