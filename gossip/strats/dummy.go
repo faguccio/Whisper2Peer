@@ -11,6 +11,7 @@ import (
 	pow "gossip/pow"
 	"reflect"
 	"slices"
+	"sync"
 
 	"crypto/cipher"
 	"crypto/rand"
@@ -50,16 +51,16 @@ type dummyStrat struct {
 	fromHz <-chan horizontalapi.FromHz
 	// Channel were new connection are notified
 	hzConnection <-chan horizontalapi.NewConn
-
-	// Array of open connections. These connections are valid, meaning that a PoW was received.
+	// Connection that this peer needs to prove
+	toBeProvedConnections map[horizontalapi.ConnectionId]horizontalapi.Conn[chan<- horizontalapi.ToHz]
+	// Array of peers channels, where messages can be sent (stored as slice for easing permutations)
 	openConnections []gossipConnection
 	// Map of valid connection (for fast access). If a connection is present in the openConnections
 	// It is also present here
 	openConnectionMap map[horizontalapi.ConnectionId]gossipConnection
-
-	// Map of in progress connection. These connection are initiated by another peer and still have
-	// to provide a PoW. After that they will be moved to openConnections and openConnectionMap.
-	// If PoW is not valid, they will be removed.
+	// Mutex to synchronize between proving connections and validating connections
+	connMutex sync.RWMutex
+	// Map of invalid connection (for fast access) that needs to be validated
 	powInProgress map[horizontalapi.ConnectionId]gossipConnection
 
 	// Collection of messages received from a peer which needs to be validated through the vertical api
@@ -74,8 +75,9 @@ type dummyStrat struct {
 
 // Function to instantiate a new DummyStrategy.
 //
-// strategy must be the baseStrategy. openConnection a list of ToHz channels, one for each peer
-func NewDummy(strategy Strategy, fromHz <-chan horizontalapi.FromHz, hzConnection <-chan horizontalapi.NewConn, openConnections []gossipConnection, connectionMap map[horizontalapi.ConnectionId]gossipConnection) dummyStrat {
+// strategy must be the baseStrategy. toBeProvedConnections a list of ToHz channels, one for each peer, that
+// current peer needs to send PoWs to
+func NewDummy(strategy Strategy, fromHz <-chan horizontalapi.FromHz, hzConnection <-chan horizontalapi.NewConn, toBeProvedConnections map[horizontalapi.ConnectionId]horizontalapi.Conn[chan<- horizontalapi.ToHz]) dummyStrat {
 	key := make([]byte, chacha20poly1305.KeySize)
 	if _, err := rand.Read(key); err != nil {
 		panic(err)
@@ -87,16 +89,16 @@ func NewDummy(strategy Strategy, fromHz <-chan horizontalapi.FromHz, hzConnectio
 	}
 
 	return dummyStrat{
-		rootStrat:         strategy,
-		fromHz:            fromHz,
-		hzConnection:      hzConnection,
-		openConnections:   openConnections,
-		openConnectionMap: connectionMap,
-		powInProgress:     make(map[horizontalapi.ConnectionId]gossipConnection),
-		invalidMessages:   ringbuffer.NewRingbuffer[*storedMessage](strategy.stratArgs.Cache_size),
-		validMessages:     ringbuffer.NewRingbuffer[*storedMessage](strategy.stratArgs.Cache_size),
-		sentMessages:      ringbuffer.NewRingbuffer[*storedMessage](strategy.stratArgs.Cache_size),
-		cipher:            aead,
+		rootStrat:             strategy,
+		fromHz:                fromHz,
+		hzConnection:          hzConnection,
+		toBeProvedConnections: toBeProvedConnections,
+		openConnectionMap:     make(map[horizontalapi.ConnectionId]gossipConnection),
+		powInProgress:         make(map[horizontalapi.ConnectionId]gossipConnection),
+		invalidMessages:       ringbuffer.NewRingbuffer[*storedMessage](strategy.stratArgs.Cache_size),
+		validMessages:         ringbuffer.NewRingbuffer[*storedMessage](strategy.stratArgs.Cache_size),
+		sentMessages:          ringbuffer.NewRingbuffer[*storedMessage](strategy.stratArgs.Cache_size),
+		cipher:                aead,
 	}
 }
 
@@ -106,6 +108,8 @@ func NewDummy(strategy Strategy, fromHz <-chan horizontalapi.FromHz, hzConnectio
 // This function spawn a new goroutine. Incoming messages will be processed by the Dummy Strategy.
 func (dummy *dummyStrat) Listen() {
 	go func() {
+		// Sending out initial challenges requests
+		dummy.RequestInitialChallenges()
 		// A repeating signal to trigger a recurrent behavior.
 		ticker := time.NewTicker(time.Duration(dummy.rootStrat.stratArgs.GossipTimer) * time.Second)
 
@@ -143,7 +147,7 @@ func (dummy *dummyStrat) Listen() {
 
 					// Create ConnChall message with the encrypted cookie
 					m := horizontalapi.ConnChall{
-						Cookie: cookie.createCookie(dummy.cipher),
+						Cookie: cookie.CreateCookie(dummy.cipher),
 					}
 
 					// Send message to correct peer
@@ -156,7 +160,26 @@ func (dummy *dummyStrat) Listen() {
 					peer.connection.Data <- m
 
 				case horizontalapi.ConnChall:
-					// Not expecting any challenge, managed in Main
+					// Checks weather the Chall is coming from a toBeProvedConnection
+					conn := dummy.toBeProvedConnections[msg.Id]
+					if conn.Id == msg.Id {
+						go func() {
+							pow := ComputePoW(msg.Cookie)
+							conn.Data <- pow
+
+							newConnection := gossipConnection{
+								connection: conn,
+								timestamp:  time.Now(),
+							}
+
+							dummy.connMutex.Lock()
+							defer dummy.connMutex.Unlock()
+							dummy.openConnections = append(dummy.openConnections, newConnection)
+							dummy.openConnectionMap[conn.Id] = newConnection
+						}()
+					}
+
+					// Checks weather the Chall is coming from a Valid Open Connection (renewing the connection)
 
 				case horizontalapi.ConnPoW:
 					mypow := powMarsh{PowNonce: msg.PowNonce, Cookie: msg.Cookie}
@@ -203,8 +226,10 @@ func (dummy *dummyStrat) Listen() {
 
 					// Validate connection and remove it from inProgress
 					peer.timestamp = cookieRead.timestamp
+					dummy.connMutex.Lock()
 					dummy.openConnectionMap[msg.Id] = peer
 					dummy.openConnections = append(dummy.openConnections, peer)
+					dummy.connMutex.Unlock()
 					dummy.removeConnection(msg.Id)
 
 				}
@@ -248,7 +273,7 @@ func (dummy *dummyStrat) Listen() {
 				// Recurrent timer signal
 			case <-ticker.C:
 				// A random peer is selected and we relay all messages to that peer.
-
+				dummy.connMutex.RLock()
 				// Create a permutation over the length of valid connections
 				perm := mrand.Perm(len(dummy.openConnections))
 				amount := min(len(dummy.openConnections), int(dummy.rootStrat.stratArgs.Degree))
@@ -269,6 +294,7 @@ func (dummy *dummyStrat) Listen() {
 						}
 					}
 				}))
+				dummy.connMutex.RUnlock()
 			case <-dummy.rootStrat.ctx.Done():
 				// should terminate
 				return
@@ -277,16 +303,30 @@ func (dummy *dummyStrat) Listen() {
 	}()
 }
 
-// Return the corresponding connection given an Id and a list of connection
-// func findConnection(connections []gossipConnection, id horizontalapi.ConnectionId) *gossipConnection {
-// 	for i, conn := range connections {
-// 		if conn.connection.Id == id {
-// 			return &connections[i]
-// 		}
-// 	}
-// 	return nil
-// }
+// Request Challenge for initial proof of work
+func (dummy *dummyStrat) RequestInitialChallenges() {
+	// This is not parallelized as there is very little computation overhead
+	for _, conn := range dummy.toBeProvedConnections {
+		req := horizontalapi.ConnReq{}
+		conn.Data <- req
+	}
+}
 
+func ComputePoW(cookie []byte) horizontalapi.ConnPoW {
+	mypow := powMarsh{
+		PowNonce: 0,
+		Cookie:   cookie,
+	}
+
+	nonce := pow.ProofOfWork(func(digest []byte) bool {
+		return pow.First8bits0(digest)
+	}, &mypow)
+
+	mypow.PowNonce = nonce
+	return horizontalapi.ConnPoW{PowNonce: mypow.PowNonce, Cookie: mypow.Cookie}
+}
+
+// Return a cookie object with provided destination
 func NewConnCookie(dest horizontalapi.ConnectionId) connCookie {
 	nonce := make([]byte, chacha20poly1305.NonceSizeX)
 	if _, err := rand.Read(nonce); err != nil {
@@ -336,7 +376,7 @@ func (x *connCookie) Unmarshal(buf []byte) {
 	x.dest = horizontalapi.ConnectionId(string(dest))
 }
 
-func (x *connCookie) createCookie(aead cipher.AEAD) []byte {
+func (x *connCookie) CreateCookie(aead cipher.AEAD) []byte {
 	payload := x.Marshal()
 
 	ciphertext := aead.Seal(nil, x.chall, payload, nil)
@@ -403,6 +443,8 @@ func (dummy *dummyStrat) removeConnection(id horizontalapi.ConnectionId) {
 	}
 
 	// Try to remove it from the valid connections
+	dummy.connMutex.Lock()
+	defer dummy.connMutex.Unlock()
 	peer = dummy.openConnectionMap[id]
 	if peer.timestamp.IsZero() {
 		delete(dummy.openConnectionMap, id)
@@ -421,6 +463,8 @@ func (dummy *dummyStrat) removeConnection(id horizontalapi.ConnectionId) {
 
 // Returns weather the connection is valid or not (for now, just return if it is present in the openConnection)
 func (dummy *dummyStrat) checkConnectionValidity(id horizontalapi.ConnectionId) bool {
+	dummy.connMutex.RLock()
+	defer dummy.connMutex.RUnlock()
 	peer := dummy.openConnectionMap[id]
 	if peer.timestamp.IsZero() {
 		return false

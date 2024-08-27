@@ -85,6 +85,7 @@ func (ConnReq) canToHz() {}
 
 // Represents a ConnChall message from/to the horizontalApi
 type ConnChall struct {
+	Id     ConnectionId
 	Cookie []byte
 }
 
@@ -368,7 +369,9 @@ loop:
 				// copy the capnproto ConnChall message to an internal
 				// representation to make the handling in other packages easier
 
-				p := ConnChall{}
+				p := ConnChall{
+					Id: connData.Id,
+				}
 				// cookie is no scalar type -> retrival might error
 				p.Cookie, err = chall.Cookie()
 				if err != nil {

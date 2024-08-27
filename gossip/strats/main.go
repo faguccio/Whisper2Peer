@@ -81,47 +81,18 @@ func New(log *slog.Logger, args args.Args, stratChans StrategyChannels, initFini
 		initFinished <- struct{}{}
 	}(initFinished, hzInitFin)
 
-	var gossipConnections []gossipConnection
-	connectionMap := make(map[horizontalapi.ConnectionId]gossipConnection)
-
-	// Request PoW (and compute it) here
-	for _, conn := range openConnections {
-		req := horizontalapi.ConnReq{}
-		conn.Data <- req
-		x := <-fromHz
-		switch chall := x.(type) {
-		case horizontalapi.ConnChall:
-
-			mypow := powMarsh{
-				PowNonce: 0,
-				Cookie:   chall.Cookie,
-			}
-
-			nonce := pow.ProofOfWork(func(digest []byte) bool {
-				return pow.First8bits0(digest)
-			}, &mypow)
-
-			mypow.PowNonce = nonce
-			conn.Data <- horizontalapi.ConnPoW{PowNonce: mypow.PowNonce, Cookie: mypow.Cookie}
-			newConnection := gossipConnection{
-				connection: conn,
-				timestamp:  time.Now(),
-			}
-			gossipConnections = append(gossipConnections, newConnection)
-			connectionMap[conn.Id] = newConnection
-
-		default:
-			log.Debug("Second message during validation is not a ConnChall", "message", "chall")
-			continue
-		}
-	}
-
 	if err != nil {
 		return nil, fmt.Errorf("the error occured while initiating the gossip module %w", err)
 	}
 
+	openConnectionMap := make(map[horizontalapi.ConnectionId]horizontalapi.Conn[chan<- horizontalapi.ToHz])
+
+	for _, conn := range openConnections {
+		openConnectionMap[conn.Id] = conn
+	}
+
 	// Hardcoded strategy, later switching on args argument
-	dummyStrat := NewDummy(strategy, fromHz, hzConnection, gossipConnections, connectionMap)
+	dummyStrat := NewDummy(strategy, fromHz, hzConnection, openConnectionMap)
 	return &dummyStrat, nil
 }
 
