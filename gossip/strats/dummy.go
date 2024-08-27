@@ -26,7 +26,6 @@ var (
 )
 
 var (
-	// TODO generate
 	POW_TIME = 5 * time.Second
 )
 
@@ -55,7 +54,7 @@ type dummyStrat struct {
 	// Map of valid connection (for fast access)
 	openConnectionMap map[horizontalapi.ConnectionId]gossipConnection
 	// Map of invalid connection (for fast access)
-	inProgressMap map[horizontalapi.ConnectionId]gossipConnection
+	powInProgress map[horizontalapi.ConnectionId]gossipConnection
 	// Collection of messages received from a peer which needs to be validated through the vertical api
 	invalidMessages *ringbuffer.Ringbuffer[*storedMessage]
 	// Collection of messages which need to be relayed to other peers.
@@ -86,7 +85,7 @@ func NewDummy(strategy Strategy, fromHz <-chan horizontalapi.FromHz, hzConnectio
 		hzConnection:      hzConnection,
 		openConnections:   openConnections,
 		openConnectionMap: connectionMap,
-		inProgressMap:     make(map[horizontalapi.ConnectionId]gossipConnection),
+		powInProgress:     make(map[horizontalapi.ConnectionId]gossipConnection),
 		invalidMessages:   ringbuffer.NewRingbuffer[*storedMessage](strategy.stratArgs.Cache_size),
 		validMessages:     ringbuffer.NewRingbuffer[*storedMessage](strategy.stratArgs.Cache_size),
 		sentMessages:      ringbuffer.NewRingbuffer[*storedMessage](strategy.stratArgs.Cache_size),
@@ -141,7 +140,7 @@ func (dummy *dummyStrat) Listen() {
 					}
 
 					// Send message to correct peer
-					peer := dummy.inProgressMap[msg.Id]
+					peer := dummy.powInProgress[msg.Id]
 					if peer.timestamp.IsZero() {
 						dummy.rootStrat.log.Error("No open connection found for challReq", "conn Id", msg.Id)
 						continue
@@ -186,14 +185,14 @@ func (dummy *dummyStrat) Listen() {
 						continue
 					}
 
-					peer := dummy.inProgressMap[msg.Id]
+					peer := dummy.powInProgress[msg.Id]
 					if peer.timestamp.IsZero() {
 						dummy.rootStrat.log.Error("No open connection found for challPoW", "conn Id", msg.Id)
 						continue
 					}
 
 					// Validate connection and remove it from inProgress
-					peer.timestamp = time.Now()
+					peer.timestamp = cookieRead.timestamp
 					dummy.openConnectionMap[msg.Id] = peer
 					dummy.openConnections = append(dummy.openConnections, peer)
 					dummy.removeConnection(msg.Id)
@@ -206,7 +205,7 @@ func (dummy *dummyStrat) Listen() {
 					connection: horizontalapi.Conn[chan<- horizontalapi.ToHz](newPeer),
 					timestamp:  time.Now(),
 				}
-				dummy.inProgressMap[conn.connection.Id] = conn
+				dummy.powInProgress[conn.connection.Id] = conn
 
 				// Message from the vertical API
 			case x := <-dummy.rootStrat.strategyChannels.ToStrat:
@@ -387,9 +386,9 @@ func convertPushToNotification(pushMsg horizontalapi.Push) common.GossipNotifica
 
 func (dummy *dummyStrat) removeConnection(id horizontalapi.ConnectionId) {
 	// Try to remove it from in progress connections
-	peer := dummy.inProgressMap[id]
+	peer := dummy.powInProgress[id]
 	if peer.timestamp.IsZero() {
-		delete(dummy.inProgressMap, id)
+		delete(dummy.powInProgress, id)
 		return
 	}
 

@@ -79,7 +79,6 @@ func (ConnReq) canToHz() {}
 
 // Represents a ConnChall message from/to the horizontalApi
 type ConnChall struct {
-	Chall  uint64
 	Cookie []byte
 }
 
