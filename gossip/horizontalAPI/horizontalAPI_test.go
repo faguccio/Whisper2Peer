@@ -131,7 +131,7 @@ func TestHorizontalApi(test *testing.T) {
 	// sleep to make sure the connections are established
 	time.Sleep(2 * time.Second)
 	// check channels passed on listen for newly established channels
-	_ = <-connHz2
+	<-connHz2
 	select {
 	case <-connHz1:
 		test.Fatalf("connHz1 should only receive exactly zero channels")

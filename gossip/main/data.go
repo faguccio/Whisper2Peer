@@ -40,7 +40,7 @@ func (nm *notifyMap) AddChannelToType(gossip_type common.GossipType, new_channel
 
 		for _, conn := range reg {
 			if conn.Id == new_channel.Id {
-				return errors.New("Tried to register connection multiple times on type")
+				return errors.New("tried to register connection multiple times on type")
 			}
 		}
 	}

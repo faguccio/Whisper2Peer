@@ -235,7 +235,7 @@ func (m *Main) handleGossipAnnounce(msg common.GossipAnnounce) error {
 	typeToCheck := common.GossipType(msg.DataType)
 	res := m.typeStorage.Load(typeToCheck)
 	if len(res) == 0 {
-		return errors.New("Gossip Type not registered, cannot accept message.")
+		return errors.New("gossip Type not registered, cannot accept message")
 	}
 
 	announce_data := msg.Data

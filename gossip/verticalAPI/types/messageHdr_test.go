@@ -45,6 +45,9 @@ func TestMarshalHeader(t *testing.T) {
 
 	buf := []byte{0, 0, 0, 0}
 	err = m.Marshal(buf)
+	if err != nil {
+		t.Fatalf("Marshal errored despite large enough buffer. err: %v", err)
+	}
 
 	if !bytes.Equal(buf, result) {
 		t.Fatalf("Marshal result different than expected")
