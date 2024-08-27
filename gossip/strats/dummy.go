@@ -49,12 +49,18 @@ type dummyStrat struct {
 	fromHz <-chan horizontalapi.FromHz
 	// Channel were new connection are notified
 	hzConnection <-chan horizontalapi.NewConn
-	// Array of peers channels, where messages can be sent (stored as slice for easing permutations)
+
+	// Array of open connections. These connections are valid, meaning that a PoW was received.
 	openConnections []gossipConnection
-	// Map of valid connection (for fast access)
+	// Map of valid connection (for fast access). If a connection is present in the openConnections
+	// It is also present here
 	openConnectionMap map[horizontalapi.ConnectionId]gossipConnection
-	// Map of invalid connection (for fast access)
+
+	// Map of in progress connection. These connection are initiated by another peer and still have
+	// to provide a PoW. After that they will be moved to openConnections and openConnectionMap.
+	// If PoW is not valid, they will be removed.
 	powInProgress map[horizontalapi.ConnectionId]gossipConnection
+
 	// Collection of messages received from a peer which needs to be validated through the vertical api
 	invalidMessages *ringbuffer.Ringbuffer[*storedMessage]
 	// Collection of messages which need to be relayed to other peers.
@@ -147,6 +153,9 @@ func (dummy *dummyStrat) Listen() {
 					}
 
 					peer.connection.Data <- m
+
+				case horizontalapi.ConnChall:
+					// Not expecting any challenge, managed in Main
 
 				case horizontalapi.ConnPoW:
 					mypow := powMarsh{PowNonce: msg.PowNonce, Cookie: msg.Cookie}
