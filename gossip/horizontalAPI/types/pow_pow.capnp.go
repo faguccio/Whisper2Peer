@@ -7,88 +7,88 @@ import (
 	text "capnproto.org/go/capnp/v3/encoding/text"
 )
 
-// Send the PoW for the initial PoW on the horizontalApi.
-type ConnPoW capnp.Struct
+// Send the PoW for the periodic PoW on the horizontalApi.
+type PowPoW capnp.Struct
 
-// ConnPoW_TypeID is the unique identifier for the type ConnPoW.
-const ConnPoW_TypeID = 0xb34a08eb7d9097c1
+// PowPoW_TypeID is the unique identifier for the type PowPoW.
+const PowPoW_TypeID = 0xc496ae3c75b714d3
 
-func NewConnPoW(s *capnp.Segment) (ConnPoW, error) {
+func NewPowPoW(s *capnp.Segment) (PowPoW, error) {
 	st, err := capnp.NewStruct(s, capnp.ObjectSize{DataSize: 8, PointerCount: 1})
-	return ConnPoW(st), err
+	return PowPoW(st), err
 }
 
-func NewRootConnPoW(s *capnp.Segment) (ConnPoW, error) {
+func NewRootPowPoW(s *capnp.Segment) (PowPoW, error) {
 	st, err := capnp.NewRootStruct(s, capnp.ObjectSize{DataSize: 8, PointerCount: 1})
-	return ConnPoW(st), err
+	return PowPoW(st), err
 }
 
-func ReadRootConnPoW(msg *capnp.Message) (ConnPoW, error) {
+func ReadRootPowPoW(msg *capnp.Message) (PowPoW, error) {
 	root, err := msg.Root()
-	return ConnPoW(root.Struct()), err
+	return PowPoW(root.Struct()), err
 }
 
-func (s ConnPoW) String() string {
-	str, _ := text.Marshal(0xb34a08eb7d9097c1, capnp.Struct(s))
+func (s PowPoW) String() string {
+	str, _ := text.Marshal(0xc496ae3c75b714d3, capnp.Struct(s))
 	return str
 }
 
-func (s ConnPoW) EncodeAsPtr(seg *capnp.Segment) capnp.Ptr {
+func (s PowPoW) EncodeAsPtr(seg *capnp.Segment) capnp.Ptr {
 	return capnp.Struct(s).EncodeAsPtr(seg)
 }
 
-func (ConnPoW) DecodeFromPtr(p capnp.Ptr) ConnPoW {
-	return ConnPoW(capnp.Struct{}.DecodeFromPtr(p))
+func (PowPoW) DecodeFromPtr(p capnp.Ptr) PowPoW {
+	return PowPoW(capnp.Struct{}.DecodeFromPtr(p))
 }
 
-func (s ConnPoW) ToPtr() capnp.Ptr {
+func (s PowPoW) ToPtr() capnp.Ptr {
 	return capnp.Struct(s).ToPtr()
 }
-func (s ConnPoW) IsValid() bool {
+func (s PowPoW) IsValid() bool {
 	return capnp.Struct(s).IsValid()
 }
 
-func (s ConnPoW) Message() *capnp.Message {
+func (s PowPoW) Message() *capnp.Message {
 	return capnp.Struct(s).Message()
 }
 
-func (s ConnPoW) Segment() *capnp.Segment {
+func (s PowPoW) Segment() *capnp.Segment {
 	return capnp.Struct(s).Segment()
 }
-func (s ConnPoW) Nonce() uint64 {
+func (s PowPoW) Nonce() uint64 {
 	return capnp.Struct(s).Uint64(0)
 }
 
-func (s ConnPoW) SetNonce(v uint64) {
+func (s PowPoW) SetNonce(v uint64) {
 	capnp.Struct(s).SetUint64(0, v)
 }
 
-func (s ConnPoW) Cookie() ([]byte, error) {
+func (s PowPoW) Cookie() ([]byte, error) {
 	p, err := capnp.Struct(s).Ptr(0)
 	return []byte(p.Data()), err
 }
 
-func (s ConnPoW) HasCookie() bool {
+func (s PowPoW) HasCookie() bool {
 	return capnp.Struct(s).HasPtr(0)
 }
 
-func (s ConnPoW) SetCookie(v []byte) error {
+func (s PowPoW) SetCookie(v []byte) error {
 	return capnp.Struct(s).SetData(0, v)
 }
 
-// ConnPoW_List is a list of ConnPoW.
-type ConnPoW_List = capnp.StructList[ConnPoW]
+// PowPoW_List is a list of PowPoW.
+type PowPoW_List = capnp.StructList[PowPoW]
 
-// NewConnPoW creates a new list of ConnPoW.
-func NewConnPoW_List(s *capnp.Segment, sz int32) (ConnPoW_List, error) {
+// NewPowPoW creates a new list of PowPoW.
+func NewPowPoW_List(s *capnp.Segment, sz int32) (PowPoW_List, error) {
 	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 8, PointerCount: 1}, sz)
-	return capnp.StructList[ConnPoW](l), err
+	return capnp.StructList[PowPoW](l), err
 }
 
-// ConnPoW_Future is a wrapper for a ConnPoW promised by a client call.
-type ConnPoW_Future struct{ *capnp.Future }
+// PowPoW_Future is a wrapper for a PowPoW promised by a client call.
+type PowPoW_Future struct{ *capnp.Future }
 
-func (f ConnPoW_Future) Struct() (ConnPoW, error) {
+func (f PowPoW_Future) Struct() (PowPoW, error) {
 	p, err := f.Future.Ptr()
-	return ConnPoW(p.Struct()), err
+	return PowPoW(p.Struct()), err
 }

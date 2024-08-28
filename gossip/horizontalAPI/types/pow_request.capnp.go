@@ -7,68 +7,68 @@ import (
 	text "capnproto.org/go/capnp/v3/encoding/text"
 )
 
-// Requesting a challenge for the initial PoW on the horizontalApi.
-type ConnReq capnp.Struct
+// Requesting a challenge for the periodic PoW on the horizontalApi.
+type PowReq capnp.Struct
 
-// ConnReq_TypeID is the unique identifier for the type ConnReq.
-const ConnReq_TypeID = 0xe56584347df7156c
+// PowReq_TypeID is the unique identifier for the type PowReq.
+const PowReq_TypeID = 0xc35970a9753697f2
 
-func NewConnReq(s *capnp.Segment) (ConnReq, error) {
+func NewPowReq(s *capnp.Segment) (PowReq, error) {
 	st, err := capnp.NewStruct(s, capnp.ObjectSize{DataSize: 0, PointerCount: 0})
-	return ConnReq(st), err
+	return PowReq(st), err
 }
 
-func NewRootConnReq(s *capnp.Segment) (ConnReq, error) {
+func NewRootPowReq(s *capnp.Segment) (PowReq, error) {
 	st, err := capnp.NewRootStruct(s, capnp.ObjectSize{DataSize: 0, PointerCount: 0})
-	return ConnReq(st), err
+	return PowReq(st), err
 }
 
-func ReadRootConnReq(msg *capnp.Message) (ConnReq, error) {
+func ReadRootPowReq(msg *capnp.Message) (PowReq, error) {
 	root, err := msg.Root()
-	return ConnReq(root.Struct()), err
+	return PowReq(root.Struct()), err
 }
 
-func (s ConnReq) String() string {
-	str, _ := text.Marshal(0xe56584347df7156c, capnp.Struct(s))
+func (s PowReq) String() string {
+	str, _ := text.Marshal(0xc35970a9753697f2, capnp.Struct(s))
 	return str
 }
 
-func (s ConnReq) EncodeAsPtr(seg *capnp.Segment) capnp.Ptr {
+func (s PowReq) EncodeAsPtr(seg *capnp.Segment) capnp.Ptr {
 	return capnp.Struct(s).EncodeAsPtr(seg)
 }
 
-func (ConnReq) DecodeFromPtr(p capnp.Ptr) ConnReq {
-	return ConnReq(capnp.Struct{}.DecodeFromPtr(p))
+func (PowReq) DecodeFromPtr(p capnp.Ptr) PowReq {
+	return PowReq(capnp.Struct{}.DecodeFromPtr(p))
 }
 
-func (s ConnReq) ToPtr() capnp.Ptr {
+func (s PowReq) ToPtr() capnp.Ptr {
 	return capnp.Struct(s).ToPtr()
 }
-func (s ConnReq) IsValid() bool {
+func (s PowReq) IsValid() bool {
 	return capnp.Struct(s).IsValid()
 }
 
-func (s ConnReq) Message() *capnp.Message {
+func (s PowReq) Message() *capnp.Message {
 	return capnp.Struct(s).Message()
 }
 
-func (s ConnReq) Segment() *capnp.Segment {
+func (s PowReq) Segment() *capnp.Segment {
 	return capnp.Struct(s).Segment()
 }
 
-// ConnReq_List is a list of ConnReq.
-type ConnReq_List = capnp.StructList[ConnReq]
+// PowReq_List is a list of PowReq.
+type PowReq_List = capnp.StructList[PowReq]
 
-// NewConnReq creates a new list of ConnReq.
-func NewConnReq_List(s *capnp.Segment, sz int32) (ConnReq_List, error) {
+// NewPowReq creates a new list of PowReq.
+func NewPowReq_List(s *capnp.Segment, sz int32) (PowReq_List, error) {
 	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 0, PointerCount: 0}, sz)
-	return capnp.StructList[ConnReq](l), err
+	return capnp.StructList[PowReq](l), err
 }
 
-// ConnReq_Future is a wrapper for a ConnReq promised by a client call.
-type ConnReq_Future struct{ *capnp.Future }
+// PowReq_Future is a wrapper for a PowReq promised by a client call.
+type PowReq_Future struct{ *capnp.Future }
 
-func (f ConnReq_Future) Struct() (ConnReq, error) {
+func (f PowReq_Future) Struct() (PowReq, error) {
 	p, err := f.Future.Ptr()
-	return ConnReq(p.Struct()), err
+	return PowReq(p.Struct()), err
 }

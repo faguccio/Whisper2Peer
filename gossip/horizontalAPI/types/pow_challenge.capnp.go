@@ -7,80 +7,80 @@ import (
 	text "capnproto.org/go/capnp/v3/encoding/text"
 )
 
-// Respond with a new challenge for the initial PoW on the horizontalApi.
-type ConnChall capnp.Struct
+// Respond with a new challenge for the periodic PoW on the horizontalApi.
+type PowChall capnp.Struct
 
-// ConnChall_TypeID is the unique identifier for the type ConnChall.
-const ConnChall_TypeID = 0xa38eefc82dcb0278
+// PowChall_TypeID is the unique identifier for the type PowChall.
+const PowChall_TypeID = 0xb28ded8511e59511
 
-func NewConnChall(s *capnp.Segment) (ConnChall, error) {
+func NewPowChall(s *capnp.Segment) (PowChall, error) {
 	st, err := capnp.NewStruct(s, capnp.ObjectSize{DataSize: 0, PointerCount: 1})
-	return ConnChall(st), err
+	return PowChall(st), err
 }
 
-func NewRootConnChall(s *capnp.Segment) (ConnChall, error) {
+func NewRootPowChall(s *capnp.Segment) (PowChall, error) {
 	st, err := capnp.NewRootStruct(s, capnp.ObjectSize{DataSize: 0, PointerCount: 1})
-	return ConnChall(st), err
+	return PowChall(st), err
 }
 
-func ReadRootConnChall(msg *capnp.Message) (ConnChall, error) {
+func ReadRootPowChall(msg *capnp.Message) (PowChall, error) {
 	root, err := msg.Root()
-	return ConnChall(root.Struct()), err
+	return PowChall(root.Struct()), err
 }
 
-func (s ConnChall) String() string {
-	str, _ := text.Marshal(0xa38eefc82dcb0278, capnp.Struct(s))
+func (s PowChall) String() string {
+	str, _ := text.Marshal(0xb28ded8511e59511, capnp.Struct(s))
 	return str
 }
 
-func (s ConnChall) EncodeAsPtr(seg *capnp.Segment) capnp.Ptr {
+func (s PowChall) EncodeAsPtr(seg *capnp.Segment) capnp.Ptr {
 	return capnp.Struct(s).EncodeAsPtr(seg)
 }
 
-func (ConnChall) DecodeFromPtr(p capnp.Ptr) ConnChall {
-	return ConnChall(capnp.Struct{}.DecodeFromPtr(p))
+func (PowChall) DecodeFromPtr(p capnp.Ptr) PowChall {
+	return PowChall(capnp.Struct{}.DecodeFromPtr(p))
 }
 
-func (s ConnChall) ToPtr() capnp.Ptr {
+func (s PowChall) ToPtr() capnp.Ptr {
 	return capnp.Struct(s).ToPtr()
 }
-func (s ConnChall) IsValid() bool {
+func (s PowChall) IsValid() bool {
 	return capnp.Struct(s).IsValid()
 }
 
-func (s ConnChall) Message() *capnp.Message {
+func (s PowChall) Message() *capnp.Message {
 	return capnp.Struct(s).Message()
 }
 
-func (s ConnChall) Segment() *capnp.Segment {
+func (s PowChall) Segment() *capnp.Segment {
 	return capnp.Struct(s).Segment()
 }
-func (s ConnChall) Cookie() ([]byte, error) {
+func (s PowChall) Cookie() ([]byte, error) {
 	p, err := capnp.Struct(s).Ptr(0)
 	return []byte(p.Data()), err
 }
 
-func (s ConnChall) HasCookie() bool {
+func (s PowChall) HasCookie() bool {
 	return capnp.Struct(s).HasPtr(0)
 }
 
-func (s ConnChall) SetCookie(v []byte) error {
+func (s PowChall) SetCookie(v []byte) error {
 	return capnp.Struct(s).SetData(0, v)
 }
 
-// ConnChall_List is a list of ConnChall.
-type ConnChall_List = capnp.StructList[ConnChall]
+// PowChall_List is a list of PowChall.
+type PowChall_List = capnp.StructList[PowChall]
 
-// NewConnChall creates a new list of ConnChall.
-func NewConnChall_List(s *capnp.Segment, sz int32) (ConnChall_List, error) {
+// NewPowChall creates a new list of PowChall.
+func NewPowChall_List(s *capnp.Segment, sz int32) (PowChall_List, error) {
 	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 0, PointerCount: 1}, sz)
-	return capnp.StructList[ConnChall](l), err
+	return capnp.StructList[PowChall](l), err
 }
 
-// ConnChall_Future is a wrapper for a ConnChall promised by a client call.
-type ConnChall_Future struct{ *capnp.Future }
+// PowChall_Future is a wrapper for a PowChall promised by a client call.
+type PowChall_Future struct{ *capnp.Future }
 
-func (f ConnChall_Future) Struct() (ConnChall, error) {
+func (f PowChall_Future) Struct() (PowChall, error) {
 	p, err := f.Future.Ptr()
-	return ConnChall(p.Struct()), err
+	return PowChall(p.Struct()), err
 }

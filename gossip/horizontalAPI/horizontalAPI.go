@@ -35,7 +35,7 @@ var (
 	ErrTimeout error = errors.New("operation timed out")
 )
 
-//go:generate capnp compile -I $HOME/programme/go-capnp/std -ogo:./ types/message.capnp types/push.capnp types/conn_pow.capnp types/conn_request.capnp types/conn_challenge.capnp
+//go:generate capnp compile -I $HOME/programme/go-capnp/std -ogo:./ types/message.capnp types/push.capnp types/conn_pow.capnp types/conn_request.capnp types/conn_challenge.capnp types/pow_pow.capnp types/pow_request.capnp types/pow_challenge.capnp
 
 //go-sumtype:decl FromHz
 
