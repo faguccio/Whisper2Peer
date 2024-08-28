@@ -1,6 +1,6 @@
 @startuml
 
-top to bottom direction
+left to right direction
 
 namespace verticalapi {
 	namespace types {
@@ -68,7 +68,7 @@ namespace verticalapi {
 		}
 		note right
 			alias for uint16
-			end note
+		end note
 	}
 	class VerticalApi << (S,Aquamarine) >> {
 		- cancel context.CancelFunc
@@ -108,6 +108,8 @@ namespace verticalapi {
 "verticalapi.VerticalApi" o-- "common.Conn"
 
 namespace internal/args {
+	top to bottom direction
+
 	class Args << (S,Aquamarine) >> {
 		+ Degree uint
 			+ Cache_size uint
@@ -120,6 +122,14 @@ namespace internal/args {
 }
 
 namespace common {
+	top to bottom direction
+
+	class GossipType << (T, #FF7700) >>  {
+	}
+	note left
+		alias for uint16
+	end note
+
 	class Conn<any constrains T> << (S,Aquamarine) >> {
 		+ Id ConnectionId
 			+ Data T
@@ -199,13 +209,6 @@ namespace common {
 	note right
 		alias for string
 	end note
-
-	class GossipType << (T, #FF7700) >>  {
-	}
-	note right
-		alias for uint16
-	end note
-
 }
 
 "common.FromStrat" <|.. "common.GossipNotification"
@@ -230,9 +233,9 @@ namespace common {
 
 "common.ConnectionId" <|.. "common.GossipUnRegister"
 
-
-
 namespace gossip {
+	top to bottom direction
+
 	class Main << (S,Aquamarine) >> {
 		- log *slog.Logger
 			- mlog *slog.Logger
@@ -281,10 +284,170 @@ namespace gossip {
 "gossip.Main" o-- "strats.StrategyChannels"
 
 "gossip.notifyMap" o-- "common.Conn"
-"gossip.notifyMap" o-- "common.RegisteredModule"
+"gossip.notifyMap" o-- "common.GossipType"
+
+namespace internal/packetcounter {
+	top to bottom direction
+
+	class Counter << (S,Aquamarine) >> {
+		- t time.Time
+			- cnt uint
+			- do <font color=blue>func</font>(time.Time, uint) 
+			- granularity time.Duration
+			- mutex sync.Mutex
+
+			+ Add(i uint) 
+			+ Finalize() 
+
+	}
+}
+
+
+
+namespace pow {
+	top to bottom direction
+
+	interface POWMarshaller  {
+		+ Marshal( []byte) ([]byte, error)
+			+ Nonce() T
+			+ SetNonce( T) 
+			+ AddToNonce( T) 
+			+ StripPrefixLen() uint
+			+ PrefixLen() uint
+			+ WriteNonce( io.Writer) 
+			+ Clone() POWMarshaller
+
+	}
+}
+
+
+
+namespace internal/ringbuffer {
+	top to bottom direction
+
+	class Ringbuffer<comparable constrains T> << (S,Aquamarine) >> {
+		- data *ring.Ring
+			- len uint
+			- cap uint
+
+			+ Insert(v T) 
+			+ Remove(v T) error
+			+ Do(f <font color=blue>func</font>(T) ) 
+			+ Filter(f <font color=blue>func</font>(T) bool) []T
+			+ FindFirst(f <font color=blue>func</font>(T) bool) (T, error)
+
+	}
+}
+
+
+
+namespace strats {
+	top to bottom direction
+
+	class Strategy << (S,Aquamarine) >> {
+		- cancel context.CancelFunc
+			- ctx context.Context
+			- hz *horizontalAPI.HorizontalApi
+			- strategyChannels StrategyChannels
+			- log *slog.Logger
+			- stratArgs internal/args.Args
+
+			+ Close() 
+
+	}
+	class StrategyChannels << (S,Aquamarine) >> {
+		+ FromStrat <font color=blue>chan</font> common.FromStrat
+			+ ToStrat <font color=blue>chan</font> common.ToStrat
+
+	}
+	interface StrategyCloser  {
+		+ Close() 
+			+ Listen() 
+
+	}
+	class dummyStrat << (S,Aquamarine) >> {
+		- rootStrat Strategy
+			- fromHz <font color=blue>chan</font> horizontalAPI.FromHz
+			- hzConnection <font color=blue>chan</font> horizontalAPI.NewConn
+			- openConnections []gossipConnection
+			- openConnectionMap <font color=blue>map</font>[horizontalAPI.ConnectionId]gossipConnection
+			- powInProgress <font color=blue>map</font>[horizontalAPI.ConnectionId]gossipConnection
+			- invalidMessages *internal/ringbuffer.Ringbuffer
+			- validMessages *internal/ringbuffer.Ringbuffer
+			- sentMessages *internal/ringbuffer.Ringbuffer
+			- cipher cipher.AEAD
+
+			- removeConnection(id horizontalAPI.ConnectionId) 
+			- checkConnectionValidity(id horizontalAPI.ConnectionId) bool
+
+			+ Listen() 
+			+ Close() 
+
+	}
+	class gossipConnection << (S,Aquamarine) >> {
+		- connection horizontalAPI.Conn
+			- timestamp time.Time
+
+	}
+	class powMarsh << (S,Aquamarine) >> {
+		+ Marshal(buf []byte) ([]byte, error)
+			+ Nonce() uint64
+			+ SetNonce(n uint64) 
+			+ AddToNonce(n uint64) 
+			+ StripPrefixLen() uint
+			+ PrefixLen() uint
+			+ WriteNonce(w io.Writer) 
+			+ Clone() pow.POWMarshaller
+
+	}
+	class storedMessage << (S,Aquamarine) >> {
+		- counter int
+			- message horizontalAPI.Push
+
+	}
+	class connCookie << (S,Aquamarine) >> {
+		- chall []byte
+			- timestamp time.Time
+			- dest horizontalAPI.ConnectionId
+
+			- createCookie(aead cipher.AEAD) []byte
+
+			+ Marshal() []byte
+			+ Unmarshal(buf []byte) 
+
+	}
+	class strats.powMarsh << (T, #FF7700) >>  {
+	}
+	note left
+		alias for horizontalapi.ConnPoW
+	end note
+}
+
+"strats.StrategyCloser" <|.. "strats.dummyStrat"
+"pow.POWMarshaller" <|.. "strats.powMarsh"
+"horizontalapi.ConnPoW" <|.. "strats.powMarsh"
+
+"strats.storedMessage" o-- "horizontalapi.Push"
+"strats.gossipConnection" o-- "horizontalapi.Conn"
+
+"strats.StrategyChannels" o-- "common.FromStrat"
+"strats.StrategyChannels" o-- "common.ToStrat"
+
+"strats.dummyStrat" o-- "strats.Strategy"
+"strats.dummyStrat" o-- "horizontalapi.FromHz"
+"strats.dummyStrat" o-- "horizontalapi.NewConn"
+"strats.dummyStrat" o-- "horizontalapi.Conn"
+"strats.dummyStrat" o-- "horizontalapi.ToHz"
+"strats.dummyStrat" o-- "strats.storedMessage"
+"strats.dummyStrat" o-- "internal/ringbuffer.Ringbuffer"
+
+"strats.Strategy" o-- "horizontalapi.HorizontalApi"
+"strats.Strategy" o-- "strats.StrategyChannels"
+"strats.Strategy" o-- "internal/args.Args"
 
 namespace horizontalapi {
 	top to bottom direction
+
 	class Conn<any constrains T> << (S,Aquamarine) >> {
 		+ Id ConnectionId
 			+ Data T
@@ -399,157 +562,6 @@ namespace horizontalapi {
 "horizontalapi.ConnReq" o-- "horizontalapi.ConnectionId"
 "horizontalapi.Push" o-- "common.GossipType"
 "horizontalapi.Push" o-- "horizontalapi.ConnectionId"
-
-namespace internal/packetcounter {
-	class Counter << (S,Aquamarine) >> {
-		- t time.Time
-			- cnt uint
-			- do <font color=blue>func</font>(time.Time, uint) 
-			- granularity time.Duration
-			- mutex sync.Mutex
-
-			+ Add(i uint) 
-			+ Finalize() 
-
-	}
-}
-
-
-
-namespace pow {
-	interface POWMarshaller  {
-		+ Marshal( []byte) ([]byte, error)
-			+ Nonce() T
-			+ SetNonce( T) 
-			+ AddToNonce( T) 
-			+ StripPrefixLen() uint
-			+ PrefixLen() uint
-			+ WriteNonce( io.Writer) 
-			+ Clone() POWMarshaller
-
-	}
-}
-
-
-
-namespace internal/ringbuffer {
-	class Ringbuffer<comparable constrains T> << (S,Aquamarine) >> {
-		- data *ring.Ring
-			- len uint
-			- cap uint
-
-			+ Insert(v T) 
-			+ Remove(v T) error
-			+ Do(f <font color=blue>func</font>(T) ) 
-			+ Filter(f <font color=blue>func</font>(T) bool) []T
-			+ FindFirst(f <font color=blue>func</font>(T) bool) (T, error)
-
-	}
-}
-
-
-
-namespace strats {
-	class Strategy << (S,Aquamarine) >> {
-		- cancel context.CancelFunc
-			- ctx context.Context
-			- hz *horizontalAPI.HorizontalApi
-			- strategyChannels StrategyChannels
-			- log *slog.Logger
-			- stratArgs internal/args.Args
-
-			+ Close() 
-
-	}
-	class StrategyChannels << (S,Aquamarine) >> {
-		+ FromStrat <font color=blue>chan</font> common.FromStrat
-			+ ToStrat <font color=blue>chan</font> common.ToStrat
-
-	}
-	interface StrategyCloser  {
-		+ Close() 
-			+ Listen() 
-
-	}
-	class connCookie << (S,Aquamarine) >> {
-		- chall []byte
-			- timestamp time.Time
-			- dest horizontalAPI.ConnectionId
-
-			- createCookie(aead cipher.AEAD) []byte
-
-			+ Marshal() []byte
-			+ Unmarshal(buf []byte) 
-
-	}
-	class dummyStrat << (S,Aquamarine) >> {
-		- rootStrat Strategy
-			- fromHz <font color=blue>chan</font> horizontalAPI.FromHz
-			- hzConnection <font color=blue>chan</font> horizontalAPI.NewConn
-			- openConnections []gossipConnection
-			- openConnectionMap <font color=blue>map</font>[horizontalAPI.ConnectionId]gossipConnection
-			- powInProgress <font color=blue>map</font>[horizontalAPI.ConnectionId]gossipConnection
-			- invalidMessages *internal/ringbuffer.Ringbuffer
-			- validMessages *internal/ringbuffer.Ringbuffer
-			- sentMessages *internal/ringbuffer.Ringbuffer
-			- cipher cipher.AEAD
-
-			- removeConnection(id horizontalAPI.ConnectionId) 
-			- checkConnectionValidity(id horizontalAPI.ConnectionId) bool
-
-			+ Listen() 
-			+ Close() 
-
-	}
-	class gossipConnection << (S,Aquamarine) >> {
-		- connection horizontalAPI.Conn
-			- timestamp time.Time
-
-	}
-	class powMarsh << (S,Aquamarine) >> {
-		+ Marshal(buf []byte) ([]byte, error)
-			+ Nonce() uint64
-			+ SetNonce(n uint64) 
-			+ AddToNonce(n uint64) 
-			+ StripPrefixLen() uint
-			+ PrefixLen() uint
-			+ WriteNonce(w io.Writer) 
-			+ Clone() pow.POWMarshaller
-
-	}
-	class storedMessage << (S,Aquamarine) >> {
-		- counter int
-			- message horizontalAPI.Push
-
-	}
-	class strats.powMarsh << (T, #FF7700) >>  {
-	}
-	note right
-		alias for horizontalapi.ConnPoW
-	end note
-}
-
-"strats.StrategyCloser" <|.. "strats.dummyStrat"
-"pow.POWMarshaller" <|.. "strats.powMarsh"
-"horizontalapi.ConnPoW" <|.. "strats.powMarsh"
-
-"strats.storedMessage" o-- "horizontalapi.Push"
-"strats.gossipConnection" o-- "horizontalapi.Conn"
-
-"strats.StrategyChannels" o-- "common.FromStrat"
-"strats.StrategyChannels" o-- "common.ToStrat"
-
-"strats.dummyStrat" o-- "strats.Strategy"
-"strats.dummyStrat" o-- "horizontalapi.FromHz"
-"strats.dummyStrat" o-- "horizontalapi.NewConn"
-"strats.dummyStrat" o-- "horizontalapi.Conn"
-"strats.dummyStrat" o-- "horizontalapi.ToHz"
-"strats.dummyStrat" o-- "strats.storedMessage"
-"strats.dummyStrat" o-- "internal/ringbuffer.Ringbuffer"
-
-"strats.Strategy" o-- "horizontalapi.HorizontalApi"
-"strats.Strategy" o-- "strats.StrategyChannels"
-"strats.Strategy" o-- "internal/args.Args"
 
 ' namespace internal/testlog {
 ' 	class TestHandler << (S,Aquamarine) >> {
