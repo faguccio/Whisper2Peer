@@ -9,5 +9,8 @@ struct Message $Go.doc("Represents a generic message on the horizontalApi. Messa
 		connChall  @1 :import "conn_challenge.capnp".ConnChall $Go.doc("message is a [ConnChall] message used int the initial PoW");
 		connPoW    @2 :import "conn_pow.capnp".ConnPoW         $Go.doc("message is a [ConnPoW] message used int the initial PoW");
 		connReq    @3 :import "conn_request.capnp".ConnReq     $Go.doc("message is a [ConnReq] message used int the initial PoW");
+		powChall   @4 :import "pow_challenge.capnp".PowChall   $Go.doc("message is a [PowChall] message used int the periodic PoW");
+		powPoW     @5 :import "pow_pow.capnp".PowPoW           $Go.doc("message is a [PowPoW] message used int the periodic PoW");
+		powReq     @6 :import "pow_request.capnp".PowReq       $Go.doc("message is a [PowReq] message used int the periodic PoW");
 	}
 }
