@@ -136,3 +136,11 @@ func (r *Ringbuffer[T]) FindFirst(f func(T) bool) (T, error) {
 
 	return ret, ErrNotPresent
 }
+
+func (r *Ringbuffer[T]) ExtractToSlice() []T {
+	ret := make([]T, 0)
+	r.Do(func(x T) {
+		ret = append(ret, x)
+	})
+	return ret
+}
