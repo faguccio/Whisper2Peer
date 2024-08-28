@@ -55,7 +55,6 @@ func (nm *notifyMap) AddChannelToType(gossip_type common.GossipType, new_channel
 	return nil
 }
 
-
 // remove from the notifyMap
 func (nm *notifyMap) RemoveChannel(unreg common.ConnectionId) {
 	nm.Lock()

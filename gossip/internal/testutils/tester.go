@@ -9,6 +9,7 @@ import (
 	gossip "gossip/main"
 	vtypes "gossip/verticalAPI/types"
 	"io"
+	"log/slog"
 	"net"
 	"net/netip"
 	"slices"
@@ -47,6 +48,7 @@ type Tester struct {
 	// the logger of each peer will indirectly write it's testing events onto
 	// this channel
 	logChan chan Event
+	testloggers []*slog.Logger
 	// the tester will send the types of observed package (on hzApi) to this
 	// channel when observing it. Can be used to sleep until packets with a
 	// certain type do not appear anymore. This is not completely reliable.
@@ -80,6 +82,7 @@ func NewTesterFromJSON(fn string) (*Tester, error) {
 		logChan:  make(chan Event, 64),
 		busyChan: make(chan common.GossipType, 64),
 		Events:   make([]Event, 0),
+		testloggers: make([]*slog.Logger, 0),
 		closers:  make([]io.Closer, 0),
 	}
 	var err error
@@ -91,6 +94,14 @@ func NewTesterFromJSON(fn string) (*Tester, error) {
 	}
 
 	return t, nil
+}
+
+func (t *Tester) AddLogger(testlog *slog.Logger) error {
+	if t.state != TestStateInit {
+		return errors.New("cannot add a logger to a tester which is not in init state")
+	}
+	t.testloggers = append(t.testloggers, testlog)
+	return nil
 }
 
 // starts all the peers etc
@@ -116,6 +127,14 @@ func (t *Tester) Startup(startIp string) error {
 	// NOTE: when closing the channel will also terminate the goroutine
 	go func(logChan <-chan Event, busyChan chan<- common.GossipType) {
 		for e := range logChan {
+			for _,l := range t.testloggers {
+				l.Handler().Handle(context.Background(), slog.Record{
+					Time:    e.Time,
+					Message: fmt.Sprintf("%s: id: %v msgid: %v msgtype: %v", e.Msg, e.MsgId, e.MsgType),
+					Level:   slog.Level(e.Level),
+					PC:      0,
+				})
+			}
 			t.Events = append(t.Events, e)
 			// if is packet on hz api
 			if e.Msg == "hz packet sent" {

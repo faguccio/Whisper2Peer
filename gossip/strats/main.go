@@ -49,7 +49,6 @@ type StrategyChannels struct {
 // It instantiate a strategy too. The caller has to call Listen to start the strategy and Close
 // to end it.
 func New(log *slog.Logger, args args.Args, stratChans StrategyChannels, initFinished chan<- struct{}) (StrategyCloser, error) {
-
 	fromHz := make(chan horizontalapi.FromHz, 1)
 	hz := horizontalapi.NewHorizontalApi(log, fromHz)
 	// context is only used internally -> no need to pass it to the constructor
