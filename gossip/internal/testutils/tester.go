@@ -263,7 +263,7 @@ func (t *Tester) WaitUntilSilent(ctx context.Context, all bool, gtype common.Gos
 				timer.Reset(interval)
 			}
 		case <-ctx.Done():
-			return fmt.Errorf("Wait-context: %w", ctx.Err())
+			return fmt.Errorf("wait-context: %w", ctx.Err())
 		case <-timer.C:
 			return nil
 		}

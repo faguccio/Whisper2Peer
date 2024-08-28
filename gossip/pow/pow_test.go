@@ -396,46 +396,47 @@ var inputs = []struct {
 	{length: 4096},
 }
 
-func BenchmarkPoW2(b *testing.B) {
-	randomSource_ := rand.NewSource(1337).(rand.Source64)
-	randomSource := rand.New(randomSource_)
-
-	for _, v := range inputs {
-		l := v.length - binary.Size(t.header) - binary.Size(t.nonce)
-		hdr := uint16(randomSource.Int())
-		b.Run(fmt.Sprintf("data_len=%d", v.length), func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				x := TM{
-					header: hdr,
-					data:   data[:l],
-					nonce:  0,
-				}
-
-				y := parallelProofOfWork2(func(digest []byte) bool {
-					return First24bits0(digest)
-				}, &x)
-				x.nonce = y
-
-				buf, _ := x.Marshal(nil)
-				digest := sha256.Sum256(buf[x.StripPrefixLen():])
-				if !First24bits0(digest[:]) {
-					b.Fatalf("Returned nonce does not fulfull the predicate")
-				}
-			}
-		})
-	}
-}
+// func BenchmarkPoW2(b *testing.B) {
+// 	randomSource_ := rand.NewSource(1337).(rand.Source64)
+// 	randomSource := rand.New(randomSource_)
+//
+// 	for _, v := range inputs {
+// 		l := v.length - binary.Size(t.header) - binary.Size(t.nonce)
+// 		hdr := uint16(randomSource.Int())
+// 		b.Run(fmt.Sprintf("data_len=%d", v.length), func(b *testing.B) {
+// 			for i := 0; i < b.N; i++ {
+// 				x := TM{
+// 					header: hdr,
+// 					data:   data[:l],
+// 					nonce:  0,
+// 				}
+//
+// 				y := parallelProofOfWork2(func(digest []byte) bool {
+// 					return First24bits0(digest)
+// 				}, &x)
+// 				x.nonce = y
+//
+// 				buf, _ := x.Marshal(nil)
+// 				digest := sha256.Sum256(buf[x.StripPrefixLen():])
+// 				if !First24bits0(digest[:]) {
+// 					b.Fatalf("Returned nonce does not fulfull the predicate")
+// 				}
+// 			}
+// 		})
+// 	}
+// }
 
 func BenchmarkPoW3(b *testing.B) {
 	randomSource_ := rand.NewSource(1337).(rand.Source64)
 	randomSource := rand.New(randomSource_)
 
 	for _, v := range inputs {
+		l := v.length - binary.Size(t.header) - binary.Size(t.nonce)
 		b.Run(fmt.Sprintf("data_len=%d", v.length), func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				x := TM{
 					header: uint16(randomSource.Int()),
-					data:   data[:v.length],
+					data:   data[:l],
 					nonce:  0,
 				}
 

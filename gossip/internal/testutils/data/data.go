@@ -1,3 +1,6 @@
+// Package data holds struct definitions for the data which can be obtained by
+// benchmarking. Usually the types should be marshallable via a css library or
+// a `Write*` should be defined to write the data to file.
 package data
 
 import (

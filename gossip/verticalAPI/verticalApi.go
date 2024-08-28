@@ -1,3 +1,6 @@
+// Package verticalapi manages all connections on the verticalAPI. It provides
+// a layer of abstraction so that other code does not need to get involved with
+// writing to / reading from the connection and (un)marshalling types.
 package verticalapi
 
 import (

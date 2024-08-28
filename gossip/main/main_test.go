@@ -122,7 +122,7 @@ func NotTestMain(test *testing.T) {
 
 	conn, err := net.Dial("tcp", "localhost:13379")
 	if err != nil {
-		testLog.Error("Error connecting, should not happen:", err)
+		testLog.Error("Error connecting, should not happen", "error", err)
 		return
 	}
 	defer conn.Close()
@@ -131,7 +131,7 @@ func NotTestMain(test *testing.T) {
 
 		_, err = conn.Write(t.buf)
 		if err != nil {
-			testLog.Error("Error sending data:", err)
+			testLog.Error("Error sending data", "error", err)
 			return
 		}
 	}

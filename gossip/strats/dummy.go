@@ -21,8 +21,9 @@ import (
 	"golang.org/x/crypto/chacha20poly1305"
 )
 
+// define potential errors
 var (
-	ErrNoMessageFound error = errors.New("No message found when extracting")
+	ErrNoMessageFound error = errors.New("no message found when extracting")
 )
 
 var (

@@ -1,3 +1,4 @@
+// Package pow implements efficient proof-of-work workers/solvers.
 package pow
 
 import (
@@ -51,51 +52,51 @@ func ProofOfWork[T constraints.Integer](pred func(digest []byte) bool, e POWMars
 	return parallelProofOfWork3(pred, e)
 }
 
-// internal implementation 2
-// always hashes the complete byte slice
-func parallelProofOfWork2[T constraints.Integer](pred func(digest []byte) bool, e POWMarshaller[T]) T {
-	result := make(chan T)
-	ctx, cancel := context.WithCancel(context.Background())
-	var wg sync.WaitGroup
-
-	for i := 0; i < WORKERS; i++ {
-		wg.Add(1)
-		// c,_ := context.WithCancel(ctx)
-		go func(ctx context.Context, id T, e POWMarshaller[T]) {
-			h := sha256.New()
-			digest := [sha256.Size]byte{}
-
-			m := make([]byte, 0)
-			m, _ = e.Marshal(m)
-			m = m[e.StripPrefixLen():]
-			m1 := m[:e.PrefixLen()]
-
-		loop:
-			for e.SetNonce(id); true; e.AddToNonce(WORKERS) {
-				select {
-				case <-ctx.Done():
-					break loop
-				default:
-					h.Reset()
-					h.Write(m1)
-					e.WriteNonce(h)
-					if pred(h.Sum(digest[:0])) {
-						select {
-						case result <- e.Nonce():
-						default:
-						}
-						break loop
-					}
-				}
-			}
-			wg.Done()
-		}(ctx, T(i), e.Clone())
-	}
-	r := <-result
-	cancel()
-	wg.Wait()
-	return r
-}
+// // internal implementation 2
+// // always hashes the complete byte slice
+// func parallelProofOfWork2[T constraints.Integer](pred func(digest []byte) bool, e POWMarshaller[T]) T {
+// 	result := make(chan T)
+// 	ctx, cancel := context.WithCancel(context.Background())
+// 	var wg sync.WaitGroup
+//
+// 	for i := 0; i < WORKERS; i++ {
+// 		wg.Add(1)
+// 		// c,_ := context.WithCancel(ctx)
+// 		go func(ctx context.Context, id T, e POWMarshaller[T]) {
+// 			h := sha256.New()
+// 			digest := [sha256.Size]byte{}
+//
+// 			m := make([]byte, 0)
+// 			m, _ = e.Marshal(m)
+// 			m = m[e.StripPrefixLen():]
+// 			m1 := m[:e.PrefixLen()]
+//
+// 		loop:
+// 			for e.SetNonce(id); true; e.AddToNonce(WORKERS) {
+// 				select {
+// 				case <-ctx.Done():
+// 					break loop
+// 				default:
+// 					h.Reset()
+// 					h.Write(m1)
+// 					e.WriteNonce(h)
+// 					if pred(h.Sum(digest[:0])) {
+// 						select {
+// 						case result <- e.Nonce():
+// 						default:
+// 						}
+// 						break loop
+// 					}
+// 				}
+// 			}
+// 			wg.Done()
+// 		}(ctx, T(i), e.Clone())
+// 	}
+// 	r := <-result
+// 	cancel()
+// 	wg.Wait()
+// 	return r
+// }
 
 // internal implementation 3
 // makes use of length extension and reuses the previous state

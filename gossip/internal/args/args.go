@@ -1,3 +1,4 @@
+// Package args is used for specifying the arguments (internally) used by the application.
 package args
 
 // Represents the arguments used actually/internally by the application

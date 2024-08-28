@@ -1,3 +1,5 @@
+// Package testlog implements a simple testhandler used to only show log
+// statements which have its level set to a specified level.
 package testlog
 
 import (

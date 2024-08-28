@@ -61,7 +61,7 @@ func (p *peer) SendMsg(v marshaler) error {
 	if n, err := p.conn.Write(msg); err != nil {
 		return err
 	} else if n != len(msg) {
-		return errors.New("Message could not be written entirely")
+		return errors.New("message could not be written entirely")
 	}
 	return nil
 }
@@ -93,7 +93,7 @@ func (p *peer) markAllValid() {
 
 		// read the message body
 		_, err = io.ReadFull(p.conn, buf[nRead:])
-		if msgHdr.Type != vtypes.GossipNotificationType {
+		if err != nil || msgHdr.Type != vtypes.GossipNotificationType {
 			continue
 		}
 		gn.MessageHeader = msgHdr

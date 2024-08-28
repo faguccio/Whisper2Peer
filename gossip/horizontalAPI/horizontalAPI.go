@@ -1,3 +1,7 @@
+// Package horizontalapi manages all connections on the horizontalAPI. It
+// provides a layer of abstraction so that other code does not handle capnproto
+// things and/or (un)marshalling and manages the state of the tcp connections
+// (including open and teardown).
 package horizontalapi
 
 import (
@@ -45,6 +49,8 @@ type FromHz interface {
 
 // go-sumtype:decl ToHz
 
+// interfaces to implement union-like behavior
+// unions directly are sadly not provided in golang, see: https://go.dev/doc/faq#variant_types
 type ToHz interface {
 	// add a function to the interface to avoid that arbitrary types can be
 	// passed (accidentally) as ToHz
@@ -101,6 +107,7 @@ func (ConnPoW) canFromHz() {}
 // mark this type as being sendable via ToHz channels
 func (ConnPoW) canToHz() {}
 
+// message to signal a connection was closed and the peer should be unregistered
 type Unregister ConnectionId
 
 // mark this type as being sendable via FromHz channels

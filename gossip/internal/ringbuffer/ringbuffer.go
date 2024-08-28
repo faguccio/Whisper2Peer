@@ -1,3 +1,5 @@
+// Package ringbuffer implements a ringbuffer. It will have a fixed size and if
+// the capacity is exceeded, the oldest value will be overwritten.
 package ringbuffer
 
 import (
