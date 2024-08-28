@@ -139,168 +139,189 @@ func NotTestMain(test *testing.T) {
 	time.Sleep(1 * time.Second)
 }
 
-func TestMainEndToEndOneHop(test *testing.T) {
-	func() {
-		t, err := testutils.NewTesterFromJSON("../test_assets/e2e.json")
-		if err != nil {
-			panic(err)
-		}
-		if err = t.Startup("127.0.0.1"); err != nil {
-			panic(err)
-		}
-		if err = t.RegisterAllPeersForType(1337); err != nil {
-			panic(err)
-		}
-		p := t.Peers[0]
-		msg := vtypes.GossipAnnounce{
-			Ga: common.GossipAnnounce{
-				TTL:      2,
-				Reserved: 0,
-				DataType: 1337,
-				Data:     []byte{1},
-			},
-			MessageHeader: vtypes.MessageHeader{
-				Type: vtypes.GossipAnnounceType,
-			},
-		}
-		msg.MessageHeader.RecalcSize(&msg)
-		if err = p.SendMsg(&msg); err != nil {
-			panic(err)
+func TestMainEndToEndOneHopA(test *testing.T) {
+	var testLog *slog.Logger = slogt.New(test)
+	t, err := testutils.NewTesterFromJSON("../test_assets/e2e.json")
+	if err != nil {
+		panic(err)
+	}
+	err = t.AddLogger(testLog)
+	if err != nil {
+		panic(err)
+	}
+	if err = t.Startup("127.0.0.1"); err != nil {
+		panic(err)
+	}
+	if err = t.RegisterAllPeersForType(1337); err != nil {
+		panic(err)
+	}
+	p := t.Peers[0]
+	msg := vtypes.GossipAnnounce{
+		Ga: common.GossipAnnounce{
+			TTL:      2,
+			Reserved: 0,
+			DataType: 1337,
+			Data:     []byte{1},
+		},
+		MessageHeader: vtypes.MessageHeader{
+			Type: vtypes.GossipAnnounceType,
+		},
+	}
+	msg.MessageHeader.RecalcSize(&msg)
+	if err = p.SendMsg(&msg); err != nil {
+		panic(err)
+	}
+
+	ctx, cfunc := context.WithTimeout(context.Background(), time.Minute)
+	defer cfunc()
+	// interval is two gossip rounds long
+	err = t.WaitUntilSilent(ctx, true, 0, 2*time.Second)
+	if err != nil {
+		test.Fatalf("wait exited with %v", err)
+	}
+	time.Sleep(1 * time.Second)
+
+	t.Teardown()
+
+	if _, data, err := t.ProcessReachedDistCnt(0, 0, true); err == nil {
+		if len(data) != 4 {
+			test.Fatalf("something went wrong more than %d distinct distances are registered: %v", 4, data)
 		}
 
-		ctx, cfunc := context.WithTimeout(context.Background(), time.Minute)
-		defer cfunc()
-		// interval is two gossip rounds long
-		t.WaitUntilSilent(ctx, true, 0, 2*time.Second)
-		time.Sleep(1 * time.Second)
+		if data[0] != 1 {
+			test.Fatalf("message was received by %d nodes with distance 0 (should be %d nodes)", data[0], 1)
+		}
+		if data[1] != 1 {
+			test.Fatalf("message was received by %d nodes with distance 1 (should be %d nodes)", data[1], 1)
+		}
+		if data[2] != 1 {
+			test.Fatalf("message was received by %d nodes with distance 2 (should be %d nodes)", data[2], 1)
+		}
+		if data[3] != 0 {
+			test.Fatalf("message was received by %d nodes with distance 3 (should be %d nodes)", data[3], 1)
+		}
+	} else {
+		panic(data)
+	}
+}
 
-		t.Teardown()
+func TestMainEndToEndOneHopB(test *testing.T) {
+	var testLog *slog.Logger = slogt.New(test)
+	t, err := testutils.NewTesterFromJSON("../test_assets/e2e.json")
+	if err != nil {
+		panic(err)
+	}
+	err = t.AddLogger(testLog)
+	if err != nil {
+		panic(err)
+	}
+	if err = t.Startup("127.0.1.1"); err != nil {
+		panic(err)
+	}
+	if err = t.RegisterAllPeersForType(1337); err != nil {
+		panic(err)
+	}
+	p := t.Peers[0]
+	msg := vtypes.GossipAnnounce{
+		Ga: common.GossipAnnounce{
+			TTL:      0,
+			Reserved: 0,
+			DataType: 1337,
+			Data:     []byte{1},
+		},
+		MessageHeader: vtypes.MessageHeader{
+			Type: vtypes.GossipAnnounceType,
+		},
+	}
+	msg.MessageHeader.RecalcSize(&msg)
+	if err = p.SendMsg(&msg); err != nil {
+		panic(err)
+	}
 
-		if _, data, err := t.ProcessReachedDistCnt(0, 0, true); err == nil {
-			if len(data) != 4 {
-				test.Fatalf("something went wrong more than %d distinct distances are registered: %v", 4, data)
-			}
+	ctx, cfunc := context.WithTimeout(context.Background(), time.Minute)
+	defer cfunc()
+	// interval is two gossip rounds long
+	err = t.WaitUntilSilent(ctx, true, 0, 2*time.Second)
+	if err != nil {
+		test.Fatalf("wait exited with %v", err)
+	}
+	time.Sleep(1 * time.Second)
 
-			if data[0] != 1 {
-				test.Fatalf("message was received by %d nodes with distance 0 (should be %d nodes)", data[0], 1)
-			}
-			if data[1] != 1 {
-				test.Fatalf("message was received by %d nodes with distance 1 (should be %d nodes)", data[1], 1)
-			}
-			if data[2] != 1 {
-				test.Fatalf("message was received by %d nodes with distance 2 (should be %d nodes)", data[2], 1)
-			}
-			if data[3] != 0 {
-				test.Fatalf("message was received by %d nodes with distance 3 (should be %d nodes)", data[3], 1)
-			}
-		} else {
-			panic(data)
-		}
-	}()
+	t.Teardown()
 
-	func() {
-		t, err := testutils.NewTesterFromJSON("../test_assets/e2e.json")
-		if err != nil {
-			panic(err)
-		}
-		if err = t.Startup("127.0.1.1"); err != nil {
-			panic(err)
-		}
-		if err = t.RegisterAllPeersForType(1337); err != nil {
-			panic(err)
-		}
-		p := t.Peers[0]
-		msg := vtypes.GossipAnnounce{
-			Ga: common.GossipAnnounce{
-				TTL:      0,
-				Reserved: 0,
-				DataType: 1337,
-				Data:     []byte{1},
-			},
-			MessageHeader: vtypes.MessageHeader{
-				Type: vtypes.GossipAnnounceType,
-			},
-		}
-		msg.MessageHeader.RecalcSize(&msg)
-		if err = p.SendMsg(&msg); err != nil {
-			panic(err)
-		}
-
-		ctx, cfunc := context.WithTimeout(context.Background(), time.Minute)
-		defer cfunc()
-		// interval is two gossip rounds long
-		t.WaitUntilSilent(ctx, true, 0, 2*time.Second)
-		time.Sleep(1 * time.Second)
-
-		t.Teardown()
-
-		if _, data, err := t.ProcessReachedDistCnt(0, 0, true); err == nil {
-			if len(data) != 4 {
-				test.Fatalf("something went wrong more than %d distinct distances are registered: %v", 4, data)
-			}
-
-			if data[0] != 1 {
-				test.Fatalf("message was received by %d nodes with distance 0 (should be %d nodes)", data[0], 1)
-			}
-			if data[1] != 1 {
-				test.Fatalf("message was received by %d nodes with distance 1 (should be %d nodes)", data[1], 1)
-			}
-			if data[2] != 1 {
-				test.Fatalf("message was received by %d nodes with distance 2 (should be %d nodes)", data[2], 1)
-			}
-			if data[3] != 1 {
-				test.Fatalf("message was received by %d nodes with distance 3 (should be %d nodes)", data[3], 1)
-			}
-		} else {
-			panic(data)
-		}
-	}()
-
-	func() {
-		t, err := testutils.NewTesterFromJSON("../test_assets/erdos.json")
-		if err != nil {
-			panic(err)
-		}
-		if err = t.Startup("127.0.2.1"); err != nil {
-			panic(err)
-		}
-		if err = t.RegisterAllPeersForType(1337); err != nil {
-			panic(err)
-		}
-		p := t.Peers[0]
-		msg := vtypes.GossipAnnounce{
-			Ga: common.GossipAnnounce{
-				TTL:      10,
-				Reserved: 0,
-				DataType: 1337,
-				Data:     []byte{1},
-			},
-			MessageHeader: vtypes.MessageHeader{
-				Type: vtypes.GossipAnnounceType,
-			},
-		}
-		msg.MessageHeader.RecalcSize(&msg)
-		if err = p.SendMsg(&msg); err != nil {
-			panic(err)
+	if _, data, err := t.ProcessReachedDistCnt(0, 0, true); err == nil {
+		if len(data) != 4 {
+			test.Fatalf("something went wrong more than %d distinct distances are registered: %v", 4, data)
 		}
 
-		ctx, cfunc := context.WithTimeout(context.Background(), time.Minute)
-		defer cfunc()
-		// interval is two gossip rounds long
-		t.WaitUntilSilent(ctx, true, 0, 2*time.Second)
-		time.Sleep(1 * time.Second)
-
-		t.Teardown()
-
-		data, err := t.ProcessReachedWhen(common.GossipType(1337), true)
-		// Just checking all nodes have received the message
-		if err != nil {
-			panic(err)
+		if data[0] != 1 {
+			test.Fatalf("message was received by %d nodes with distance 0 (should be %d nodes)", data[0], 1)
 		}
-
-		if len(data) != 20 {
-			test.Fatalf("message was received by %d nodes (should be %d nodes)", len(data), 20)
+		if data[1] != 1 {
+			test.Fatalf("message was received by %d nodes with distance 1 (should be %d nodes)", data[1], 1)
 		}
-	}()
+		if data[2] != 1 {
+			test.Fatalf("message was received by %d nodes with distance 2 (should be %d nodes)", data[2], 1)
+		}
+		if data[3] != 1 {
+			test.Fatalf("message was received by %d nodes with distance 3 (should be %d nodes)", data[3], 1)
+		}
+	} else {
+		panic(data)
+	}
+}
 
+func TestMainEndToEndOneHopC(test *testing.T) {
+	var testLog *slog.Logger = slogt.New(test)
+	t, err := testutils.NewTesterFromJSON("../test_assets/erdos.json")
+	if err != nil {
+		panic(err)
+	}
+	err = t.AddLogger(testLog)
+	if err != nil {
+		panic(err)
+	}
+	if err = t.Startup("127.0.2.1"); err != nil {
+		panic(err)
+	}
+	if err = t.RegisterAllPeersForType(1337); err != nil {
+		panic(err)
+	}
+	p := t.Peers[0]
+	msg := vtypes.GossipAnnounce{
+		Ga: common.GossipAnnounce{
+			TTL:      10,
+			Reserved: 0,
+			DataType: 1337,
+			Data:     []byte{1},
+		},
+		MessageHeader: vtypes.MessageHeader{
+			Type: vtypes.GossipAnnounceType,
+		},
+	}
+	msg.MessageHeader.RecalcSize(&msg)
+	if err = p.SendMsg(&msg); err != nil {
+		panic(err)
+	}
+
+	ctx, cfunc := context.WithTimeout(context.Background(), time.Minute)
+	defer cfunc()
+	// interval is two gossip rounds long
+	err = t.WaitUntilSilent(ctx, true, 0, 2*time.Second)
+	if err != nil {
+		test.Fatalf("wait exited with %v", err)
+	}
+	time.Sleep(1 * time.Second)
+
+	t.Teardown()
+
+	data, err := t.ProcessReachedWhen(common.GossipType(1337), true)
+	// Just checking all nodes have received the message
+	if err != nil {
+		panic(err)
+	}
+
+	if len(data) != 20 {
+		test.Fatalf("message was received by %d nodes (should be %d nodes)", len(data), 20)
+	}
 }
