@@ -47,7 +47,7 @@ type Tester struct {
 	PeersLut map[common.ConnectionId]uint
 	// the logger of each peer will indirectly write it's testing events onto
 	// this channel
-	logChan chan Event
+	logChan     chan Event
 	testloggers []*slog.Logger
 	// the tester will send the types of observed package (on hzApi) to this
 	// channel when observing it. Can be used to sleep until packets with a
@@ -77,13 +77,13 @@ type Tester struct {
 // reads all the config stuff from the json file fn
 func NewTesterFromJSON(fn string) (*Tester, error) {
 	t := &Tester{
-		Peers:    make(map[uint]*peer),
-		PeersLut: make(map[common.ConnectionId]uint),
-		logChan:  make(chan Event, 64),
-		busyChan: make(chan common.GossipType, 64),
-		Events:   make([]Event, 0),
+		Peers:       make(map[uint]*peer),
+		PeersLut:    make(map[common.ConnectionId]uint),
+		logChan:     make(chan Event, 64),
+		busyChan:    make(chan common.GossipType, 64),
+		Events:      make([]Event, 0),
 		testloggers: make([]*slog.Logger, 0),
-		closers:  make([]io.Closer, 0),
+		closers:     make([]io.Closer, 0),
 	}
 	var err error
 
@@ -127,7 +127,7 @@ func (t *Tester) Startup(startIp string) error {
 	// NOTE: when closing the channel will also terminate the goroutine
 	go func(logChan <-chan Event, busyChan chan<- common.GossipType) {
 		for e := range logChan {
-			for _,l := range t.testloggers {
+			for _, l := range t.testloggers {
 				l.Handler().Handle(context.Background(), slog.Record{
 					Time:    e.Time,
 					Message: fmt.Sprintf("%s: id: %v msgid: %v msgtype: %v", e.Msg, e.MsgId, e.MsgType),
