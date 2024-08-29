@@ -78,7 +78,7 @@ func (x *connCookie) CreateCookie(aead cipher.AEAD) []byte {
 	return cookie
 }
 
-func ComputePoW(cookie []byte) horizontalapi.ConnPoW {
+func ComputePoW(cookie []byte) uint64 {
 	mypow := powMarsh{
 		PowNonce: 0,
 		Cookie:   cookie,
@@ -88,8 +88,7 @@ func ComputePoW(cookie []byte) horizontalapi.ConnPoW {
 		return pow.First8bits0(digest)
 	}, &mypow)
 
-	mypow.PowNonce = nonce
-	return horizontalapi.ConnPoW{PowNonce: mypow.PowNonce, Cookie: mypow.Cookie}
+	return nonce
 }
 
 func ReadCookie(aead cipher.AEAD, cookie []byte) (*connCookie, error) {

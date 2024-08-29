@@ -448,7 +448,7 @@ loop:
 					hz.log.Error("read the ConnReq message failed", "err", err)
 					goto continue_read
 				}
-				p := ConnReq{
+				p := PowReq{
 					Id: connData.Id,
 				}
 				// send the connection request to the channel
@@ -458,13 +458,13 @@ loop:
 				// retrieve the ConnChall message
 				chall, err := msg.Body().PowChall()
 				if err != nil {
-					hz.log.Error("read the ConnChall message failed", "err", err)
+					hz.log.Error("read the PoWChall message failed", "err", err)
 					goto continue_read
 				}
 				// copy the capnproto ConnChall message to an internal
 				// representation to make the handling in other packages easier
 
-				p := ConnChall{
+				p := PowChall{
 					Id: connData.Id,
 				}
 				// cookie is no scalar type -> retrival might error
@@ -486,7 +486,7 @@ loop:
 				}
 				// copy the capnproto ConnPoW message to an internal
 				// representation to make the handling in other packages easier
-				p := ConnPoW{
+				p := PowPoW{
 					Id:       connData.Id,
 					PowNonce: pow.Nonce(),
 				}
@@ -635,25 +635,25 @@ loop:
 				// create the ConnChall message
 				chall, err := hzTypes.NewPowChall(seg)
 				if err != nil {
-					hz.log.Error("creating new ConnChall message failed", "err", err)
+					hz.log.Error("creating new PoWChall message failed", "err", err)
 					goto continue_write
 				}
 				// populate the message
 				// cookie is no scalar type -> setting might error
 				if err := chall.SetCookie(rmsg.Cookie); err != nil {
-					hz.log.Error("setting the cookie for the ConnChall message failed", "err", err)
+					hz.log.Error("setting the cookie for the PoWChall message failed", "err", err)
 					goto continue_write
 				}
 				// combine connChall and the message
 				if err := msg.Body().SetPowChall(chall); err != nil {
-					hz.log.Error("setting sending message to ConnChall failed", "err", err)
+					hz.log.Error("setting sending message to PoWChall failed", "err", err)
 					goto continue_write
 				}
 			case PowPoW:
 				// create the ConnPow message
 				pow, err := hzTypes.NewPowPoW(seg)
 				if err != nil {
-					hz.log.Error("creating new ConnPoW message failed", "err", err)
+					hz.log.Error("creating new PoWPoW message failed", "err", err)
 					goto continue_write
 				}
 				// populate the message
@@ -662,12 +662,12 @@ loop:
 
 				// cookie is no scalar type -> setting might error
 				if err := pow.SetCookie(rmsg.Cookie); err != nil {
-					hz.log.Error("setting the cookie for the ConnPoW message failed", "err", err)
+					hz.log.Error("setting the cookie for the PoWPoW message failed", "err", err)
 					goto continue_write
 				}
 				// combine connChall and the message
 				if err := msg.Body().SetPowPoW(pow); err != nil {
-					hz.log.Error("setting sending message to ConnPow failed", "err", err)
+					hz.log.Error("setting sending message to PowPoW failed", "err", err)
 					goto continue_write
 				}
 			}

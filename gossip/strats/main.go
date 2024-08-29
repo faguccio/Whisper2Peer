@@ -79,14 +79,10 @@ func New(log *slog.Logger, args args.Args, stratChans StrategyChannels, initFini
 		return nil, fmt.Errorf("the error occured while initiating the gossip module %w", err)
 	}
 
-	openConnectionMap := make(map[horizontalapi.ConnectionId]horizontalapi.Conn[chan<- horizontalapi.ToHz])
-
-	for _, conn := range openConnections {
-		openConnectionMap[conn.Id] = conn
-	}
+	connManager := NewConnectionManager(openConnections)
 
 	// Hardcoded strategy, later switching on args argument
-	dummyStrat := NewDummy(strategy, fromHz, hzConnection, openConnectionMap)
+	dummyStrat := NewDummy(strategy, fromHz, hzConnection, &connManager)
 	return &dummyStrat, nil
 }
 
