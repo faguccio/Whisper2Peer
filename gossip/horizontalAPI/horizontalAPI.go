@@ -108,7 +108,42 @@ func (ConnPoW) canFromHz() {}
 // mark this type as being sendable via ToHz channels
 func (ConnPoW) canToHz() {}
 
-// message to signal a connection was closed and the peer should be unregistered
+// Represent a PowReq message from/to the horizontalApi (used to renew connections)
+type PowReq struct {
+	Id ConnectionId
+}
+
+// mark this type as being sendable via FromHz channels
+func (PowReq) canFromHz() {}
+
+// mark this type as being sendable via ToHz channels
+func (PowReq) canToHz() {}
+
+// Represents a PowChall message from/to the horizontalApi
+type PowChall struct {
+	Id     ConnectionId
+	Cookie []byte
+}
+
+// mark this type as being sendable via FromHz channels
+func (PowChall) canFromHz() {}
+
+// mark this type as being sendable via ToHz channels
+func (PowChall) canToHz() {}
+
+// Represents a PowPoW message from/to the horizontalApi
+type PowPoW struct {
+	Id       ConnectionId
+	PowNonce uint64
+	Cookie   []byte
+}
+
+// mark this type as being sendable via FromHz channels
+func (PowPoW) canFromHz() {}
+
+// mark this type as being sendable via ToHz channels
+func (PowPoW) canToHz() {}
+
 type Unregister ConnectionId
 
 // mark this type as being sendable via FromHz channels
@@ -406,6 +441,66 @@ loop:
 				p.Cookie = slices.Clone(p.Cookie)
 				hz.fromHzChan <- p
 
+			case msg.Body().HasPowReq():
+				// retrieve the ConnReq message
+				_, err := msg.Body().PowReq()
+				if err != nil {
+					hz.log.Error("read the ConnReq message failed", "err", err)
+					goto continue_read
+				}
+				p := ConnReq{
+					Id: connData.Id,
+				}
+				// send the connection request to the channel
+				hz.fromHzChan <- p
+
+			case msg.Body().HasPowChall():
+				// retrieve the ConnChall message
+				chall, err := msg.Body().PowChall()
+				if err != nil {
+					hz.log.Error("read the ConnChall message failed", "err", err)
+					goto continue_read
+				}
+				// copy the capnproto ConnChall message to an internal
+				// representation to make the handling in other packages easier
+
+				p := ConnChall{
+					Id: connData.Id,
+				}
+				// cookie is no scalar type -> retrival might error
+				p.Cookie, err = chall.Cookie()
+				if err != nil {
+					hz.log.Error("obtaining the cookie failed", "err", err)
+					goto continue_read
+				}
+				// p cookie is still a "pointer" into the capnproto message ->
+				// empty if memory is freeed => make a copy of it
+				p.Cookie = slices.Clone(p.Cookie)
+				hz.fromHzChan <- p
+			case msg.Body().HasPowPoW():
+				// retrieve the ConnPoW message
+				pow, err := msg.Body().PowPoW()
+				if err != nil {
+					hz.log.Error("read the ConnPoW message failed", "err", err)
+					goto continue_read
+				}
+				// copy the capnproto ConnPoW message to an internal
+				// representation to make the handling in other packages easier
+				p := ConnPoW{
+					Id:       connData.Id,
+					PowNonce: pow.Nonce(),
+				}
+				// cookie is no scalar type -> retrival might error
+				p.Cookie, err = pow.Cookie()
+				if err != nil {
+					hz.log.Error("obtaining the cookie failed", "err", err)
+					goto continue_read
+				}
+				// p cookie is still a "pointer" into the capnproto message ->
+				// empty if memory is freeed => make a copy of it
+				p.Cookie = slices.Clone(p.Cookie)
+				hz.fromHzChan <- p
+
 			default:
 				hz.log.Error("no valid message was sent", "type was", msg.Body().Which().String())
 				goto continue_read
@@ -519,6 +614,59 @@ loop:
 				}
 				// combine connChall and the message
 				if err := msg.Body().SetConnPoW(pow); err != nil {
+					hz.log.Error("setting sending message to ConnPow failed", "err", err)
+					goto continue_write
+				}
+
+			case PowReq:
+				// create the ConnReq message
+				req, err := hzTypes.NewPowReq(seg)
+				if err != nil {
+					hz.log.Error("creating new sending message failed", "err", err)
+					goto continue_write
+				}
+
+				// combine ConnReq and the message
+				if err := msg.Body().SetPowReq(req); err != nil {
+					hz.log.Error("setting sending message to connReq failed", "err", err)
+					goto continue_write
+				}
+			case PowChall:
+				// create the ConnChall message
+				chall, err := hzTypes.NewPowChall(seg)
+				if err != nil {
+					hz.log.Error("creating new ConnChall message failed", "err", err)
+					goto continue_write
+				}
+				// populate the message
+				// cookie is no scalar type -> setting might error
+				if err := chall.SetCookie(rmsg.Cookie); err != nil {
+					hz.log.Error("setting the cookie for the ConnChall message failed", "err", err)
+					goto continue_write
+				}
+				// combine connChall and the message
+				if err := msg.Body().SetPowChall(chall); err != nil {
+					hz.log.Error("setting sending message to ConnChall failed", "err", err)
+					goto continue_write
+				}
+			case PowPoW:
+				// create the ConnPow message
+				pow, err := hzTypes.NewPowPoW(seg)
+				if err != nil {
+					hz.log.Error("creating new ConnPoW message failed", "err", err)
+					goto continue_write
+				}
+				// populate the message
+				// setting scalar value cannot lead to error
+				pow.SetNonce(rmsg.PowNonce)
+
+				// cookie is no scalar type -> setting might error
+				if err := pow.SetCookie(rmsg.Cookie); err != nil {
+					hz.log.Error("setting the cookie for the ConnPoW message failed", "err", err)
+					goto continue_write
+				}
+				// combine connChall and the message
+				if err := msg.Body().SetPowPoW(pow); err != nil {
 					hz.log.Error("setting sending message to ConnPow failed", "err", err)
 					goto continue_write
 				}

@@ -2,7 +2,6 @@ package gossip_test
 
 import (
 	"context"
-	"fmt"
 	"gossip/common"
 	"gossip/internal/testutils"
 	gossip "gossip/main"
@@ -199,8 +198,6 @@ func TestMainEndToEndOneHop(test *testing.T) {
 		}
 	}()
 
-	fmt.Println("Second test??")
-
 	func() {
 		t, err := testutils.NewTesterFromJSON("../test_assets/e2e.json")
 		if err != nil {
@@ -259,7 +256,6 @@ func TestMainEndToEndOneHop(test *testing.T) {
 		}
 	}()
 
-	fmt.Println("ARRIVED HERE IN TESTS")
 	func() {
 		t, err := testutils.NewTesterFromJSON("../test_assets/erdos.json")
 		if err != nil {

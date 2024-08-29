@@ -13,7 +13,6 @@ import (
 	"net"
 	"slices"
 	"strings"
-	"time"
 
 	"log/slog"
 )
@@ -41,11 +40,6 @@ type StrategyCloser interface {
 type StrategyChannels struct {
 	FromStrat chan common.FromStrat
 	ToStrat   chan common.ToStrat
-}
-
-type gossipConnection struct {
-	connection horizontalapi.Conn[chan<- horizontalapi.ToHz]
-	timestamp  time.Time
 }
 
 // This function instantiate a new Strategy.
