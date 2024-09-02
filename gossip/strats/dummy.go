@@ -109,10 +109,10 @@ func (dummy *dummyStrat) Listen() {
 					dummy.connManager.Remove(horizontalapi.ConnectionId(msg))
 
 				case horizontalapi.Push:
-					peer := dummy.connManager.Find(msg.Id)
+					_, isValid := dummy.connManager.FindValid(msg.Id)
 
-					if isConnectionInvalid(peer) {
-						dummy.rootStrat.log.Debug("PUSH message not processed because peer was not PoW valid", "Peer", peer)
+					if !isValid {
+						dummy.rootStrat.log.Debug("PUSH message not processed because peer was not PoW valid", "Peer ID", msg.Id)
 						continue
 					}
 
@@ -134,12 +134,12 @@ func (dummy *dummyStrat) Listen() {
 					// Create ConnChall message with the encrypted cookie
 					cookie := NewConnCookie(msg.Id)
 
-					if !dummy.connManager.IsInProgress(msg.Id) {
+					peer, IsInProgress := dummy.connManager.FindInProgress(msg.Id)
+
+					if !IsInProgress {
 						dummy.rootStrat.log.Debug("ConnReq received from a connection not present in the inProgress connections", "Id", msg.Id)
 						continue
 					}
-
-					peer := dummy.connManager.Find(msg.Id)
 
 					m := horizontalapi.ConnChall{
 						Id:     msg.Id,
@@ -150,15 +150,12 @@ func (dummy *dummyStrat) Listen() {
 
 				case horizontalapi.ConnChall:
 					// Checks weather the Chall is coming from a toBeProvedConnection
-					challValidity := dummy.connManager.IsToBeProved(msg.Id)
-
-					if !challValidity {
+					peer, isToBeProved := dummy.connManager.FindToBeProved(msg.Id)
+					if !isToBeProved {
 						dummy.rootStrat.log.Debug("ConnChall received from a not toBeProved connection", "id", msg.Id, "Message", msg)
 						dummy.connManager.Remove(msg.Id)
 						continue
 					}
-
-					peer := dummy.connManager.Find(msg.Id)
 
 					go func() {
 						nonce := ComputePoW(msg.Cookie)
@@ -169,7 +166,7 @@ func (dummy *dummyStrat) Listen() {
 
 				// Checks incoming PoWs
 				case horizontalapi.ConnPoW:
-					connValidty := dummy.connManager.IsInProgress(msg.Id)
+					_, connValidty := dummy.connManager.FindInProgress(msg.Id)
 					if !connValidty {
 						dummy.rootStrat.log.Debug("ConnPow received was from a connection which is not actually in Progress", "Id", msg.Id)
 						dummy.connManager.Remove(msg.Id)
@@ -218,8 +215,8 @@ func (dummy *dummyStrat) Listen() {
 					// Create PowChall message with the encrypted cookie
 					cookie := NewConnCookie(msg.Id)
 
-					peer := dummy.connManager.Find(msg.Id)
-					if peer.connection.Id != msg.Id {
+					peer, isValid := dummy.connManager.FindValid(msg.Id)
+					if !isValid {
 						dummy.rootStrat.log.Debug("Id not found in the connection manager", "Id", msg.Id)
 						continue
 					}
@@ -233,15 +230,13 @@ func (dummy *dummyStrat) Listen() {
 
 				case horizontalapi.PowChall:
 					// Checks weather the Chall is from an openConnection (renewal)
-					challValidity := dummy.connManager.IsValid(msg.Id)
+					peer, isValid := dummy.connManager.FindValid(msg.Id)
 
-					if !challValidity {
+					if !isValid {
 						dummy.rootStrat.log.Debug("PowChall received from a not valid connection", "id", msg.Id)
 						dummy.connManager.Remove(msg.Id)
 						continue
 					}
-
-					peer := dummy.connManager.Find(msg.Id)
 
 					// if too little time has passed from last PoW request, this might be a
 					// DoS attack, but I will be lenient and just skip it
@@ -259,7 +254,7 @@ func (dummy *dummyStrat) Listen() {
 
 				case horizontalapi.PowPoW:
 					// Checks weather the PoW is from an openConnection (renewal)
-					connValidty := dummy.connManager.IsValid(msg.Id)
+					_, connValidty := dummy.connManager.FindValid(msg.Id)
 					if !connValidty {
 						dummy.rootStrat.log.Debug("PoWPoW received was from a connection which is not actually valid", "Id", msg.Id)
 						dummy.connManager.Remove(msg.Id)

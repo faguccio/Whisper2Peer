@@ -19,7 +19,6 @@ type gossipConnection struct {
 // 1. Valid ones: peers that have provided a PoW
 // 2. In progress ones: peers that are about to provide a PoW
 // 3. To be proved ones: peers to which we have to give a PoW
-
 type ConnectionManager struct {
 	// Connection that this peer needs to prove
 	toBeProvedConnections map[horizontalapi.ConnectionId]gossipConnection
@@ -87,9 +86,30 @@ func (manager *ConnectionManager) ActionOnPermutedValid(f func(x gossipConnectio
 	}
 }
 
-// Function to find a connection based on the ID
-// To check weather the map has such element, we compare the ID.
-// If there is no element, It will be the zero value
+func (manager *ConnectionManager) FindToBeProved(id horizontalapi.ConnectionId) (gossipConnection, bool) {
+	manager.connMutex.RLock()
+	defer manager.connMutex.RUnlock()
+
+	peer := manager.toBeProvedConnections[id]
+	return peer, peer.connection.Id == id
+}
+
+func (manager *ConnectionManager) FindInProgress(id horizontalapi.ConnectionId) (gossipConnection, bool) {
+	manager.connMutex.RLock()
+	defer manager.connMutex.RUnlock()
+
+	peer := manager.powInProgress[id]
+	return peer, peer.connection.Id == id
+}
+
+func (manager *ConnectionManager) FindValid(id horizontalapi.ConnectionId) (gossipConnection, bool) {
+	manager.connMutex.RLock()
+	defer manager.connMutex.RUnlock()
+
+	peer := manager.openConnectionsMap[id]
+	return peer, peer.connection.Id == id
+}
+
 func (manager *ConnectionManager) unsafeFind(id horizontalapi.ConnectionId) gossipConnection {
 	// Search in the ToBeProved
 	peer := manager.toBeProvedConnections[id]
@@ -103,63 +123,13 @@ func (manager *ConnectionManager) unsafeFind(id horizontalapi.ConnectionId) goss
 		return peer
 	}
 
+	// Search in the open (valid) connections
 	peer = manager.openConnectionsMap[id]
 	if peer.connection.Id == id {
 		return peer
 	}
 
 	return gossipConnection{}
-}
-
-// Wrapper of the unsafeFind with locking for thread safety
-func (manager *ConnectionManager) Find(id horizontalapi.ConnectionId) gossipConnection {
-	manager.connMutex.RLock()
-	defer manager.connMutex.RUnlock()
-
-	return manager.unsafeFind(id)
-}
-
-// Function to check weather the ID is of a connection which is to be proved
-func (manager *ConnectionManager) IsToBeProved(id horizontalapi.ConnectionId) bool {
-	manager.connMutex.RLock()
-	defer manager.connMutex.RUnlock()
-
-	// Search in the ToBeProved
-	peer := manager.toBeProvedConnections[id]
-	if peer.connection.Id == id {
-		return true
-	}
-	return false
-}
-
-// Function to check weather the ID is of a connection which is in progress
-func (manager *ConnectionManager) IsInProgress(id horizontalapi.ConnectionId) bool {
-	manager.connMutex.RLock()
-	defer manager.connMutex.RUnlock()
-
-	// Search in the inProgress
-	peer := manager.powInProgress[id]
-	if peer.connection.Id == id {
-		return true
-	}
-	return false
-}
-
-// Function to check weather the ID is of a already valid connection
-func (manager *ConnectionManager) unsafeIsValid(id horizontalapi.ConnectionId) bool {
-	peer := manager.openConnectionsMap[id]
-	if peer.connection.Id == id {
-		return true
-	}
-	return false
-}
-
-// Wrapper on unsafeIsValid to provide locking for thread safety
-func (manager *ConnectionManager) IsValid(id horizontalapi.ConnectionId) bool {
-	manager.connMutex.RLock()
-	defer manager.connMutex.RUnlock()
-
-	return manager.unsafeIsValid(id)
 }
 
 // Wrapper around unsafeRemove with locking for thread safety
