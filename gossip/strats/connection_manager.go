@@ -82,7 +82,7 @@ func (manager *ConnectionManager) ActionOnPermutedValid(f func(x gossipConnectio
 }
 
 // To check weather the map has such element, we compare the ID.
-// If there is no element, Id will be the zero value
+// If there is no element, It will be the zero value
 func (manager *ConnectionManager) unsafeFind(id horizontalapi.ConnectionId) gossipConnection {
 	// Search in the ToBeProved
 	peer := manager.toBeProvedConnections[id]
@@ -101,11 +101,10 @@ func (manager *ConnectionManager) unsafeFind(id horizontalapi.ConnectionId) goss
 		return peer
 	}
 
-	// Should I actually return an error? This should never happen, so I am throwing a panic
-	fmt.Println("You searched", id, manager.openConnectionsMap)
-	panic("Error, gossipConnection searched but not found")
+	return gossipConnection{}
 }
 
+// Wrapper of the unsafeFind with locking for thread safety
 func (manager *ConnectionManager) Find(id horizontalapi.ConnectionId) gossipConnection {
 	manager.connMutex.RLock()
 	defer manager.connMutex.RUnlock()
