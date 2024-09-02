@@ -2,7 +2,6 @@ package strats
 
 import (
 	"errors"
-	"fmt"
 	horizontalapi "gossip/horizontalAPI"
 	mrand "math/rand"
 	"sync"
@@ -35,6 +34,11 @@ type ConnectionManager struct {
 	connMutex sync.RWMutex
 }
 
+// Some function are marked as unsafe. This means that they do not provide locking. Whoever is calling
+// them should make sure to lock the mutex, weather it is for writing or for reading.
+// They are needed so more complex function can chain them after
+
+// Return a new instance of the Connection Manager.
 func NewConnectionManager(toBeProved []horizontalapi.Conn[chan<- horizontalapi.ToHz]) ConnectionManager {
 	toBeProvedMap := make(map[horizontalapi.ConnectionId]gossipConnection)
 	for _, conn := range toBeProved {
@@ -48,6 +52,7 @@ func NewConnectionManager(toBeProved []horizontalapi.Conn[chan<- horizontalapi.T
 	}
 }
 
+// Perform a function f on every To Be Proved connection
 func (manager *ConnectionManager) ActionOnToBeProved(f func(x gossipConnection)) {
 	manager.connMutex.RLock()
 	defer manager.connMutex.RUnlock()
@@ -57,6 +62,7 @@ func (manager *ConnectionManager) ActionOnToBeProved(f func(x gossipConnection))
 	}
 }
 
+// Perform an function f on every valid (open) connection
 func (manager *ConnectionManager) ActionOnValid(f func(x gossipConnection)) {
 	manager.connMutex.RLock()
 	defer manager.connMutex.RUnlock()
@@ -81,6 +87,7 @@ func (manager *ConnectionManager) ActionOnPermutedValid(f func(x gossipConnectio
 	}
 }
 
+// Function to find a connection based on the ID
 // To check weather the map has such element, we compare the ID.
 // If there is no element, It will be the zero value
 func (manager *ConnectionManager) unsafeFind(id horizontalapi.ConnectionId) gossipConnection {
@@ -139,10 +146,7 @@ func (manager *ConnectionManager) IsInProgress(id horizontalapi.ConnectionId) bo
 }
 
 // Function to check weather the ID is of a already valid connection
-func (manager *ConnectionManager) IsValid(id horizontalapi.ConnectionId) bool {
-	manager.connMutex.RLock()
-	defer manager.connMutex.RUnlock()
-
+func (manager *ConnectionManager) unsafeIsValid(id horizontalapi.ConnectionId) bool {
 	peer := manager.openConnectionsMap[id]
 	if peer.connection.Id == id {
 		return true
@@ -150,7 +154,15 @@ func (manager *ConnectionManager) IsValid(id horizontalapi.ConnectionId) bool {
 	return false
 }
 
-// Wrapper around unsafeRemove with locking
+// Wrapper on unsafeIsValid to provide locking for thread safety
+func (manager *ConnectionManager) IsValid(id horizontalapi.ConnectionId) bool {
+	manager.connMutex.RLock()
+	defer manager.connMutex.RUnlock()
+
+	return manager.unsafeIsValid(id)
+}
+
+// Wrapper around unsafeRemove with locking for thread safety
 func (manager *ConnectionManager) Remove(id horizontalapi.ConnectionId) error {
 	manager.connMutex.Lock()
 	defer manager.connMutex.Unlock()
@@ -201,15 +213,14 @@ func (manager *ConnectionManager) MakeValid(id horizontalapi.ConnectionId, times
 	peer := manager.unsafeFind(id)
 	manager.unsafeRemove(id)
 
-	newConnection := gossipConnection{
-		connection: peer.connection,
-		timestamp:  timestamp,
-	}
+	peer.timestamp = timestamp
 
-	manager.openConnections = append(manager.openConnections, newConnection)
-	manager.openConnectionsMap[id] = newConnection
+	manager.openConnections = append(manager.openConnections, peer)
+	manager.openConnectionsMap[id] = peer
+
 }
 
+// Add a gossip connection to the In Progress ones
 func (manager *ConnectionManager) AddInProgress(peer gossipConnection) {
 	manager.connMutex.Lock()
 	defer manager.connMutex.Unlock()
@@ -230,8 +241,6 @@ func (manager *ConnectionManager) CullConnections(f func(x gossipConnection) boo
 			//remove it from slice as well
 			manager.openConnections[i] = manager.openConnections[len(manager.openConnections)-1]
 			manager.openConnections = manager.openConnections[:len(manager.openConnections)-1]
-
-			fmt.Println("Removed a connection since no pow was received in time", "Conn Id", peer.connection.Id)
 		}
 	}
 
