@@ -134,12 +134,18 @@ func (dummy *dummyStrat) Listen() {
 					// Create ConnChall message with the encrypted cookie
 					cookie := NewConnCookie(msg.Id)
 
+					if !dummy.connManager.IsInProgress(msg.Id) {
+						dummy.rootStrat.log.Debug("ConnReq received from a connection not present in the inProgress connections", "Id", msg.Id)
+						continue
+					}
+
+					peer := dummy.connManager.Find(msg.Id)
+
 					m := horizontalapi.ConnChall{
 						Id:     msg.Id,
 						Cookie: cookie.CreateCookie(dummy.cipher),
 					}
 
-					peer := dummy.connManager.Find(msg.Id)
 					peer.connection.Data <- m
 
 				case horizontalapi.ConnChall:
@@ -212,12 +218,17 @@ func (dummy *dummyStrat) Listen() {
 					// Create PowChall message with the encrypted cookie
 					cookie := NewConnCookie(msg.Id)
 
+					peer := dummy.connManager.Find(msg.Id)
+					if peer.connection.Id != msg.Id {
+						dummy.rootStrat.log.Debug("Id not found in the connection manager", "Id", msg.Id)
+						continue
+					}
+
 					m := horizontalapi.PowChall{
 						Id:     msg.Id,
 						Cookie: cookie.CreateCookie(dummy.cipher),
 					}
 
-					peer := dummy.connManager.Find(msg.Id)
 					peer.connection.Data <- m
 
 				case horizontalapi.PowChall:
