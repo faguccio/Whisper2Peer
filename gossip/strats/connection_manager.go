@@ -90,42 +90,42 @@ func (manager *ConnectionManager) FindToBeProved(id horizontalapi.ConnectionId) 
 	manager.connMutex.RLock()
 	defer manager.connMutex.RUnlock()
 
-	peer := manager.toBeProvedConnections[id]
-	return peer, peer.connection.Id == id
+	value, ok := manager.toBeProvedConnections[id]
+	return value, ok
 }
 
 func (manager *ConnectionManager) FindInProgress(id horizontalapi.ConnectionId) (gossipConnection, bool) {
 	manager.connMutex.RLock()
 	defer manager.connMutex.RUnlock()
 
-	peer := manager.powInProgress[id]
-	return peer, peer.connection.Id == id
+	value, ok := manager.powInProgress[id]
+	return value, ok
 }
 
 func (manager *ConnectionManager) FindValid(id horizontalapi.ConnectionId) (gossipConnection, bool) {
 	manager.connMutex.RLock()
 	defer manager.connMutex.RUnlock()
 
-	peer := manager.openConnectionsMap[id]
-	return peer, peer.connection.Id == id
+	value, ok := manager.openConnectionsMap[id]
+	return value, ok
 }
 
 func (manager *ConnectionManager) unsafeFind(id horizontalapi.ConnectionId) gossipConnection {
 	// Search in the ToBeProved
-	peer := manager.toBeProvedConnections[id]
-	if peer.connection.Id == id {
+	peer, ok := manager.toBeProvedConnections[id]
+	if ok {
 		return peer
 	}
 
 	// Search in the In Progress connections
-	peer = manager.powInProgress[id]
-	if peer.connection.Id == id {
+	peer, ok = manager.powInProgress[id]
+	if ok {
 		return peer
 	}
 
 	// Search in the open (valid) connections
-	peer = manager.openConnectionsMap[id]
-	if peer.connection.Id == id {
+	peer, ok = manager.openConnectionsMap[id]
+	if ok {
 		return peer
 	}
 
@@ -144,22 +144,22 @@ func (manager *ConnectionManager) Remove(id horizontalapi.ConnectionId) error {
 // Remove the connection with a specific ID, without locking resources
 func (manager *ConnectionManager) unsafeRemove(id horizontalapi.ConnectionId) error {
 	// Remove from ToBeProved if is there
-	peer := manager.toBeProvedConnections[id]
-	if peer.connection.Id == id {
+	_, ok := manager.toBeProvedConnections[id]
+	if ok {
 		delete(manager.toBeProvedConnections, id)
 		return nil
 	}
 
 	// Remove from the In Progress connections
-	peer = manager.powInProgress[id]
-	if peer.connection.Id == id {
+	_, ok = manager.powInProgress[id]
+	if ok {
 		delete(manager.powInProgress, id)
 		return nil
 	}
 
 	// Remove it from openConnectionMap and Slice
-	peer = manager.openConnectionsMap[id]
-	if peer.connection.Id == id {
+	_, ok = manager.openConnectionsMap[id]
+	if ok {
 		delete(manager.openConnectionsMap, id)
 
 		//remove it from slice as well
