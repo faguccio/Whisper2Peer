@@ -12,7 +12,6 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"math/big"
-	mrand "math/rand"
 	"time"
 
 	"golang.org/x/crypto/chacha20poly1305"
@@ -324,10 +323,6 @@ func (dummy *dummyStrat) Listen() {
 
 				// Recurrent timer signal
 			case <-ticker.C:
-				// Create a permutation over the length of valid connections
-				perm := mrand.Perm(dummy.connManager.ValidLen())
-				amount := min(dummy.connManager.ValidLen(), int(dummy.rootStrat.stratArgs.Degree))
-
 				validMessages := dummy.validMessages.ExtractToSlice()
 
 				dummy.connManager.ActionOnPermutedValid(func(peer gossipConnection) {
@@ -339,14 +334,11 @@ func (dummy *dummyStrat) Listen() {
 						// If message was sent to args.Degree neighboughrs delete it from the set of messages
 						if msg.counter >= int(dummy.rootStrat.stratArgs.Degree) {
 							dummy.validMessages.Remove(msg)
-							// if err != nil {
-							// 	panic(err)
-							// }
 							dummy.sentMessages.Insert(msg)
 							break
 						}
 					}
-				}, amount, perm)
+				}, int(dummy.rootStrat.stratArgs.Degree))
 
 			case <-renewalTicker.C:
 				dummy.connManager.ActionOnValid(func(x gossipConnection) {

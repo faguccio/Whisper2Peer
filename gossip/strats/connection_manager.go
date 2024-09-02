@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	horizontalapi "gossip/horizontalAPI"
+	mrand "math/rand"
 	"sync"
 	"time"
 )
@@ -65,28 +66,19 @@ func (manager *ConnectionManager) ActionOnValid(f func(x gossipConnection)) {
 	}
 }
 
-// A bit of a wicked function, but it is much nicer for the synchronization part
-// It takes a max iteration (must be smaller than the actual number or valid connection), a permutation
-// of max and a function to perform on such connections
-func (manager *ConnectionManager) ActionOnPermutedValid(f func(x gossipConnection), max int, perm []int) {
+// Function which perform a function f on a permutation of the valid connections.
+// Max is the number of elements we want to perform the action on
+func (manager *ConnectionManager) ActionOnPermutedValid(f func(x gossipConnection), max int) {
 	manager.connMutex.RLock()
 	defer manager.connMutex.RUnlock()
 
-	if max > len(manager.openConnections) {
-		panic("ActionOnPermutedValid was given a too large max")
-	}
+	perm := mrand.Perm(len(manager.openConnections))
+	amount := min(max, len(manager.openConnections))
 
-	for i := 0; i < max; i++ {
+	for i := 0; i < amount; i++ {
 		idx := perm[i]
 		f(manager.openConnections[idx])
 	}
-}
-
-func (manager *ConnectionManager) ValidLen() int {
-	manager.connMutex.RLock()
-	defer manager.connMutex.RUnlock()
-
-	return len(manager.openConnections)
 }
 
 // To check weather the map has such element, we compare the ID.
