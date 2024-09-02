@@ -86,6 +86,8 @@ func (manager *ConnectionManager) ActionOnPermutedValid(f func(x gossipConnectio
 	}
 }
 
+// Returns the connection with matching ID from the to be proved connections and a boolean indicating
+// the presence of the value
 func (manager *ConnectionManager) FindToBeProved(id horizontalapi.ConnectionId) (gossipConnection, bool) {
 	manager.connMutex.RLock()
 	defer manager.connMutex.RUnlock()
@@ -94,6 +96,8 @@ func (manager *ConnectionManager) FindToBeProved(id horizontalapi.ConnectionId) 
 	return value, ok
 }
 
+// Returns the connection with matching ID from the to be in progress connections and a boolean indicating
+// the presence of the value
 func (manager *ConnectionManager) FindInProgress(id horizontalapi.ConnectionId) (gossipConnection, bool) {
 	manager.connMutex.RLock()
 	defer manager.connMutex.RUnlock()
@@ -102,6 +106,8 @@ func (manager *ConnectionManager) FindInProgress(id horizontalapi.ConnectionId) 
 	return value, ok
 }
 
+// Returns the connection with matching ID from the to valid (open) connections and a boolean indicating
+// the presence of the value
 func (manager *ConnectionManager) FindValid(id horizontalapi.ConnectionId) (gossipConnection, bool) {
 	manager.connMutex.RLock()
 	defer manager.connMutex.RUnlock()
@@ -110,6 +116,7 @@ func (manager *ConnectionManager) FindValid(id horizontalapi.ConnectionId) (goss
 	return value, ok
 }
 
+// Find the connection with matching ID, else return the zero value
 func (manager *ConnectionManager) unsafeFind(id horizontalapi.ConnectionId) gossipConnection {
 	// Search in the ToBeProved
 	peer, ok := manager.toBeProvedConnections[id]
