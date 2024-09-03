@@ -210,15 +210,19 @@ func (manager *ConnectionManager) CullConnections(f func(x gossipConnection) boo
 	manager.connMutex.Lock()
 	defer manager.connMutex.Unlock()
 
+	toRemove := make([]int, 0)
 	for i, peer := range manager.openConnections {
 		if f(peer) {
 			//Remove it from the map
 			delete(manager.openConnectionsMap, peer.connection.Id)
-
-			//remove it from slice as well
-			manager.openConnections[i] = manager.openConnections[len(manager.openConnections)-1]
-			manager.openConnections = manager.openConnections[:len(manager.openConnections)-1]
+			toRemove = append(toRemove, i)
 		}
+	}
+
+	for i := len(toRemove)-1; i >= 0; i-- {
+		//remove it from slice as well
+		manager.openConnections[toRemove[i]] = manager.openConnections[len(manager.openConnections)-1]
+		manager.openConnections = manager.openConnections[:len(manager.openConnections)-1]
 	}
 
 }
