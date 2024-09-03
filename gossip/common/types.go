@@ -7,9 +7,9 @@ type ConnectionId string
 
 // store arbitrary data along with the connection it belongs to
 type Conn[T any] struct {
-	Id   ConnectionId
-	Data T
-	Ctx context.Context
+	Id    ConnectionId
+	Data  T
+	Ctx   context.Context
 	Cfunc context.CancelFunc
 }
 

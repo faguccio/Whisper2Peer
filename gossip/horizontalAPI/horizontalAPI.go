@@ -26,9 +26,9 @@ type ConnectionId string
 
 // store arbitrary data along with the connection it belongs to
 type Conn[T any] struct {
-	Id   ConnectionId
-	Data T
-	Ctx context.Context
+	Id    ConnectionId
+	Data  T
+	Ctx   context.Context
 	Cfunc context.CancelFunc
 }
 
@@ -74,8 +74,8 @@ type Push struct {
 func (Push) canFromHz() {}
 
 // mark this type as being sendable via ToHz channels
-func (Push) canToHz() {}
-func (Push) isPow() bool {return false}
+func (Push) canToHz()    {}
+func (Push) isPow() bool { return false }
 
 // Represent a ConnReq message from/to the horizontalApi
 type ConnReq struct {
@@ -86,8 +86,8 @@ type ConnReq struct {
 func (ConnReq) canFromHz() {}
 
 // mark this type as being sendable via ToHz channels
-func (ConnReq) canToHz() {}
-func (ConnReq) isPow() bool {return false}
+func (ConnReq) canToHz()    {}
+func (ConnReq) isPow() bool { return false }
 
 // Represents a ConnChall message from/to the horizontalApi
 type ConnChall struct {
@@ -99,8 +99,8 @@ type ConnChall struct {
 func (ConnChall) canFromHz() {}
 
 // mark this type as being sendable via ToHz channels
-func (ConnChall) canToHz() {}
-func (ConnChall) isPow() bool {return false}
+func (ConnChall) canToHz()    {}
+func (ConnChall) isPow() bool { return false }
 
 // Represents a ConnPoW message from/to the horizontalApi
 type ConnPoW struct {
@@ -113,8 +113,8 @@ type ConnPoW struct {
 func (ConnPoW) canFromHz() {}
 
 // mark this type as being sendable via ToHz channels
-func (ConnPoW) canToHz() {}
-func (ConnPoW) isPow() bool {return false}
+func (ConnPoW) canToHz()    {}
+func (ConnPoW) isPow() bool { return false }
 
 // Represent a PowReq message from/to the horizontalApi (used to renew connections)
 type PowReq struct {
@@ -125,8 +125,8 @@ type PowReq struct {
 func (PowReq) canFromHz() {}
 
 // mark this type as being sendable via ToHz channels
-func (PowReq) canToHz() {}
-func (PowReq) isPow() bool {return true}
+func (PowReq) canToHz()    {}
+func (PowReq) isPow() bool { return true }
 
 // Represents a PowChall message from/to the horizontalApi
 type PowChall struct {
@@ -138,8 +138,8 @@ type PowChall struct {
 func (PowChall) canFromHz() {}
 
 // mark this type as being sendable via ToHz channels
-func (PowChall) canToHz() {}
-func (PowChall) isPow() bool {return true}
+func (PowChall) canToHz()    {}
+func (PowChall) isPow() bool { return true }
 
 // Represents a PowPoW message from/to the horizontalApi
 type PowPoW struct {
@@ -152,8 +152,8 @@ type PowPoW struct {
 func (PowPoW) canFromHz() {}
 
 // mark this type as being sendable via ToHz channels
-func (PowPoW) canToHz() {}
-func (PowPoW) isPow() bool {return true}
+func (PowPoW) canToHz()    {}
+func (PowPoW) isPow() bool { return true }
 
 type Unregister ConnectionId
 
@@ -198,7 +198,7 @@ type HorizontalApi struct {
 	// waitgroup to wait for all goroutines to terminate in the end
 	wg sync.WaitGroup
 	// keep some stats of sent packets
-	packetcounter *packetcounter.Counter
+	packetcounter       *packetcounter.Counter
 	packetcounterNonPow *packetcounter.Counter
 }
 
@@ -268,13 +268,13 @@ func (hz *HorizontalApi) Listen(addr string, initFinished chan<- struct{}) error
 
 			// build the context of the connection on top of the context of the
 			// hzAPI so that the context gets done when the hzAPI is done
-			ctx,cfunc := context.WithCancel(hz.ctx)
+			ctx, cfunc := context.WithCancel(hz.ctx)
 
 			toHz := make(chan ToHz)
 			hz.fromHzChan <- NewConn{
-				Data: toHz,
-				Id:   ConnectionId(conn.RemoteAddr().String()),
-				Ctx: ctx,
+				Data:  toHz,
+				Id:    ConnectionId(conn.RemoteAddr().String()),
+				Ctx:   ctx,
 				Cfunc: cfunc,
 			}
 
@@ -311,7 +311,7 @@ func (hz *HorizontalApi) AddNeighbors(dialer *net.Dialer, addrs ...string) ([]Co
 
 		// build the context of the connection on top of the context of the
 		// hzAPI so that the context gets done when the hzAPI is done
-		ctx,cfunc := context.WithCancel(hz.ctx)
+		ctx, cfunc := context.WithCancel(hz.ctx)
 
 		toHz := make(chan ToHz)
 		ret = append(ret, Conn[chan<- ToHz]{Data: toHz, Id: ConnectionId(a), Ctx: ctx, Cfunc: cfunc})
@@ -557,174 +557,174 @@ loop:
 		case <-c.Ctx.Done():
 			break loop
 
-		case rmsg := <- c.Data:
-		hz.log.Debug("instructed to send", "Message", rmsg)
-		// create a new capnproto message
-		cmsg, seg, err := capnp.NewMessage(arena)
-		if err != nil {
-			hz.log.Error("creating new message failed", "err", err)
-			goto continue_write
-		}
-		// scoping needed for goto continue_read to ensure hm isn't used
-		// after goto
-		{
-			// create the actual message
-			msg, err := hzTypes.NewRootMessage(seg)
+		case rmsg := <-c.Data:
+			hz.log.Debug("instructed to send", "Message", rmsg)
+			// create a new capnproto message
+			cmsg, seg, err := capnp.NewMessage(arena)
 			if err != nil {
-				hz.log.Error("creating new sending message failed", "err", err)
+				hz.log.Error("creating new message failed", "err", err)
 				goto continue_write
 			}
-			// check of which type the remote message actually is
-			switch rmsg := rmsg.(type) {
-			case Push:
-				// create the push message
-				push, err := hzTypes.NewPushMsg(seg)
+			// scoping needed for goto continue_read to ensure hm isn't used
+			// after goto
+			{
+				// create the actual message
+				msg, err := hzTypes.NewRootMessage(seg)
 				if err != nil {
 					hz.log.Error("creating new sending message failed", "err", err)
 					goto continue_write
 				}
-				// populate the push message
-				// setting scalar value cannot error
-				push.SetTtl(rmsg.TTL)
-				push.SetGossipType(uint16(rmsg.GossipType))
-				push.SetMessageID(rmsg.MessageID)
-				// payload is no scalar type -> setting might error
-				if err := push.SetPayload(rmsg.Payload); err != nil {
-					hz.log.Error("setting the payload for the push message failed", "err", err)
-					goto continue_write
-				}
-				// combine push and the message
-				if err := msg.Body().SetPush(push); err != nil {
-					hz.log.Error("setting sending message to push failed", "err", err)
-					goto continue_write
-				}
-			case ConnReq:
-				// create the ConnReq message
-				req, err := hzTypes.NewConnReq(seg)
-				if err != nil {
-					hz.log.Error("creating new sending message failed", "err", err)
-					goto continue_write
-				}
+				// check of which type the remote message actually is
+				switch rmsg := rmsg.(type) {
+				case Push:
+					// create the push message
+					push, err := hzTypes.NewPushMsg(seg)
+					if err != nil {
+						hz.log.Error("creating new sending message failed", "err", err)
+						goto continue_write
+					}
+					// populate the push message
+					// setting scalar value cannot error
+					push.SetTtl(rmsg.TTL)
+					push.SetGossipType(uint16(rmsg.GossipType))
+					push.SetMessageID(rmsg.MessageID)
+					// payload is no scalar type -> setting might error
+					if err := push.SetPayload(rmsg.Payload); err != nil {
+						hz.log.Error("setting the payload for the push message failed", "err", err)
+						goto continue_write
+					}
+					// combine push and the message
+					if err := msg.Body().SetPush(push); err != nil {
+						hz.log.Error("setting sending message to push failed", "err", err)
+						goto continue_write
+					}
+				case ConnReq:
+					// create the ConnReq message
+					req, err := hzTypes.NewConnReq(seg)
+					if err != nil {
+						hz.log.Error("creating new sending message failed", "err", err)
+						goto continue_write
+					}
 
-				// combine ConnReq and the message
-				if err := msg.Body().SetConnReq(req); err != nil {
-					hz.log.Error("setting sending message to connReq failed", "err", err)
-					goto continue_write
-				}
-			case ConnChall:
-				// create the ConnChall message
-				chall, err := hzTypes.NewConnChall(seg)
-				if err != nil {
-					hz.log.Error("creating new ConnChall message failed", "err", err)
-					goto continue_write
-				}
-				// populate the message
-				// cookie is no scalar type -> setting might error
-				if err := chall.SetCookie(rmsg.Cookie); err != nil {
-					hz.log.Error("setting the cookie for the ConnChall message failed", "err", err)
-					goto continue_write
-				}
-				// combine connChall and the message
-				if err := msg.Body().SetConnChall(chall); err != nil {
-					hz.log.Error("setting sending message to ConnChall failed", "err", err)
-					goto continue_write
-				}
-			case ConnPoW:
-				// create the ConnPow message
-				pow, err := hzTypes.NewConnPoW(seg)
-				if err != nil {
-					hz.log.Error("creating new ConnPoW message failed", "err", err)
-					goto continue_write
-				}
-				// populate the message
-				// setting scalar value cannot lead to error
-				pow.SetNonce(rmsg.PowNonce)
+					// combine ConnReq and the message
+					if err := msg.Body().SetConnReq(req); err != nil {
+						hz.log.Error("setting sending message to connReq failed", "err", err)
+						goto continue_write
+					}
+				case ConnChall:
+					// create the ConnChall message
+					chall, err := hzTypes.NewConnChall(seg)
+					if err != nil {
+						hz.log.Error("creating new ConnChall message failed", "err", err)
+						goto continue_write
+					}
+					// populate the message
+					// cookie is no scalar type -> setting might error
+					if err := chall.SetCookie(rmsg.Cookie); err != nil {
+						hz.log.Error("setting the cookie for the ConnChall message failed", "err", err)
+						goto continue_write
+					}
+					// combine connChall and the message
+					if err := msg.Body().SetConnChall(chall); err != nil {
+						hz.log.Error("setting sending message to ConnChall failed", "err", err)
+						goto continue_write
+					}
+				case ConnPoW:
+					// create the ConnPow message
+					pow, err := hzTypes.NewConnPoW(seg)
+					if err != nil {
+						hz.log.Error("creating new ConnPoW message failed", "err", err)
+						goto continue_write
+					}
+					// populate the message
+					// setting scalar value cannot lead to error
+					pow.SetNonce(rmsg.PowNonce)
 
-				// cookie is no scalar type -> setting might error
-				if err := pow.SetCookie(rmsg.Cookie); err != nil {
-					hz.log.Error("setting the cookie for the ConnPoW message failed", "err", err)
-					goto continue_write
-				}
-				// combine connChall and the message
-				if err := msg.Body().SetConnPoW(pow); err != nil {
-					hz.log.Error("setting sending message to ConnPow failed", "err", err)
-					goto continue_write
-				}
+					// cookie is no scalar type -> setting might error
+					if err := pow.SetCookie(rmsg.Cookie); err != nil {
+						hz.log.Error("setting the cookie for the ConnPoW message failed", "err", err)
+						goto continue_write
+					}
+					// combine connChall and the message
+					if err := msg.Body().SetConnPoW(pow); err != nil {
+						hz.log.Error("setting sending message to ConnPow failed", "err", err)
+						goto continue_write
+					}
 
-			case PowReq:
-				// create the ConnReq message
-				req, err := hzTypes.NewPowReq(seg)
-				if err != nil {
-					hz.log.Error("creating new sending message failed", "err", err)
-					goto continue_write
-				}
+				case PowReq:
+					// create the ConnReq message
+					req, err := hzTypes.NewPowReq(seg)
+					if err != nil {
+						hz.log.Error("creating new sending message failed", "err", err)
+						goto continue_write
+					}
 
-				// combine ConnReq and the message
-				if err := msg.Body().SetPowReq(req); err != nil {
-					hz.log.Error("setting sending message to connReq failed", "err", err)
-					goto continue_write
-				}
-			case PowChall:
-				// create the ConnChall message
-				chall, err := hzTypes.NewPowChall(seg)
-				if err != nil {
-					hz.log.Error("creating new PoWChall message failed", "err", err)
-					goto continue_write
-				}
-				// populate the message
-				// cookie is no scalar type -> setting might error
-				if err := chall.SetCookie(rmsg.Cookie); err != nil {
-					hz.log.Error("setting the cookie for the PoWChall message failed", "err", err)
-					goto continue_write
-				}
-				// combine connChall and the message
-				if err := msg.Body().SetPowChall(chall); err != nil {
-					hz.log.Error("setting sending message to PoWChall failed", "err", err)
-					goto continue_write
-				}
-			case PowPoW:
-				// create the ConnPow message
-				pow, err := hzTypes.NewPowPoW(seg)
-				if err != nil {
-					hz.log.Error("creating new PoWPoW message failed", "err", err)
-					goto continue_write
-				}
-				// populate the message
-				// setting scalar value cannot lead to error
-				pow.SetNonce(rmsg.PowNonce)
+					// combine ConnReq and the message
+					if err := msg.Body().SetPowReq(req); err != nil {
+						hz.log.Error("setting sending message to connReq failed", "err", err)
+						goto continue_write
+					}
+				case PowChall:
+					// create the ConnChall message
+					chall, err := hzTypes.NewPowChall(seg)
+					if err != nil {
+						hz.log.Error("creating new PoWChall message failed", "err", err)
+						goto continue_write
+					}
+					// populate the message
+					// cookie is no scalar type -> setting might error
+					if err := chall.SetCookie(rmsg.Cookie); err != nil {
+						hz.log.Error("setting the cookie for the PoWChall message failed", "err", err)
+						goto continue_write
+					}
+					// combine connChall and the message
+					if err := msg.Body().SetPowChall(chall); err != nil {
+						hz.log.Error("setting sending message to PoWChall failed", "err", err)
+						goto continue_write
+					}
+				case PowPoW:
+					// create the ConnPow message
+					pow, err := hzTypes.NewPowPoW(seg)
+					if err != nil {
+						hz.log.Error("creating new PoWPoW message failed", "err", err)
+						goto continue_write
+					}
+					// populate the message
+					// setting scalar value cannot lead to error
+					pow.SetNonce(rmsg.PowNonce)
 
-				// cookie is no scalar type -> setting might error
-				if err := pow.SetCookie(rmsg.Cookie); err != nil {
-					hz.log.Error("setting the cookie for the PoWPoW message failed", "err", err)
-					goto continue_write
+					// cookie is no scalar type -> setting might error
+					if err := pow.SetCookie(rmsg.Cookie); err != nil {
+						hz.log.Error("setting the cookie for the PoWPoW message failed", "err", err)
+						goto continue_write
+					}
+					// combine connChall and the message
+					if err := msg.Body().SetPowPoW(pow); err != nil {
+						hz.log.Error("setting sending message to PowPoW failed", "err", err)
+						goto continue_write
+					}
 				}
-				// combine connChall and the message
-				if err := msg.Body().SetPowPoW(pow); err != nil {
-					hz.log.Error("setting sending message to PowPoW failed", "err", err)
-					goto continue_write
+				if !rmsg.isPow() {
+					hz.packetcounterNonPow.Add(1)
 				}
 			}
-			if !rmsg.isPow() {
-				hz.packetcounterNonPow.Add(1)
+			// sent the message on the channel
+			hz.packetcounter.Add(1)
+			if err := encoder.Encode(cmsg); err != nil {
+				// might error because the connection has closed -> check if should
+				// terminate
+				select {
+				case <-c.Ctx.Done():
+					break loop
+				default:
+				}
+				hz.log.Error("encoding the message failed", "err", err)
+				goto continue_write
 			}
+		continue_write:
+			// reset the arena to free memory used by the last encoded message
+			cmsg.Release()
 		}
-		// sent the message on the channel
-		hz.packetcounter.Add(1)
-		if err := encoder.Encode(cmsg); err != nil {
-			// might error because the connection has closed -> check if should
-			// terminate
-			select {
-			case <-c.Ctx.Done():
-				break loop
-			default:
-			}
-			hz.log.Error("encoding the message failed", "err", err)
-			goto continue_write
-		}
-	continue_write:
-		// reset the arena to free memory used by the last encoded message
-		cmsg.Release()
-	}
 	}
 }
 

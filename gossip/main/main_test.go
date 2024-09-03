@@ -140,7 +140,7 @@ func NotTestMain(test *testing.T) {
 }
 
 func TestMainEndToEndOneHopA(test *testing.T) {
-	defer func(){
+	defer func() {
 		if r := recover(); r != nil {
 			test.Fatal(r)
 		}
@@ -212,7 +212,7 @@ func TestMainEndToEndOneHopA(test *testing.T) {
 }
 
 func TestMainEndToEndOneHopB(test *testing.T) {
-	defer func(){
+	defer func() {
 		if r := recover(); r != nil {
 			test.Fatal(r)
 		}
@@ -284,7 +284,7 @@ func TestMainEndToEndOneHopB(test *testing.T) {
 }
 
 func TestMainEndToEndOneHopC(test *testing.T) {
-	defer func(){
+	defer func() {
 		if r := recover(); r != nil {
 			print("\n\nhello world\n\n")
 			test.Fatal(r)

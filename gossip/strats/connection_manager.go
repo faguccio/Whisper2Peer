@@ -223,7 +223,7 @@ func (manager *ConnectionManager) CullConnections(f func(x gossipConnection) boo
 		}
 	}
 
-	for i := len(toRemove)-1; i >= 0; i-- {
+	for i := len(toRemove) - 1; i >= 0; i-- {
 		//remove it from slice as well
 		manager.openConnections[toRemove[i]] = manager.openConnections[len(manager.openConnections)-1]
 		manager.openConnections = manager.openConnections[:len(manager.openConnections)-1]

@@ -32,7 +32,7 @@ type VerticalApi struct {
 	// store the listener so that it can be closed in the end
 	ln net.Listener
 	// store all open connections so that they can be closed in the end
-	conns map[net.Conn]struct{}
+	conns      map[net.Conn]struct{}
 	connsMutex sync.Mutex
 	// collection of channels for the backchannel to the main package
 	vertToMainChan chan<- common.FromVert
@@ -245,39 +245,39 @@ func (v *VerticalApi) writeToConnection(conn net.Conn, cData common.Conn[<-chan 
 	buf := make([]byte, 0, 4096)
 
 	for {
-	select {
-	case <-cData.Ctx.Done():
-		return
-	case msg := <- cData.Data:
-		switch msg := msg.(type) {
-		case common.GossipNotification:
-			vmsg := vertTypes.GossipNotification{
-				Gn: msg,
-				MessageHeader: vertTypes.MessageHeader{
-					Type: vertTypes.GossipNotificationType,
-				},
+		select {
+		case <-cData.Ctx.Done():
+			return
+		case msg := <-cData.Data:
+			switch msg := msg.(type) {
+			case common.GossipNotification:
+				vmsg := vertTypes.GossipNotification{
+					Gn: msg,
+					MessageHeader: vertTypes.MessageHeader{
+						Type: vertTypes.GossipNotificationType,
+					},
+				}
+				vmsg.MessageHeader.RecalcSize(&vmsg)
+				buf, err = vmsg.Marshal(buf)
+				if err != nil {
+					v.log.Warn("Failed to marshal GossipNotification", "err", err)
+					continue
+				}
 			}
-			vmsg.MessageHeader.RecalcSize(&vmsg)
-			buf, err = vmsg.Marshal(buf)
+
+			nWritten, err = conn.Write(buf)
 			if err != nil {
-				v.log.Warn("Failed to marshal GossipNotification", "err", err)
+				// check if shall terminate
+				select {
+				case <-cData.Ctx.Done():
+					return
+				default:
+				}
+				v.log.Warn("Failed to send GossipNotification", "err", err)
 				continue
 			}
+			_ = nWritten
 		}
-
-		nWritten, err = conn.Write(buf)
-		if err != nil {
-			// check if shall terminate
-			select {
-			case <-cData.Ctx.Done():
-				return
-			default:
-			}
-			v.log.Warn("Failed to send GossipNotification", "err", err)
-			continue
-		}
-		_ = nWritten
-	}
 	}
 }
 
