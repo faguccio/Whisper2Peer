@@ -59,7 +59,6 @@ func (uarg *UserArgs) Merge(arg args.Args) args.Args {
 	return arg
 }
 
-
 // initialize a [slog.Logger]
 func logInit(identifier any) *slog.Logger {
 	return slog.New(tint.NewHandler(os.Stdout, &tint.Options{
