@@ -1,6 +1,7 @@
 package horizontalapi
 
 import (
+	"context"
 	"log/slog"
 	"net"
 	"reflect"
@@ -27,10 +28,12 @@ func TestGorizontalApiWithPipe(test *testing.T) {
 
 	cWrite, cRead := net.Pipe()
 	defer cRead.Close()
+	ctx, cfunc := context.WithCancel(context.Background())
+	defer cfunc()
 
 	hz.wg.Add(2)
-	go hz.handleConnection(cRead, Conn[chan<- ToHz]{Data: toHz})
-	go hz.writeToConnection(cWrite, Conn[<-chan ToHz]{Data: toHz})
+	go hz.handleConnection(cRead, Conn[chan<- ToHz]{Data: toHz, Ctx: ctx, Cfunc: cfunc})
+	go hz.writeToConnection(cWrite, Conn[<-chan ToHz]{Data: toHz, Ctx: ctx, Cfunc: cfunc})
 
 	// send a notify message to register to the server and get the mainToVert
 	// channel in return

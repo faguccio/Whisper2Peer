@@ -103,7 +103,11 @@ func (dummy *dummyStrat) Listen() {
 			case x := <-dummy.fromHz:
 				switch msg := x.(type) {
 				case horizontalapi.Unregister:
-					dummy.connManager.Remove(horizontalapi.ConnectionId(msg))
+					peer, err := dummy.connManager.Remove(horizontalapi.ConnectionId(msg))
+					if err == nil {
+						// now after removing the peer from all internal datastructures it is safe to fully close it
+						peer.connection.Cfunc()
+					}
 
 				case horizontalapi.Push:
 					_, isValid := dummy.connManager.FindValid(msg.Id)
@@ -157,13 +161,13 @@ func (dummy *dummyStrat) Listen() {
 					go func() {
 						nonce := ComputePoW(msg.Cookie)
 						pow := horizontalapi.ConnPoW{PowNonce: nonce, Cookie: msg.Cookie}
-						// maybe the connection was closed in the meantime
-						_, stillToBeProven := dummy.connManager.FindToBeProved(peer.connection.Id)
-						if !stillToBeProven {
-							return
+						select {
+						case <-peer.connection.Ctx.Done():
+						// connection was already closed in the meantime
+						default:
+							peer.connection.Data <- pow
+							dummy.connManager.MakeValid(peer.connection.Id, time.Now())
 						}
-						peer.connection.Data <- pow
-						dummy.connManager.MakeValid(peer.connection.Id, time.Now())
 					}()
 
 				// Checks incoming PoWs
@@ -251,12 +255,12 @@ func (dummy *dummyStrat) Listen() {
 					go func() {
 						nonce := ComputePoW(msg.Cookie)
 						pow := horizontalapi.PowPoW{PowNonce: nonce, Cookie: msg.Cookie}
-						// maybe the connection was closed in the meantime
-						_, stillToBeProven := dummy.connManager.FindToBeProved(peer.connection.Id)
-						if !stillToBeProven {
-							return
+						select {
+						case <-peer.connection.Ctx.Done():
+						// connection was already closed in the meantime
+						default:
+							peer.connection.Data <- pow
 						}
-						peer.connection.Data <- pow
 					}()
 
 				case horizontalapi.PowPoW:

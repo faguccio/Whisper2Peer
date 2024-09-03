@@ -28,6 +28,8 @@ type ConnectionId string
 type Conn[T any] struct {
 	Id   ConnectionId
 	Data T
+	Ctx context.Context
+	Cfunc context.CancelFunc
 }
 
 // define errors
@@ -275,8 +277,11 @@ func (hz *HorizontalApi) Listen(addr string, initFinished chan<- struct{}) error
 			hz.log.Info("Incoming connection from", "addr", conn.RemoteAddr().String())
 
 			hz.wg.Add(2)
-			go hz.handleConnection(conn, Conn[chan<- ToHz]{Data: toHz, Id: ConnectionId(conn.RemoteAddr().String())})
-			go hz.writeToConnection(conn, Conn[<-chan ToHz]{Data: toHz, Id: ConnectionId(conn.RemoteAddr().String())})
+			// build the context of the connection on top of the context of the
+			// hzAPI so that the context gets done when the hzAPI is done
+			ctx,cfunc := context.WithCancel(hz.ctx)
+			go hz.handleConnection(conn, Conn[chan<- ToHz]{Data: toHz, Id: ConnectionId(conn.RemoteAddr().String()), Ctx: ctx, Cfunc: cfunc})
+			go hz.writeToConnection(conn, Conn[<-chan ToHz]{Data: toHz, Id: ConnectionId(conn.RemoteAddr().String()), Ctx: ctx, Cfunc: cfunc})
 		}
 	}()
 	return nil
@@ -304,8 +309,11 @@ func (hz *HorizontalApi) AddNeighbors(dialer *net.Dialer, addrs ...string) ([]Co
 		ret = append(ret, Conn[chan<- ToHz]{Data: toHz, Id: ConnectionId(a)})
 
 		hz.wg.Add(2)
-		go hz.handleConnection(conn, Conn[chan<- ToHz]{Data: toHz, Id: ConnectionId(conn.RemoteAddr().String())})
-		go hz.writeToConnection(conn, Conn[<-chan ToHz]{Data: toHz, Id: ConnectionId(conn.RemoteAddr().String())})
+		// build the context of the connection on top of the context of the
+		// hzAPI so that the context gets done when the hzAPI is done
+		ctx,cfunc := context.WithCancel(hz.ctx)
+		go hz.handleConnection(conn, Conn[chan<- ToHz]{Data: toHz, Id: ConnectionId(conn.RemoteAddr().String()), Ctx: ctx, Cfunc: cfunc})
+		go hz.writeToConnection(conn, Conn[<-chan ToHz]{Data: toHz, Id: ConnectionId(conn.RemoteAddr().String()), Ctx: ctx, Cfunc: cfunc})
 	}
 	return ret, nil
 }
@@ -328,9 +336,8 @@ func (hz *HorizontalApi) handleConnection(conn net.Conn, connData Conn[chan<- To
 		delete(hz.conns, conn)
 		hz.connsMutex.Unlock()
 	}()
-	// close the > hz channel to signal the connection is closed
-	// also this causes the write routine to terminate
-	defer close(connData.Data)
+	// send the unregister signal. The other side should then close the context
+	// of the connection to also terminate the write routine
 	defer func(connData Conn[chan<- ToHz]) {
 		hz.fromHzChan <- Unregister(connData.Id)
 	}(connData)
@@ -348,7 +355,7 @@ loop:
 		if err != nil {
 			// error might be because the connection has closed -> check if should terminate
 			select {
-			case <-hz.ctx.Done():
+			case <-connData.Ctx.Done():
 				break loop
 			default:
 			}
@@ -540,7 +547,12 @@ func (hz *HorizontalApi) writeToConnection(conn net.Conn, c Conn[<-chan ToHz]) {
 	// the following loop uses goto continue_write instead of continue so that
 	// some cleanup can be done before actually continuing
 loop:
-	for rmsg := range c.Data {
+	for {
+		select {
+		case <-c.Ctx.Done():
+			break loop
+
+		case rmsg := <- c.Data:
 		hz.log.Debug("instructed to send", "Message", rmsg)
 		// create a new capnproto message
 		cmsg, seg, err := capnp.NewMessage(arena)
@@ -707,6 +719,7 @@ loop:
 	continue_write:
 		// reset the arena to free memory used by the last encoded message
 		cmsg.Release()
+	}
 	}
 }
 
