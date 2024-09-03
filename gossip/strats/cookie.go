@@ -97,8 +97,7 @@ func ReadCookie(aead cipher.AEAD, cookie []byte) (*connCookie, error) {
 
 	plaintext, err := aead.Open(nil, cipherNonce, cookie, nil)
 	if err != nil {
-		fmt.Println("Error while decrypting the cookie", "err", err)
-		return nil, err
+		return nil, fmt.Errorf("Error while decrypting the cookie %w", err)
 	}
 
 	var c connCookie
