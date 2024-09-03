@@ -22,7 +22,7 @@ func TestCookie(test *testing.T) {
 	}
 
 	cookie := NewConnCookie(horizontalapi.ConnectionId("MIAMIbeach"))
-	payload := cookie.createCookie(aead)
+	payload := cookie.CreateCookie(aead)
 	readCookie, err := ReadCookie(aead, payload)
 
 	if err != nil {

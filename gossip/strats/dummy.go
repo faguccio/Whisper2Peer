@@ -2,20 +2,16 @@ package strats
 
 import (
 	"context"
-	"encoding/binary"
 	"errors"
-	"fmt"
 	"gossip/common"
 	horizontalapi "gossip/horizontalAPI"
 	ringbuffer "gossip/internal/ringbuffer"
 	pow "gossip/pow"
 	"reflect"
-	"slices"
 
 	"crypto/cipher"
 	"crypto/rand"
 	"math/big"
-	mrand "math/rand"
 	"time"
 
 	"golang.org/x/crypto/chacha20poly1305"
@@ -27,19 +23,14 @@ var (
 )
 
 var (
-	POW_TIME = 5 * time.Second
+	POW_TIMEOUT      = 7 * time.Second
+	POW_REQUEST_TIME = 2 * time.Second
 )
 
 // Some messages might use a counter of how many peers the message was relayed to
 type storedMessage struct {
 	counter int
 	message horizontalapi.Push
-}
-
-type connCookie struct {
-	chall     []byte
-	timestamp time.Time
-	dest      horizontalapi.ConnectionId
 }
 
 // This struct contains all the fields used by the Dummy Strategy.
@@ -50,17 +41,8 @@ type dummyStrat struct {
 	fromHz <-chan horizontalapi.FromHz
 	// Channel were new connection are notified
 	hzConnection <-chan horizontalapi.NewConn
-
-	// Array of open connections. These connections are valid, meaning that a PoW was received.
-	openConnections []gossipConnection
-	// Map of valid connection (for fast access). If a connection is present in the openConnections
-	// It is also present here
-	openConnectionMap map[horizontalapi.ConnectionId]gossipConnection
-
-	// Map of in progress connection. These connection are initiated by another peer and still have
-	// to provide a PoW. After that they will be moved to openConnections and openConnectionMap.
-	// If PoW is not valid, they will be removed.
-	powInProgress map[horizontalapi.ConnectionId]gossipConnection
+	// Connection Manager object
+	connManager *ConnectionManager
 
 	// Collection of messages received from a peer which needs to be validated through the vertical api
 	invalidMessages *ringbuffer.Ringbuffer[*storedMessage]
@@ -74,8 +56,9 @@ type dummyStrat struct {
 
 // Function to instantiate a new DummyStrategy.
 //
-// strategy must be the baseStrategy. openConnection a list of ToHz channels, one for each peer
-func NewDummy(strategy Strategy, fromHz <-chan horizontalapi.FromHz, hzConnection <-chan horizontalapi.NewConn, openConnections []gossipConnection, connectionMap map[horizontalapi.ConnectionId]gossipConnection) dummyStrat {
+// strategy must be the baseStrategy. toBeProvedConnections a list of ToHz channels, one for each peer, that
+// current peer needs to send PoWs to
+func NewDummy(strategy Strategy, fromHz <-chan horizontalapi.FromHz, hzConnection <-chan horizontalapi.NewConn, connManager *ConnectionManager) dummyStrat {
 	key := make([]byte, chacha20poly1305.KeySize)
 	if _, err := rand.Read(key); err != nil {
 		panic(err)
@@ -87,16 +70,14 @@ func NewDummy(strategy Strategy, fromHz <-chan horizontalapi.FromHz, hzConnectio
 	}
 
 	return dummyStrat{
-		rootStrat:         strategy,
-		fromHz:            fromHz,
-		hzConnection:      hzConnection,
-		openConnections:   openConnections,
-		openConnectionMap: connectionMap,
-		powInProgress:     make(map[horizontalapi.ConnectionId]gossipConnection),
-		invalidMessages:   ringbuffer.NewRingbuffer[*storedMessage](strategy.stratArgs.Cache_size),
-		validMessages:     ringbuffer.NewRingbuffer[*storedMessage](strategy.stratArgs.Cache_size),
-		sentMessages:      ringbuffer.NewRingbuffer[*storedMessage](strategy.stratArgs.Cache_size),
-		cipher:            aead,
+		rootStrat:       strategy,
+		fromHz:          fromHz,
+		hzConnection:    hzConnection,
+		connManager:     connManager,
+		invalidMessages: ringbuffer.NewRingbuffer[*storedMessage](strategy.stratArgs.Cache_size),
+		validMessages:   ringbuffer.NewRingbuffer[*storedMessage](strategy.stratArgs.Cache_size),
+		sentMessages:    ringbuffer.NewRingbuffer[*storedMessage](strategy.stratArgs.Cache_size),
+		cipher:          aead,
 	}
 }
 
@@ -106,8 +87,17 @@ func NewDummy(strategy Strategy, fromHz <-chan horizontalapi.FromHz, hzConnectio
 // This function spawn a new goroutine. Incoming messages will be processed by the Dummy Strategy.
 func (dummy *dummyStrat) Listen() {
 	go func() {
+		// Sending out initial challenges requests
+		dummy.connManager.ActionOnToBeProved(func(x gossipConnection) {
+			req := horizontalapi.ConnReq{}
+			x.connection.Data <- req
+		})
 		// A repeating signal to trigger a recurrent behavior.
 		ticker := time.NewTicker(time.Duration(dummy.rootStrat.stratArgs.GossipTimer) * time.Second)
+		// A repeating signal for the renewing of connections
+		renewalTicker := time.NewTicker(POW_REQUEST_TIME)
+		// A repeating signal for the checking (and culling) all open connections
+		timeoutTicker := time.NewTicker(POW_TIMEOUT)
 
 		// Keep listening on all channels
 		for {
@@ -116,11 +106,13 @@ func (dummy *dummyStrat) Listen() {
 			case x := <-dummy.fromHz:
 				switch msg := x.(type) {
 				case horizontalapi.Unregister:
-					// remove the connection with the respective ID from the list of connections
-					dummy.removeConnection(horizontalapi.ConnectionId(msg))
+					dummy.connManager.Remove(horizontalapi.ConnectionId(msg))
 
 				case horizontalapi.Push:
-					if !dummy.checkConnectionValidity(msg.Id) {
+					_, isValid := dummy.connManager.FindValid(msg.Id)
+
+					if !isValid {
+						dummy.rootStrat.log.Debug("PUSH message not processed because peer was not PoW valid", "Peer ID", msg.Id)
 						continue
 					}
 
@@ -139,33 +131,54 @@ func (dummy *dummyStrat) Listen() {
 					}
 
 				case horizontalapi.ConnReq:
+					// Create ConnChall message with the encrypted cookie
 					cookie := NewConnCookie(msg.Id)
 
-					// Create ConnChall message with the encrypted cookie
-					m := horizontalapi.ConnChall{
-						Cookie: cookie.createCookie(dummy.cipher),
+					peer, IsInProgress := dummy.connManager.FindInProgress(msg.Id)
+
+					if !IsInProgress {
+						dummy.rootStrat.log.Debug("ConnReq received from a connection not present in the inProgress connections", "Id", msg.Id)
+						continue
 					}
 
-					// Send message to correct peer
-					peer := dummy.powInProgress[msg.Id]
-					if peer.timestamp.IsZero() {
-						dummy.rootStrat.log.Error("No open connection found for challReq", "conn Id", msg.Id)
-						continue
+					m := horizontalapi.ConnChall{
+						Id:     msg.Id,
+						Cookie: cookie.CreateCookie(dummy.cipher),
 					}
 
 					peer.connection.Data <- m
 
 				case horizontalapi.ConnChall:
-					// Not expecting any challenge, managed in Main
+					// Checks weather the Chall is coming from a toBeProvedConnection
+					peer, isToBeProved := dummy.connManager.FindToBeProved(msg.Id)
+					if !isToBeProved {
+						dummy.rootStrat.log.Debug("ConnChall received from a not toBeProved connection", "id", msg.Id, "Message", msg)
+						dummy.connManager.Remove(msg.Id)
+						continue
+					}
 
+					go func() {
+						nonce := ComputePoW(msg.Cookie)
+						pow := horizontalapi.ConnPoW{PowNonce: nonce, Cookie: msg.Cookie}
+						peer.connection.Data <- pow
+						dummy.connManager.MakeValid(peer.connection.Id, time.Now())
+					}()
+
+				// Checks incoming PoWs
 				case horizontalapi.ConnPoW:
-					mypow := powMarsh{PowNonce: msg.PowNonce, Cookie: msg.Cookie}
+					_, connValidty := dummy.connManager.FindInProgress(msg.Id)
+					if !connValidty {
+						dummy.rootStrat.log.Debug("ConnPow received was from a connection which is not actually in Progress", "Id", msg.Id)
+						dummy.connManager.Remove(msg.Id)
+						continue
+					}
 
+					mypow := powMarsh{PowNonce: msg.PowNonce, Cookie: msg.Cookie}
 					cookieRead, err := ReadCookie(dummy.cipher, mypow.Cookie)
 
 					if err != nil {
 						dummy.rootStrat.log.Debug("Failed to decrypt cookie, dropping connection", "connection ID", msg.Id)
-						dummy.removeConnection(msg.Id)
+						dummy.connManager.Remove(msg.Id)
 						continue
 					}
 
@@ -175,37 +188,107 @@ func (dummy *dummyStrat) Listen() {
 					}, &mypow)
 
 					if !powValidity {
-						dummy.rootStrat.log.Debug("Invalid pow, dropping connection", "expected conn Id", cookieRead.dest, "actual Id", msg.Id)
-						dummy.removeConnection(msg.Id)
+						dummy.rootStrat.log.Debug("Invalid pow, dropping connection", "actual Id", msg.Id)
+						dummy.connManager.Remove(msg.Id)
 						continue
 					}
 
-					// check dest is valid
+					// check if dest is valid
 					if cookieRead.dest != msg.Id {
 						dummy.rootStrat.log.Debug("Mismatched connectionId between received connPow and sender", "expected conn Id", cookieRead.dest, "actual Id", msg.Id)
-						dummy.removeConnection(msg.Id)
+						dummy.connManager.Remove(msg.Id)
 						continue
 					}
 
 					// check if time taken for giving pow is within the limits
 					diff := time.Now().Sub(cookieRead.timestamp)
-					if diff > POW_TIME {
+
+					if diff > POW_TIMEOUT {
 						dummy.rootStrat.log.Debug("POW for accepting connection was given not within the time limit", "expected conn Id", cookieRead.dest, "actual Id", msg.Id)
-						dummy.removeConnection(msg.Id)
+						dummy.connManager.Remove(msg.Id)
 						continue
 					}
 
-					peer := dummy.powInProgress[msg.Id]
-					if peer.timestamp.IsZero() {
-						dummy.rootStrat.log.Error("No open connection found for challPoW", "conn Id", msg.Id)
+					dummy.connManager.MakeValid(msg.Id, cookieRead.timestamp)
+
+				case horizontalapi.PowReq:
+					// Create PowChall message with the encrypted cookie
+					cookie := NewConnCookie(msg.Id)
+
+					peer, isValid := dummy.connManager.FindValid(msg.Id)
+					if !isValid {
+						dummy.rootStrat.log.Debug("Id not found in the connection manager", "Id", msg.Id)
 						continue
 					}
 
-					// Validate connection and remove it from inProgress
-					peer.timestamp = cookieRead.timestamp
-					dummy.openConnectionMap[msg.Id] = peer
-					dummy.openConnections = append(dummy.openConnections, peer)
-					dummy.removeConnection(msg.Id)
+					m := horizontalapi.PowChall{
+						Id:     msg.Id,
+						Cookie: cookie.CreateCookie(dummy.cipher),
+					}
+
+					peer.connection.Data <- m
+
+				case horizontalapi.PowChall:
+					// Checks weather the Chall is from an openConnection (renewal)
+					peer, isValid := dummy.connManager.FindValid(msg.Id)
+
+					if !isValid {
+						dummy.rootStrat.log.Debug("PowChall received from a not valid connection", "id", msg.Id)
+						dummy.connManager.Remove(msg.Id)
+						continue
+					}
+
+					// if too little time has passed from last PoW request, this might be a
+					// DoS attack, but I will be lenient and just skip it
+					// diff := time.Now().Sub(peer.timestamp)
+					// if diff < POW_REQUEST_TIME/2 {
+					// 	dummy.rootStrat.log.Debug("Too many pow request, this one was rejected", "connection ID", msg.Id, "diff", diff)
+					// 	continue
+					// }
+
+					go func() {
+						nonce := ComputePoW(msg.Cookie)
+						pow := horizontalapi.PowPoW{PowNonce: nonce, Cookie: msg.Cookie}
+						peer.connection.Data <- pow
+					}()
+
+				case horizontalapi.PowPoW:
+					// Checks weather the PoW is from an openConnection (renewal)
+					_, connValidty := dummy.connManager.FindValid(msg.Id)
+					if !connValidty {
+						dummy.rootStrat.log.Debug("PoWPoW received was from a connection which is not actually valid", "Id", msg.Id)
+						dummy.connManager.Remove(msg.Id)
+						continue
+					}
+
+					mypow := powMarsh{PowNonce: msg.PowNonce, Cookie: msg.Cookie}
+					cookieRead, err := ReadCookie(dummy.cipher, mypow.Cookie)
+
+					if err != nil {
+						dummy.rootStrat.log.Debug("Failed to decrypt cookie, dropping connection", "connection ID", msg.Id)
+						dummy.connManager.Remove(msg.Id)
+						continue
+					}
+
+					// Check proof of work
+					powValidity := pow.CheckProofOfWork(func(digest []byte) bool {
+						return pow.First8bits0(digest)
+					}, &mypow)
+
+					if !powValidity {
+						dummy.rootStrat.log.Debug("Invalid pow, dropping connection", "actual Id", msg.Id)
+						dummy.connManager.Remove(msg.Id)
+						continue
+					}
+
+					// check if dest is valid
+					if cookieRead.dest != msg.Id {
+						dummy.rootStrat.log.Debug("Mismatched connectionId between received connPow and sender", "expected conn Id", cookieRead.dest, "actual Id", msg.Id)
+						dummy.connManager.Remove(msg.Id)
+						continue
+					}
+
+					dummy.connManager.MakeValid(msg.Id, cookieRead.timestamp)
 
 				}
 
@@ -213,9 +296,8 @@ func (dummy *dummyStrat) Listen() {
 			case newPeer := <-dummy.hzConnection:
 				conn := gossipConnection{
 					connection: horizontalapi.Conn[chan<- horizontalapi.ToHz](newPeer),
-					timestamp:  time.Now(),
 				}
-				dummy.powInProgress[conn.connection.Id] = conn
+				dummy.connManager.AddInProgress(conn)
 
 				// Message from the vertical API
 			case x := <-dummy.rootStrat.strategyChannels.ToStrat:
@@ -247,28 +329,32 @@ func (dummy *dummyStrat) Listen() {
 
 				// Recurrent timer signal
 			case <-ticker.C:
-				// A random peer is selected and we relay all messages to that peer.
+				validMessages := dummy.validMessages.ExtractToSlice()
 
-				// Create a permutation over the length of valid connections
-				perm := mrand.Perm(len(dummy.openConnections))
-				amount := min(len(dummy.openConnections), int(dummy.rootStrat.stratArgs.Degree))
-
-				dummy.validMessages.Do((func(msg *storedMessage) {
-					for i := 0; i < amount; i++ {
-						idx := perm[i]
-
-						//dummy.rootStrat.log.Debug("DST conn", "conn", dummy.openConnections[idx])
-						dummy.openConnections[idx].connection.Data <- msg.message
-						dummy.rootStrat.log.Debug("HZ Message sent:", "dst", dummy.openConnections[idx].connection.Id, "Message", msg)
+				dummy.connManager.ActionOnPermutedValid(func(peer gossipConnection) {
+					for _, msg := range validMessages {
+						peer.connection.Data <- msg.message
+						dummy.rootStrat.log.Debug("HZ Message sent:", "dst", peer.connection.Id, "Message", msg)
 						msg.counter++
 
 						// If message was sent to args.Degree neighboughrs delete it from the set of messages
 						if msg.counter >= int(dummy.rootStrat.stratArgs.Degree) {
 							dummy.validMessages.Remove(msg)
 							dummy.sentMessages.Insert(msg)
+							break
 						}
 					}
-				}))
+				}, int(dummy.rootStrat.stratArgs.Degree))
+
+			case <-renewalTicker.C:
+				dummy.connManager.ActionOnValid(func(x gossipConnection) {
+					req := horizontalapi.PowReq{}
+					x.connection.Data <- req
+				})
+
+			case <-timeoutTicker.C:
+				dummy.connManager.CullConnections(isConnectionInvalid)
+
 			case <-dummy.rootStrat.ctx.Done():
 				// should terminate
 				return
@@ -277,90 +363,13 @@ func (dummy *dummyStrat) Listen() {
 	}()
 }
 
-// Return the corresponding connection given an Id and a list of connection
-// func findConnection(connections []gossipConnection, id horizontalapi.ConnectionId) *gossipConnection {
-// 	for i, conn := range connections {
-// 		if conn.connection.Id == id {
-// 			return &connections[i]
-// 		}
-// 	}
-// 	return nil
-// }
-
-func NewConnCookie(dest horizontalapi.ConnectionId) connCookie {
-	nonce := make([]byte, chacha20poly1305.NonceSizeX)
-	if _, err := rand.Read(nonce); err != nil {
-		panic(err)
-	}
-
-	return connCookie{
-		chall:     nonce,
-		timestamp: time.Unix(0, time.Now().UnixNano()),
-		dest:      dest,
-	}
+// Returns weather the connection is valid or not
+func isConnectionInvalid(peer gossipConnection) bool {
+	diff := time.Now().Sub(peer.timestamp)
+	return !(diff < POW_TIMEOUT)
 }
 
-func (x *connCookie) Marshal() []byte {
-	timestamp := x.timestamp.UnixNano()
-	buf := make([]byte, len(x.chall)+binary.Size(timestamp)+len(x.dest))
-
-	idx := 0
-
-	binary.BigEndian.PutUint64(buf[idx:], uint64(timestamp))
-	idx += binary.Size(timestamp)
-
-	copy(buf[idx:], x.chall[:])
-	idx += len(x.chall)
-
-	copy(buf[idx:], x.dest[:])
-	idx += len(x.dest)
-
-	return buf
-}
-
-func (x *connCookie) Unmarshal(buf []byte) {
-	idx := 0
-
-	t := binary.BigEndian.Uint64(buf[idx : idx+8])
-	timestamp := time.Unix(0, int64(t))
-	idx += 8
-
-	x.chall = make([]byte, chacha20poly1305.NonceSizeX)
-	copy(x.chall, buf[idx:idx+chacha20poly1305.NonceSizeX])
-	idx += chacha20poly1305.NonceSizeX
-
-	dest := make([]byte, len(buf[idx:]))
-	copy(dest, buf[idx:])
-
-	x.timestamp = timestamp
-	x.dest = horizontalapi.ConnectionId(string(dest))
-}
-
-func (x *connCookie) createCookie(aead cipher.AEAD) []byte {
-	payload := x.Marshal()
-
-	ciphertext := aead.Seal(nil, x.chall, payload, nil)
-	// Cipher nonce is appended as the first (24) bytes of the cookie
-	cookie := slices.Concat(x.chall, ciphertext)
-	return cookie
-}
-
-func ReadCookie(aead cipher.AEAD, cookie []byte) (*connCookie, error) {
-	cipherNonce := cookie[0:chacha20poly1305.NonceSizeX]
-	cookie = cookie[chacha20poly1305.NonceSizeX:]
-
-	plaintext, err := aead.Open(nil, cipherNonce, cookie, nil)
-	if err != nil {
-		fmt.Println("Error while decrypting the cookie", "err", err)
-		return nil, err
-	}
-
-	var c connCookie
-	c.Unmarshal(plaintext)
-	return &c, nil
-}
-
-// Go throught a ringbuffer of messages and return the one with a matching ID, error if none is found
+// Go through a ringbuffer of messages and return the one with a matching ID, error if none is found
 // This function is needed just for a closure
 func findFirstMessage(ring *ringbuffer.Ringbuffer[*storedMessage], messageId uint16) (*storedMessage, error) {
 	res, err := ring.FindFirst(func(p *storedMessage) bool {
@@ -392,40 +401,6 @@ func convertPushToNotification(pushMsg horizontalapi.Push) common.GossipNotifica
 		Data:      pushMsg.Payload,
 	}
 	return notification
-}
-
-func (dummy *dummyStrat) removeConnection(id horizontalapi.ConnectionId) {
-	// Try to remove it from in progress connections
-	peer := dummy.powInProgress[id]
-	if peer.timestamp.IsZero() {
-		delete(dummy.powInProgress, id)
-		return
-	}
-
-	// Try to remove it from the valid connections
-	peer = dummy.openConnectionMap[id]
-	if peer.timestamp.IsZero() {
-		delete(dummy.openConnectionMap, id)
-
-		// Remove it from the slice as well
-		for i, conn := range dummy.openConnections {
-			if conn.connection.Id == id {
-				dummy.openConnections[i] = dummy.openConnections[len(dummy.openConnections)-1]
-				dummy.openConnections = dummy.openConnections[:len(dummy.openConnections)-1]
-				break
-			}
-		}
-		return
-	}
-}
-
-// Returns weather the connection is valid or not (for now, just return if it is present in the openConnection)
-func (dummy *dummyStrat) checkConnectionValidity(id horizontalapi.ConnectionId) bool {
-	peer := dummy.openConnectionMap[id]
-	if peer.timestamp.IsZero() {
-		return false
-	}
-	return true
 }
 
 // Close the root strategy
