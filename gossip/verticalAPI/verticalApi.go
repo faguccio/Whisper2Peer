@@ -32,7 +32,7 @@ type VerticalApi struct {
 	// store the listener so that it can be closed in the end
 	ln net.Listener
 	// store all open connections so that they can be closed in the end
-	conns map[net.Conn]struct{}
+	conns      map[net.Conn]struct{}
 	connsMutex sync.Mutex
 	// collection of channels for the backchannel to the main package
 	vertToMainChan chan<- common.FromVert
@@ -98,14 +98,18 @@ func (v *VerticalApi) Listen(addr string, initFinished chan<- struct{}) error {
 			v.conns[conn] = struct{}{}
 			v.connsMutex.Unlock()
 
+			// build the context of the connection on top of the context of the
+			// // vertAPI so that the context gets done when the vertAPI is done
+			ctx, cfunc := context.WithCancel(v.ctx)
+
 			mainToVert := make(chan common.ToVert)
 			regMod := common.RegisteredModule{
 				MainToVert: mainToVert,
 			}
 
 			v.wg.Add(2)
-			go v.handleConnection(conn, common.Conn[common.RegisteredModule]{Data: regMod, Id: common.ConnectionId(conn.RemoteAddr().String())})
-			go v.writeToConnection(conn, common.Conn[<-chan common.ToVert]{Data: mainToVert, Id: common.ConnectionId(conn.RemoteAddr().String())})
+			go v.handleConnection(conn, common.Conn[common.RegisteredModule]{Data: regMod, Id: common.ConnectionId(conn.RemoteAddr().String()), Ctx: ctx, Cfunc: cfunc})
+			go v.writeToConnection(conn, common.Conn[<-chan common.ToVert]{Data: mainToVert, Id: common.ConnectionId(conn.RemoteAddr().String()), Ctx: ctx, Cfunc: cfunc})
 		}
 	}()
 	return nil
@@ -128,10 +132,9 @@ func (v *VerticalApi) handleConnection(conn net.Conn, regMod common.Conn[common.
 		delete(v.conns, conn)
 		v.connsMutex.Unlock()
 	}()
-	// close the main > vert channel to signal the connection is closed
-	// also this causes the write routine to terminate
-	defer close(regMod.Data.MainToVert)
 	// signal to main that this vert module terminated -> needs to unregister it
+	// main should then close the context of the connection to also terminate
+	// the write goroutine
 	defer func(regMod *common.Conn[common.RegisteredModule]) {
 		v.vertToMainChan <- common.GossipUnRegister(regMod.Id)
 	}(&regMod)
@@ -149,7 +152,7 @@ func (v *VerticalApi) handleConnection(conn net.Conn, regMod common.Conn[common.
 		if err != nil {
 			// check if shall terminate
 			select {
-			case <-v.ctx.Done():
+			case <-regMod.Ctx.Done():
 				return
 			default:
 			}
@@ -177,7 +180,7 @@ func (v *VerticalApi) handleConnection(conn net.Conn, regMod common.Conn[common.
 		if err != nil {
 			// check if shall terminate
 			select {
-			case <-v.ctx.Done():
+			case <-regMod.Ctx.Done():
 				return
 			default:
 			}
@@ -241,35 +244,40 @@ func (v *VerticalApi) writeToConnection(conn net.Conn, cData common.Conn[<-chan 
 	var nWritten int
 	buf := make([]byte, 0, 4096)
 
-	for msg := range cData.Data {
-		switch msg := msg.(type) {
-		case common.GossipNotification:
-			vmsg := vertTypes.GossipNotification{
-				Gn: msg,
-				MessageHeader: vertTypes.MessageHeader{
-					Type: vertTypes.GossipNotificationType,
-				},
+	for {
+		select {
+		case <-cData.Ctx.Done():
+			return
+		case msg := <-cData.Data:
+			switch msg := msg.(type) {
+			case common.GossipNotification:
+				vmsg := vertTypes.GossipNotification{
+					Gn: msg,
+					MessageHeader: vertTypes.MessageHeader{
+						Type: vertTypes.GossipNotificationType,
+					},
+				}
+				vmsg.MessageHeader.RecalcSize(&vmsg)
+				buf, err = vmsg.Marshal(buf)
+				if err != nil {
+					v.log.Warn("Failed to marshal GossipNotification", "err", err)
+					continue
+				}
 			}
-			vmsg.MessageHeader.RecalcSize(&vmsg)
-			buf, err = vmsg.Marshal(buf)
+
+			nWritten, err = conn.Write(buf)
 			if err != nil {
-				v.log.Warn("Failed to marshal GossipNotification", "err", err)
+				// check if shall terminate
+				select {
+				case <-cData.Ctx.Done():
+					return
+				default:
+				}
+				v.log.Warn("Failed to send GossipNotification", "err", err)
 				continue
 			}
+			_ = nWritten
 		}
-
-		nWritten, err = conn.Write(buf)
-		if err != nil {
-			// check if shall terminate
-			select {
-			case <-v.ctx.Done():
-				return
-			default:
-			}
-			v.log.Warn("Failed to send GossipNotification", "err", err)
-			continue
-		}
-		_ = nWritten
 	}
 }
 

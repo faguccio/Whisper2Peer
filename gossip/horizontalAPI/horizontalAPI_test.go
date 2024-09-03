@@ -1,6 +1,7 @@
 package horizontalapi
 
 import (
+	"context"
 	"log/slog"
 	"net"
 	"reflect"
@@ -27,10 +28,12 @@ func TestGorizontalApiWithPipe(test *testing.T) {
 
 	cWrite, cRead := net.Pipe()
 	defer cRead.Close()
+	ctx, cfunc := context.WithCancel(context.Background())
+	defer cfunc()
 
 	hz.wg.Add(2)
-	go hz.handleConnection(cRead, Conn[chan<- ToHz]{Data: toHz})
-	go hz.writeToConnection(cWrite, Conn[<-chan ToHz]{Data: toHz})
+	go hz.handleConnection(cRead, Conn[chan<- ToHz]{Data: toHz, Ctx: ctx, Cfunc: cfunc})
+	go hz.writeToConnection(cWrite, Conn[<-chan ToHz]{Data: toHz, Ctx: ctx, Cfunc: cfunc})
 
 	// send a notify message to register to the server and get the mainToVert
 	// channel in return
@@ -67,22 +70,20 @@ func TestHorizontalApi(test *testing.T) {
 	// var testLog *slog.Logger = slog.Default()
 
 	fromHz1 := make(chan FromHz, 1)
-	connHz1 := make(chan NewConn, 1)
 	// create the vertical api with above setup values
 	hz1 := NewHorizontalApi(testLog, fromHz1)
 	initFin := make(chan struct{}, 1)
-	if err := hz1.Listen("localhost:13376", connHz1, initFin); err != nil {
+	if err := hz1.Listen("localhost:13376", initFin); err != nil {
 		test.Fatalf("listen on horizontalApi 1 failed with %v", err)
 	}
 	defer hz1.Close()
 	<-initFin
 
 	fromHz2 := make(chan FromHz, 1)
-	connHz2 := make(chan NewConn, 1)
 	// create the vertical api with above setup values
 	hz2 := NewHorizontalApi(testLog, fromHz2)
 	initFin2 := make(chan struct{}, 1)
-	if err := hz2.Listen("localhost:13378", connHz2, initFin2); err != nil {
+	if err := hz2.Listen("localhost:13378", initFin2); err != nil {
 		test.Fatalf("listen on horizontalApi 2 failed with %v", err)
 	}
 	defer hz2.Close()
@@ -110,7 +111,10 @@ func TestHorizontalApi(test *testing.T) {
 	testLog.Info("sending", "msg", t)
 	ns[0].Data <- t
 
-	// receive message
+	push := 0
+	newConn := 0
+
+	// receive first message
 	var u FromHz
 	select {
 	case u = <-fromHz2:
@@ -124,19 +128,45 @@ func TestHorizontalApi(test *testing.T) {
 		if !reflect.DeepEqual(t, u) {
 			test.Fatalf("didn't reveice the message previously sent. Sent %+v rcved%+v", t, u)
 		}
+		push += 1
+	case NewConn:
+		newConn += 1
 	default:
 		test.Fatalf("received message is of wrong type")
+	}
+
+	// receive second message
+	select {
+	case u = <-fromHz2:
+	case <-time.After(1 * time.Second):
+		test.Fatalf("timeout for reading the to be received message after 1 second")
+	}
+
+	switch u := u.(type) {
+	case Push:
+		u.Id = ""
+		if !reflect.DeepEqual(t, u) {
+			test.Fatalf("didn't reveice the message previously sent. Sent %+v rcved%+v", t, u)
+		}
+		push += 1
+	case NewConn:
+		newConn += 1
+	default:
+		test.Fatalf("received message is of wrong type")
+	}
+
+	if newConn != 1 || push != 1 {
+		test.Fatalf("did not receive one push (%d) and one newConn (%d) message", push, newConn)
 	}
 
 	// sleep to make sure the connections are established
 	time.Sleep(2 * time.Second)
 	// check channels passed on listen for newly established channels
-	<-connHz2
 	select {
-	case <-connHz1:
-		test.Fatalf("connHz1 should only receive exactly zero channels")
-	case <-connHz2:
-		test.Fatalf("connHz2 should only receive exactly one channel")
+	case <-fromHz1:
+		test.Fatalf("fromHz1 received too often")
+	case <-fromHz2:
+		test.Fatalf("fromHz2 received too often")
 	default:
 	}
 }

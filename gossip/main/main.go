@@ -224,9 +224,13 @@ func (m *Main) Close() error {
 
 // Handle when a vertical api connection was closed
 func (m *Main) handleModuleUnregister(msg common.GossipUnRegister) {
-	m.typeStorage.RemoveChannel(common.ConnectionId(msg))
-	m.mlog.Info("Unregistered module", "module", msg)
-	// TODO talk about invalidating messages (not feasible I think, also this should only concern a rather short timeframe)
+	c := m.typeStorage.RemoveChannel(common.ConnectionId(msg))
+	if c != nil {
+		m.mlog.Info("Unregistered module", "module", msg)
+		// close the writing end of the connection as well
+		// there is no second goroutine working on that datastructure so no races should occur
+		c.Cfunc()
+	}
 }
 
 // Handle incoming Gossip Registration (Notify) Messages

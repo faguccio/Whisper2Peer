@@ -1,6 +1,7 @@
 package verticalapi
 
 import (
+	"context"
 	"errors"
 	"gossip/common"
 	"io"
@@ -89,8 +90,10 @@ func TestHandleConnection(test *testing.T) {
 			regMod := common.RegisteredModule{
 				MainToVert: mainToVert,
 			}
+			ctx, cfunc := context.WithCancel(context.Background())
+			defer cfunc()
 			// start the handler
-			go vert.handleConnection(cVert, common.Conn[common.RegisteredModule]{Data: regMod})
+			go vert.handleConnection(cVert, common.Conn[common.RegisteredModule]{Data: regMod, Ctx: ctx, Cfunc: cfunc})
 
 			// write the message to the socket
 			if n, err := cTest.Write(t.buf); err != nil {
@@ -169,7 +172,9 @@ func TestWriteToConnection(test *testing.T) {
 
 		// start the handler
 		mainToVert := make(chan common.ToVert, 1)
-		go vert.writeToConnection(cVert, common.Conn[<-chan common.ToVert]{Data: mainToVert})
+		ctx, cfunc := context.WithCancel(context.Background())
+		defer cfunc()
+		go vert.writeToConnection(cVert, common.Conn[<-chan common.ToVert]{Data: mainToVert, Ctx: ctx, Cfunc: cfunc})
 
 		// send a message to the handler which shall be sent on the network
 		mainToVert <- common.GossipNotification{
