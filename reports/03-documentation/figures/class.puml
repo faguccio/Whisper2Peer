@@ -132,7 +132,9 @@ namespace common {
 
 	class Conn<any constrains T> << (S,Aquamarine) >> {
 		+ Id ConnectionId
-			+ Data T
+		+ Data T
+		+ Ctx context.Context
+		+ Cfunc context.CancelFunc
 	}
 
 	interface FromStrat  {
@@ -273,7 +275,7 @@ namespace gossip {
 
 			+ Load(gossip_type common.GossipType) []*common.Conn
 			+ AddChannelToType(gossip_type common.GossipType, new_channel *common.Conn) error
-			+ RemoveChannel(unreg common.ConnectionId) 
+			+ RemoveChannel(unreg common.ConnectionId) *common.Conn[common.RegisteredModule]
 
 	}
 }
@@ -362,12 +364,12 @@ namespace strats {
 		+ FindToBeProved(id horizontalapi.ConnectionId) (gossipConnection, bool)
 		+ FindInProgress(id horizontalapi.ConnectionId) (gossipConnection, bool)
 		+ FindValid(id horizontalapi.ConnectionId) (gossipConnection, bool)
-		+ Remove(id horizontalapi.ConnectionId) error
+		+ Remove(id horizontalapi.ConnectionId) (gossipConnection, error)
 		+ MakeValid(id horizontalapi.ConnectionId, timestamp time.Time)
 		+ AddInProgress(peer gossipConnection)
 		+ CullConnections(f func(x gossipConnection) bool)
 		- unsafeFind(id horizontalapi.ConnectionId) gossipConnection
-		- unsafeRemove(id horizontalapi.ConnectionId) error
+		- unsafeRemove(id horizontalapi.ConnectionId) (gossipConnection, error)
 	}
 
 	class connCookie << (S,Aquamarine) >> {
@@ -488,7 +490,9 @@ namespace horizontalapi {
 
 	class Conn<any constrains T> << (S,Aquamarine) >> {
 		+ Id ConnectionId
-			+ Data T
+		+ Data T
+		+ Ctx context.Context
+		+ Cfunc context.CancelFunc
 	}
 
 	class ConnChall << (S,Aquamarine) >> {
@@ -497,6 +501,7 @@ namespace horizontalapi {
 
 		- canFromHz() 
 		- canToHz() 
+		- isPow() bool
 	}
 
 	class ConnPoW << (S,Aquamarine) >> {
@@ -506,6 +511,7 @@ namespace horizontalapi {
 
 		- canFromHz() 
 		- canToHz() 
+		- isPow() bool
 	}
 
 	class ConnReq << (S,Aquamarine) >> {
@@ -513,6 +519,7 @@ namespace horizontalapi {
 
 		- canFromHz() 
 		- canToHz() 
+		- isPow() bool
 	}
 
 	class PowChall << (S,Aquamarine) >> {
@@ -521,6 +528,7 @@ namespace horizontalapi {
 
 		- canFromHz() 
 		- canToHz() 
+		- isPow() bool
 	}
 
 	class PowPoW << (S,Aquamarine) >> {
@@ -530,6 +538,7 @@ namespace horizontalapi {
 
 		- canFromHz() 
 		- canToHz() 
+		- isPow() bool
 	}
 
 	class PowReq << (S,Aquamarine) >> {
@@ -537,6 +546,7 @@ namespace horizontalapi {
 
 		- canFromHz() 
 		- canToHz() 
+		- isPow() bool
 	}
 
 	interface FromHz  {
@@ -552,10 +562,12 @@ namespace horizontalapi {
 
 		- canFromHz() 
 		- canToHz() 
+		- isPow() bool
 	}
 
 	interface ToHz  {
 		- canToHz() 
+		- isPow() bool
 
 	}
 
@@ -592,6 +604,7 @@ namespace horizontalapi {
 			- log *slog.Logger
 			- wg sync.WaitGroup
 			- packetcounter *internal/packetcounter.Counter
+			- packetcounterNonPow *internal/packetcounter.Counter
 
 			- handleConnection(conn net.Conn, connData Conn) 
 			- writeToConnection(conn net.Conn, c Conn) 
