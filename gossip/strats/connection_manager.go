@@ -140,32 +140,30 @@ func (manager *ConnectionManager) unsafeFind(id horizontalapi.ConnectionId) goss
 }
 
 // Wrapper around unsafeRemove with locking for thread safety
-func (manager *ConnectionManager) Remove(id horizontalapi.ConnectionId) error {
+func (manager *ConnectionManager) Remove(id horizontalapi.ConnectionId) (gossipConnection, error) {
 	manager.connMutex.Lock()
 	defer manager.connMutex.Unlock()
-	manager.unsafeRemove(id)
-
-	return errors.New("No element found when removing connection")
+	return manager.unsafeRemove(id)
 }
 
 // Remove the connection with a specific ID, without locking resources
-func (manager *ConnectionManager) unsafeRemove(id horizontalapi.ConnectionId) error {
+func (manager *ConnectionManager) unsafeRemove(id horizontalapi.ConnectionId) (gossipConnection, error) {
 	// Remove from ToBeProved if is there
-	_, ok := manager.toBeProvedConnections[id]
+	peer, ok := manager.toBeProvedConnections[id]
 	if ok {
 		delete(manager.toBeProvedConnections, id)
-		return nil
+		return peer, nil
 	}
 
 	// Remove from the In Progress connections
-	_, ok = manager.powInProgress[id]
+	peer, ok = manager.powInProgress[id]
 	if ok {
 		delete(manager.powInProgress, id)
-		return nil
+		return peer, nil
 	}
 
 	// Remove it from openConnectionMap and Slice
-	_, ok = manager.openConnectionsMap[id]
+	peer, ok = manager.openConnectionsMap[id]
 	if ok {
 		delete(manager.openConnectionsMap, id)
 
@@ -174,12 +172,12 @@ func (manager *ConnectionManager) unsafeRemove(id horizontalapi.ConnectionId) er
 			if conn.connection.Id == id {
 				manager.openConnections[i] = manager.openConnections[len(manager.openConnections)-1]
 				manager.openConnections = manager.openConnections[:len(manager.openConnections)-1]
-				return nil
+				return peer, nil
 			}
 		}
 	}
 
-	return errors.New("No element found when removing connection")
+	return gossipConnection{}, errors.New("No element found when removing connection")
 }
 
 // Move a connection from weather it was and make it valid with the current timestamp
