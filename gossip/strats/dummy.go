@@ -39,8 +39,6 @@ type dummyStrat struct {
 	rootStrat Strategy
 	// Channel where peer messages arrive
 	fromHz <-chan horizontalapi.FromHz
-	// Channel were new connection are notified
-	hzConnection <-chan horizontalapi.NewConn
 	// Connection Manager object
 	connManager *ConnectionManager
 
@@ -58,7 +56,7 @@ type dummyStrat struct {
 //
 // strategy must be the baseStrategy. toBeProvedConnections a list of ToHz channels, one for each peer, that
 // current peer needs to send PoWs to
-func NewDummy(strategy Strategy, fromHz <-chan horizontalapi.FromHz, hzConnection <-chan horizontalapi.NewConn, connManager *ConnectionManager) dummyStrat {
+func NewDummy(strategy Strategy, fromHz <-chan horizontalapi.FromHz, connManager *ConnectionManager) dummyStrat {
 	key := make([]byte, chacha20poly1305.KeySize)
 	if _, err := rand.Read(key); err != nil {
 		panic(err)
@@ -72,7 +70,6 @@ func NewDummy(strategy Strategy, fromHz <-chan horizontalapi.FromHz, hzConnectio
 	return dummyStrat{
 		rootStrat:       strategy,
 		fromHz:          fromHz,
-		hzConnection:    hzConnection,
 		connManager:     connManager,
 		invalidMessages: ringbuffer.NewRingbuffer[*storedMessage](strategy.stratArgs.Cache_size),
 		validMessages:   ringbuffer.NewRingbuffer[*storedMessage](strategy.stratArgs.Cache_size),
@@ -290,14 +287,13 @@ func (dummy *dummyStrat) Listen() {
 
 					dummy.connManager.MakeValid(msg.Id, cookieRead.timestamp)
 
+				case horizontalapi.NewConn:
+					// Accept any connection and put it in the inProgress slice.
+					conn := gossipConnection{
+						connection: horizontalapi.Conn[chan<- horizontalapi.ToHz](msg),
+					}
+					dummy.connManager.AddInProgress(conn)
 				}
-
-			// Accept any connection and put it in the inProgress slice.
-			case newPeer := <-dummy.hzConnection:
-				conn := gossipConnection{
-					connection: horizontalapi.Conn[chan<- horizontalapi.ToHz](newPeer),
-				}
-				dummy.connManager.AddInProgress(conn)
 
 				// Message from the vertical API
 			case x := <-dummy.rootStrat.strategyChannels.ToStrat:

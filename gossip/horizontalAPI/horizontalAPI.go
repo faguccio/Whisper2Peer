@@ -159,6 +159,9 @@ func (Unregister) canFromHz() {}
 // proviced channel to signal that a new connection was established.
 type NewConn Conn[chan<- ToHz]
 
+// mark this type as being sendable via FromHz channels
+func (NewConn) canFromHz() {}
+
 // This struct represents the horizontal api and is the main interface to/from
 // the horizontal api.
 //
@@ -221,7 +224,7 @@ func NewHorizontalApi(log *slog.Logger, fromHz chan<- FromHz) *HorizontalApi {
 //
 // On the channel passed as seccond argument, the horizontalApi advertises new
 // incoming connections
-func (hz *HorizontalApi) Listen(addr string, newConn chan<- NewConn, initFinished chan<- struct{}) error {
+func (hz *HorizontalApi) Listen(addr string, initFinished chan<- struct{}) error {
 	var err error
 	hz.ln, err = net.Listen("tcp", addr)
 	if err != nil {
@@ -248,7 +251,7 @@ func (hz *HorizontalApi) Listen(addr string, newConn chan<- NewConn, initFinishe
 			}
 
 			toHz := make(chan ToHz)
-			newConn <- NewConn{
+			hz.fromHzChan <- NewConn{
 				Data: toHz,
 				Id:   ConnectionId(conn.RemoteAddr().String()),
 			}

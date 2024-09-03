@@ -66,8 +66,7 @@ func New(log *slog.Logger, args args.Args, stratChans StrategyChannels, initFini
 
 	hzInitFin := make(chan struct{}, 1)
 
-	hzConnection := make(chan horizontalapi.NewConn, 1)
-	hz.Listen(args.Hz_addr, hzConnection, hzInitFin)
+	hz.Listen(args.Hz_addr, hzInitFin)
 
 	go func(initFinished chan<- struct{}, hzInitFin <-chan struct{}) {
 		<-hzInitFin
@@ -81,7 +80,7 @@ func New(log *slog.Logger, args args.Args, stratChans StrategyChannels, initFini
 	connManager := NewConnectionManager(openConnections)
 
 	// Hardcoded strategy, later switching on args argument
-	dummyStrat := NewDummy(strategy, fromHz, hzConnection, &connManager)
+	dummyStrat := NewDummy(strategy, fromHz, &connManager)
 	return &dummyStrat, nil
 }
 
