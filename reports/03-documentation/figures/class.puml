@@ -80,8 +80,8 @@ namespace verticalapi {
 			- log *slog.Logger
 			- wg sync.WaitGroup
 
-			- handleConnection(conn net.Conn, regMod common.Conn) 
-			- writeToConnection(conn net.Conn, cData common.Conn) 
+			- handleConnection(conn net.Conn, regMod common.Conn[common.RegisteredModule]) 
+			- writeToConnection(conn net.Conn, cData common.Conn[<-<font color=blue>chan</font> common.ToVert]) 
 
 			+ Listen(addr string, initFinished <font color=blue>chan</font> <font color=blue>struct</font>{}) error
 			+ Close() error
@@ -105,7 +105,6 @@ namespace verticalapi {
 "verticalapi.types.MessageHeader" o-- "verticalapi.types.MessageType"
 
 "verticalapi.VerticalApi" o-- "common.FromVert"
-"verticalapi.VerticalApi" o-- "common.Conn"
 
 namespace internal/args {
 	top to bottom direction
@@ -171,7 +170,7 @@ namespace common {
 
 	class GossipRegister << (S,Aquamarine) >> {
 		+ Data GossipNotify
-			+ Module *Conn
+			+ Module *Conn[common.RegisteredModule]
 
 			- isFromVert() 
 	}
@@ -230,6 +229,7 @@ namespace common {
 "common.GossipNotification" o-- "common.GossipType"
 "common.GossipNotify" o-- "common.GossipType"
 "common.GossipRegister" o-- "common.Conn"
+"common.GossipRegister" o-- "common.RegisteredModule"
 "common.GossipRegister" o-- "common.GossipNotify"
 "common.RegisteredModule" o-- "common.ToVert"
 
@@ -271,11 +271,11 @@ namespace gossip {
 
 	}
 	class notifyMap << (S,Aquamarine) >> {
-		- data <font color=blue>map</font>[common.GossipType][]*common.Conn
+		- data <font color=blue>map</font>[common.GossipType][]*common.Conn[common.RegisteredModule]
 
-			+ Load(gossip_type common.GossipType) []*common.Conn
-			+ AddChannelToType(gossip_type common.GossipType, new_channel *common.Conn) error
-			+ RemoveChannel(unreg common.ConnectionId) *common.Conn[common.RegisteredModule]
+		+ Load(gossip_type common.GossipType) []*common.Conn[common.RegisteredModule]
+		+ AddChannelToType(gossip_type common.GossipType, new_channel *common.Conn[common.RegisteredModule]) error
+		+ RemoveChannel(unreg common.ConnectionId) *common.Conn[common.RegisteredModule]
 
 	}
 }
@@ -286,6 +286,7 @@ namespace gossip {
 "gossip.Main" o-- "strats.StrategyChannels"
 
 "gossip.notifyMap" o-- "common.Conn"
+"gossip.notifyMap" o-- "common.RegisteredModule"
 "gossip.notifyMap" o-- "common.GossipType"
 
 namespace internal/packetcounter {
@@ -407,18 +408,13 @@ namespace strats {
 		- rootStrat Strategy
 		- fromHz <font color=blue>chan</font> horizontalAPI.FromHz
 		- connManager *ConnectionManager
-		- invalidMessages *internal/ringbuffer.Ringbuffer
-		- validMessages *internal/ringbuffer.Ringbuffer
-		- sentMessages *internal/ringbuffer.Ringbuffer
+		- invalidMessages *internal/ringbuffer.Ringbuffer[storedMessage]
+		- validMessages *internal/ringbuffer.Ringbuffer[storedMessage]
+		- sentMessages *internal/ringbuffer.Ringbuffer[storedMessage]
 		- cipher cipher.AEAD
 
 		+ Listen() 
 		+ Close() 
-	}
-
-	class gossipConnection << (S,Aquamarine) >> {
-		- connection horizontalAPI.Conn
-			- timestamp time.Time
 	}
 
 	class powMarsh << (S,Aquamarine) >> {
@@ -460,7 +456,6 @@ namespace strats {
 "horizontalapi.ConnPoW" <|.. "strats.powMarsh"
 
 "strats.storedMessage" o-- "horizontalapi.Push"
-"strats.gossipConnection" o-- "horizontalapi.Conn"
 
 "strats.StrategyChannels" o-- "common.FromStrat"
 "strats.StrategyChannels" o-- "common.ToStrat"
@@ -469,7 +464,6 @@ namespace strats {
 "strats.dummyStrat" o-- "strats.ConnectionManager"
 "strats.dummyStrat" o-- "horizontalapi.FromHz"
 "strats.dummyStrat" o-- "horizontalapi.NewConn"
-"strats.dummyStrat" o-- "horizontalapi.Conn"
 "strats.dummyStrat" o-- "horizontalapi.ToHz"
 "strats.dummyStrat" o-- "strats.storedMessage"
 "strats.dummyStrat" o-- "internal/ringbuffer.Ringbuffer"
@@ -479,6 +473,7 @@ namespace strats {
 "strats.Strategy" o-- "internal/args.Args"
 
 "strats.gossipConnection" o-- "horizontalapi.ToHz"
+"strats.gossipConnection" o-- "horizontalapi.Conn"
 
 "strats.ConnectionManager" o-- "horizontalapi.ConnectionId"
 "strats.ConnectionManager" o-- "strats.gossipConnection"
@@ -633,7 +628,6 @@ namespace horizontalapi {
 "horizontalapi.ToHz" <|.. "horizontalapi.PowPoW"
 
 "horizontalapi.HorizontalApi" o-- "horizontalapi.FromHz"
-"horizontalapi.HorizontalApi" o-- "horizontalapi.Conn"
 "horizontalapi.HorizontalApi" o-- "internal/packetcounter.Counter"
 
 "horizontalapi.FromHz" <|.. "horizontalapi.NewConn"
