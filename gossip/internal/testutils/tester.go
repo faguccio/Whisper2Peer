@@ -137,7 +137,7 @@ func (t *Tester) Startup(startIp string) error {
 			}
 			t.Events = append(t.Events, e)
 			// if is packet on hz api
-			if e.Msg == "hz packet sent" {
+			if e.Msg == "hz non-pow packet sent" {
 				// if eg channel is full, don't block, simply loose/skip the
 				// nofitication
 				select {

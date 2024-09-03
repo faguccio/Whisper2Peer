@@ -55,6 +55,7 @@ type ToHz interface {
 	// add a function to the interface to avoid that arbitrary types can be
 	// passed (accidentally) as ToHz
 	canToHz()
+	isPow() bool
 }
 
 // Represents a push message from/to the horizontalApi
@@ -71,6 +72,7 @@ func (Push) canFromHz() {}
 
 // mark this type as being sendable via ToHz channels
 func (Push) canToHz() {}
+func (Push) isPow() bool {return false}
 
 // Represent a ConnReq message from/to the horizontalApi
 type ConnReq struct {
@@ -82,6 +84,7 @@ func (ConnReq) canFromHz() {}
 
 // mark this type as being sendable via ToHz channels
 func (ConnReq) canToHz() {}
+func (ConnReq) isPow() bool {return false}
 
 // Represents a ConnChall message from/to the horizontalApi
 type ConnChall struct {
@@ -94,6 +97,7 @@ func (ConnChall) canFromHz() {}
 
 // mark this type as being sendable via ToHz channels
 func (ConnChall) canToHz() {}
+func (ConnChall) isPow() bool {return false}
 
 // Represents a ConnPoW message from/to the horizontalApi
 type ConnPoW struct {
@@ -107,6 +111,7 @@ func (ConnPoW) canFromHz() {}
 
 // mark this type as being sendable via ToHz channels
 func (ConnPoW) canToHz() {}
+func (ConnPoW) isPow() bool {return false}
 
 // Represent a PowReq message from/to the horizontalApi (used to renew connections)
 type PowReq struct {
@@ -118,6 +123,7 @@ func (PowReq) canFromHz() {}
 
 // mark this type as being sendable via ToHz channels
 func (PowReq) canToHz() {}
+func (PowReq) isPow() bool {return true}
 
 // Represents a PowChall message from/to the horizontalApi
 type PowChall struct {
@@ -130,6 +136,7 @@ func (PowChall) canFromHz() {}
 
 // mark this type as being sendable via ToHz channels
 func (PowChall) canToHz() {}
+func (PowChall) isPow() bool {return true}
 
 // Represents a PowPoW message from/to the horizontalApi
 type PowPoW struct {
@@ -143,6 +150,7 @@ func (PowPoW) canFromHz() {}
 
 // mark this type as being sendable via ToHz channels
 func (PowPoW) canToHz() {}
+func (PowPoW) isPow() bool {return true}
 
 type Unregister ConnectionId
 
@@ -188,6 +196,7 @@ type HorizontalApi struct {
 	wg sync.WaitGroup
 	// keep some stats of sent packets
 	packetcounter *packetcounter.Counter
+	packetcounterNonPow *packetcounter.Counter
 }
 
 // Use this function to instantiate the horizontal api
@@ -212,6 +221,10 @@ func NewHorizontalApi(log *slog.Logger, fromHz chan<- FromHz) *HorizontalApi {
 
 	hz.packetcounter = packetcounter.NewCounter(func(t time.Time, cnt uint) {
 		hz.log.Log(context.Background(), common.LevelTest, "hz packet sent", "timeBucket", t, "cnt", cnt)
+	}, 1*time.Second)
+
+	hz.packetcounterNonPow = packetcounter.NewCounter(func(t time.Time, cnt uint) {
+		hz.log.Log(context.Background(), common.LevelTest, "hz non-pow packet sent", "timeBucket", t, "cnt", cnt)
 	}, 1*time.Second)
 
 	return hz
@@ -674,6 +687,9 @@ loop:
 					goto continue_write
 				}
 			}
+			if !rmsg.isPow() {
+				hz.packetcounterNonPow.Add(1)
+			}
 		}
 		// sent the message on the channel
 		hz.packetcounter.Add(1)
@@ -721,6 +737,7 @@ func (hz *HorizontalApi) Close() error {
 	hz.connsMutex.Unlock()
 
 	hz.packetcounter.Finalize()
+	hz.packetcounterNonPow.Finalize()
 
 	//
 	fin := make(chan struct{})
