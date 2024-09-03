@@ -709,7 +709,7 @@ loop:
 			// might error because the connection has closed -> check if should
 			// terminate
 			select {
-			case <-hz.ctx.Done():
+			case <-c.Ctx.Done():
 				break loop
 			default:
 			}
