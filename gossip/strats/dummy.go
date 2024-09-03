@@ -157,6 +157,11 @@ func (dummy *dummyStrat) Listen() {
 					go func() {
 						nonce := ComputePoW(msg.Cookie)
 						pow := horizontalapi.ConnPoW{PowNonce: nonce, Cookie: msg.Cookie}
+						// maybe the connection was closed in the meantime
+						_, stillToBeProven := dummy.connManager.FindToBeProved(peer.connection.Id)
+						if !stillToBeProven {
+							return
+						}
 						peer.connection.Data <- pow
 						dummy.connManager.MakeValid(peer.connection.Id, time.Now())
 					}()
@@ -246,6 +251,11 @@ func (dummy *dummyStrat) Listen() {
 					go func() {
 						nonce := ComputePoW(msg.Cookie)
 						pow := horizontalapi.PowPoW{PowNonce: nonce, Cookie: msg.Cookie}
+						// maybe the connection was closed in the meantime
+						_, stillToBeProven := dummy.connManager.FindToBeProved(peer.connection.Id)
+						if !stillToBeProven {
+							return
+						}
 						peer.connection.Data <- pow
 					}()
 
