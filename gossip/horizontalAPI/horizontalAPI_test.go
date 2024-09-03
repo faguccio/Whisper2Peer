@@ -111,7 +111,10 @@ func TestHorizontalApi(test *testing.T) {
 	testLog.Info("sending", "msg", t)
 	ns[0].Data <- t
 
-	// receive message
+	push := 0
+	newConn := 0
+
+	// receive first message
 	var u FromHz
 	select {
 	case u = <-fromHz2:
@@ -125,14 +128,40 @@ func TestHorizontalApi(test *testing.T) {
 		if !reflect.DeepEqual(t, u) {
 			test.Fatalf("didn't reveice the message previously sent. Sent %+v rcved%+v", t, u)
 		}
+		push += 1
+	case NewConn:
+		newConn += 1
 	default:
 		test.Fatalf("received message is of wrong type")
+	}
+
+	// receive second message
+	select {
+	case u = <-fromHz2:
+	case <-time.After(1 * time.Second):
+		test.Fatalf("timeout for reading the to be received message after 1 second")
+	}
+
+	switch u := u.(type) {
+	case Push:
+		u.Id = ""
+		if !reflect.DeepEqual(t, u) {
+			test.Fatalf("didn't reveice the message previously sent. Sent %+v rcved%+v", t, u)
+		}
+		push += 1
+	case NewConn:
+		newConn += 1
+	default:
+		test.Fatalf("received message is of wrong type")
+	}
+
+	if newConn != 1 || push != 1 {
+		test.Fatalf("did not receive one push (%d) and one newConn (%d) message", push, newConn)
 	}
 
 	// sleep to make sure the connections are established
 	time.Sleep(2 * time.Second)
 	// check channels passed on listen for newly established channels
-	<-fromHz2
 	select {
 	case <-fromHz1:
 		test.Fatalf("fromHz1 received too often")
