@@ -265,10 +265,16 @@ func (hz *HorizontalApi) Listen(addr string, initFinished chan<- struct{}) error
 				continue
 			}
 
+			// build the context of the connection on top of the context of the
+			// hzAPI so that the context gets done when the hzAPI is done
+			ctx,cfunc := context.WithCancel(hz.ctx)
+
 			toHz := make(chan ToHz)
 			hz.fromHzChan <- NewConn{
 				Data: toHz,
 				Id:   ConnectionId(conn.RemoteAddr().String()),
+				Ctx: ctx,
+				Cfunc: cfunc,
 			}
 
 			hz.connsMutex.Lock()
@@ -277,9 +283,6 @@ func (hz *HorizontalApi) Listen(addr string, initFinished chan<- struct{}) error
 			hz.log.Info("Incoming connection from", "addr", conn.RemoteAddr().String())
 
 			hz.wg.Add(2)
-			// build the context of the connection on top of the context of the
-			// hzAPI so that the context gets done when the hzAPI is done
-			ctx,cfunc := context.WithCancel(hz.ctx)
 			go hz.handleConnection(conn, Conn[chan<- ToHz]{Data: toHz, Id: ConnectionId(conn.RemoteAddr().String()), Ctx: ctx, Cfunc: cfunc})
 			go hz.writeToConnection(conn, Conn[<-chan ToHz]{Data: toHz, Id: ConnectionId(conn.RemoteAddr().String()), Ctx: ctx, Cfunc: cfunc})
 		}
@@ -305,13 +308,14 @@ func (hz *HorizontalApi) AddNeighbors(dialer *net.Dialer, addrs ...string) ([]Co
 		hz.connsMutex.Unlock()
 		hz.log.Info("Added connection to", "addr", conn.RemoteAddr().String())
 
-		toHz := make(chan ToHz)
-		ret = append(ret, Conn[chan<- ToHz]{Data: toHz, Id: ConnectionId(a)})
-
-		hz.wg.Add(2)
 		// build the context of the connection on top of the context of the
 		// hzAPI so that the context gets done when the hzAPI is done
 		ctx,cfunc := context.WithCancel(hz.ctx)
+
+		toHz := make(chan ToHz)
+		ret = append(ret, Conn[chan<- ToHz]{Data: toHz, Id: ConnectionId(a), Ctx: ctx, Cfunc: cfunc})
+
+		hz.wg.Add(2)
 		go hz.handleConnection(conn, Conn[chan<- ToHz]{Data: toHz, Id: ConnectionId(conn.RemoteAddr().String()), Ctx: ctx, Cfunc: cfunc})
 		go hz.writeToConnection(conn, Conn[<-chan ToHz]{Data: toHz, Id: ConnectionId(conn.RemoteAddr().String()), Ctx: ctx, Cfunc: cfunc})
 	}
