@@ -49,7 +49,11 @@ type StrategyChannels struct {
 // It instantiate a strategy too. The caller has to call Listen to start the strategy and Close
 // to end it.
 func New(log *slog.Logger, args args.Args, stratChans StrategyChannels, initFinished chan<- struct{}) (StrategyCloser, error) {
-	fromHz := make(chan horizontalapi.FromHz, 1)
+	// this channel needs to be unbuffered to avoid races when a connection
+	// gets closed
+	// (hz already closes the data channel, but the strategy did not delete the
+	// connection from the connManager)
+	fromHz := make(chan horizontalapi.FromHz)
 	hz := horizontalapi.NewHorizontalApi(log, fromHz)
 	// context is only used internally -> no need to pass it to the constructor
 	ctx, cancel := context.WithCancel(context.Background())
