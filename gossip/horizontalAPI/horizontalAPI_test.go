@@ -70,22 +70,20 @@ func TestHorizontalApi(test *testing.T) {
 	// var testLog *slog.Logger = slog.Default()
 
 	fromHz1 := make(chan FromHz, 1)
-	connHz1 := make(chan NewConn, 1)
 	// create the vertical api with above setup values
 	hz1 := NewHorizontalApi(testLog, fromHz1)
 	initFin := make(chan struct{}, 1)
-	if err := hz1.Listen("localhost:13376", connHz1, initFin); err != nil {
+	if err := hz1.Listen("localhost:13376", initFin); err != nil {
 		test.Fatalf("listen on horizontalApi 1 failed with %v", err)
 	}
 	defer hz1.Close()
 	<-initFin
 
 	fromHz2 := make(chan FromHz, 1)
-	connHz2 := make(chan NewConn, 1)
 	// create the vertical api with above setup values
 	hz2 := NewHorizontalApi(testLog, fromHz2)
 	initFin2 := make(chan struct{}, 1)
-	if err := hz2.Listen("localhost:13378", connHz2, initFin2); err != nil {
+	if err := hz2.Listen("localhost:13378", initFin2); err != nil {
 		test.Fatalf("listen on horizontalApi 2 failed with %v", err)
 	}
 	defer hz2.Close()
@@ -134,12 +132,12 @@ func TestHorizontalApi(test *testing.T) {
 	// sleep to make sure the connections are established
 	time.Sleep(2 * time.Second)
 	// check channels passed on listen for newly established channels
-	<-connHz2
+	<-fromHz2
 	select {
-	case <-connHz1:
-		test.Fatalf("connHz1 should only receive exactly zero channels")
-	case <-connHz2:
-		test.Fatalf("connHz2 should only receive exactly one channel")
+	case <-fromHz1:
+		test.Fatalf("fromHz1 received too often")
+	case <-fromHz2:
+		test.Fatalf("fromHz2 received too often")
 	default:
 	}
 }
