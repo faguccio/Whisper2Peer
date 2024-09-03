@@ -298,7 +298,6 @@ namespace internal/packetcounter {
 
 			+ Add(i uint) 
 			+ Finalize() 
-
 	}
 }
 
@@ -335,6 +334,7 @@ namespace internal/ringbuffer {
 			+ Do(f <font color=blue>func</font>(T) ) 
 			+ Filter(f <font color=blue>func</font>(T) bool) []T
 			+ FindFirst(f <font color=blue>func</font>(T) bool) (T, error)
+			+ ExtractToSlice() []T
 
 	}
 }
@@ -343,6 +343,42 @@ namespace internal/ringbuffer {
 
 namespace strats {
 	top to bottom direction
+
+	class gossipConnection << (S,Aquamarine) >> {
+		- connection horizontalapi.Conn[chan<- horizontalapi.ToHz]
+		- timestamp  time.Time
+	}
+
+	class ConnectionManager << (S,Aquamarine) >> {
+		- toBeProvedConnections map[horizontalapi.ConnectionId]gossipConnection
+		- openConnections []gossipConnection
+		- openConnectionsMap map[horizontalapi.ConnectionId]gossipConnection
+		- powInProgress map[horizontalapi.ConnectionId]gossipConnection
+		- connMutex sync.RWMutex
+
+		+ ActionOnToBeProved(f <font color=blue>func</font>(x gossipConnection))
+		+ ActionOnValid(f <font color=blue>func</font>(x gossipConnection))
+		+ ActionOnPermutedValid(f func(x gossipConnection), max int)
+		+ FindToBeProved(id horizontalapi.ConnectionId) (gossipConnection, bool)
+		+ FindInProgress(id horizontalapi.ConnectionId) (gossipConnection, bool)
+		+ FindValid(id horizontalapi.ConnectionId) (gossipConnection, bool)
+		+ Remove(id horizontalapi.ConnectionId) error
+		+ MakeValid(id horizontalapi.ConnectionId, timestamp time.Time)
+		+ AddInProgress(peer gossipConnection)
+		+ CullConnections(f func(x gossipConnection) bool)
+		- unsafeFind(id horizontalapi.ConnectionId) gossipConnection
+		- unsafeRemove(id horizontalapi.ConnectionId) error
+	}
+
+	class connCookie << (S,Aquamarine) >> {
+		- chall []byte
+		- timestamp time.Time
+		- dest horizontalapi.ConnectionId
+
+		+ Marshal() []byte
+		+ Unmarshal(buf []byte)
+		+ CreateCookie(aead cipher.AEAD) []byte
+	}
 
 	class Strategy << (S,Aquamarine) >> {
 		- cancel context.CancelFunc
@@ -367,28 +403,22 @@ namespace strats {
 	}
 	class dummyStrat << (S,Aquamarine) >> {
 		- rootStrat Strategy
-			- fromHz <font color=blue>chan</font> horizontalAPI.FromHz
-			- hzConnection <font color=blue>chan</font> horizontalAPI.NewConn
-			- openConnections []gossipConnection
-			- openConnectionMap <font color=blue>map</font>[horizontalAPI.ConnectionId]gossipConnection
-			- powInProgress <font color=blue>map</font>[horizontalAPI.ConnectionId]gossipConnection
-			- invalidMessages *internal/ringbuffer.Ringbuffer
-			- validMessages *internal/ringbuffer.Ringbuffer
-			- sentMessages *internal/ringbuffer.Ringbuffer
-			- cipher cipher.AEAD
+		- fromHz <font color=blue>chan</font> horizontalAPI.FromHz
+		- connManager *ConnectionManager
+		- invalidMessages *internal/ringbuffer.Ringbuffer
+		- validMessages *internal/ringbuffer.Ringbuffer
+		- sentMessages *internal/ringbuffer.Ringbuffer
+		- cipher cipher.AEAD
 
-			- removeConnection(id horizontalAPI.ConnectionId) 
-			- checkConnectionValidity(id horizontalAPI.ConnectionId) bool
-
-			+ Listen() 
-			+ Close() 
-
+		+ Listen() 
+		+ Close() 
 	}
+
 	class gossipConnection << (S,Aquamarine) >> {
 		- connection horizontalAPI.Conn
 			- timestamp time.Time
-
 	}
+
 	class powMarsh << (S,Aquamarine) >> {
 		+ Marshal(buf []byte) ([]byte, error)
 			+ Nonce() uint64
@@ -398,13 +428,13 @@ namespace strats {
 			+ PrefixLen() uint
 			+ WriteNonce(w io.Writer) 
 			+ Clone() pow.POWMarshaller
-
 	}
+
 	class storedMessage << (S,Aquamarine) >> {
 		- counter int
 			- message horizontalAPI.Push
-
 	}
+
 	class connCookie << (S,Aquamarine) >> {
 		- chall []byte
 			- timestamp time.Time
@@ -414,8 +444,8 @@ namespace strats {
 
 			+ Marshal() []byte
 			+ Unmarshal(buf []byte) 
-
 	}
+
 	class strats.powMarsh << (T, #FF7700) >>  {
 	}
 	note left
@@ -434,6 +464,7 @@ namespace strats {
 "strats.StrategyChannels" o-- "common.ToStrat"
 
 "strats.dummyStrat" o-- "strats.Strategy"
+"strats.dummyStrat" o-- "strats.ConnectionManager"
 "strats.dummyStrat" o-- "horizontalapi.FromHz"
 "strats.dummyStrat" o-- "horizontalapi.NewConn"
 "strats.dummyStrat" o-- "horizontalapi.Conn"
@@ -445,6 +476,13 @@ namespace strats {
 "strats.Strategy" o-- "strats.StrategyChannels"
 "strats.Strategy" o-- "internal/args.Args"
 
+"strats.gossipConnection" o-- "horizontalapi.ToHz"
+
+"strats.ConnectionManager" o-- "horizontalapi.ConnectionId"
+"strats.ConnectionManager" o-- "strats.gossipConnection"
+
+"strats.connCookie" o-- "horizontalapi.ConnectionId"
+
 namespace horizontalapi {
 	top to bottom direction
 
@@ -454,26 +492,51 @@ namespace horizontalapi {
 	}
 
 	class ConnChall << (S,Aquamarine) >> {
+		+ Id ConnectionId
 		+ Cookie []byte
 
-			- canFromHz() 
-			- canToHz() 
+		- canFromHz() 
+		- canToHz() 
 	}
 
 	class ConnPoW << (S,Aquamarine) >> {
 		+ Id ConnectionId
-			+ PowNonce uint64
-			+ Cookie []byte
+		+ PowNonce uint64
+		+ Cookie []byte
 
-			- canFromHz() 
-			- canToHz() 
+		- canFromHz() 
+		- canToHz() 
 	}
 
 	class ConnReq << (S,Aquamarine) >> {
 		+ Id ConnectionId
 
-			- canFromHz() 
-			- canToHz() 
+		- canFromHz() 
+		- canToHz() 
+	}
+
+	class PowChall << (S,Aquamarine) >> {
+		+ Id ConnectionId
+		+ Cookie []byte
+
+		- canFromHz() 
+		- canToHz() 
+	}
+
+	class PowPoW << (S,Aquamarine) >> {
+		+ Id ConnectionId
+		+ PowNonce uint64
+		+ Cookie []byte
+
+		- canFromHz() 
+		- canToHz() 
+	}
+
+	class PowReq << (S,Aquamarine) >> {
+		+ Id ConnectionId
+
+		- canFromHz() 
+		- canToHz() 
 	}
 
 	interface FromHz  {
@@ -482,13 +545,13 @@ namespace horizontalapi {
 
 	class Push << (S,Aquamarine) >> {
 		+ Id ConnectionId
-			+ TTL uint8
-			+ GossipType common.GossipType
-			+ MessageID uint16
-			+ Payload []byte
+		+ TTL uint8
+		+ GossipType common.GossipType
+		+ MessageID uint16
+		+ Payload []byte
 
-			- canFromHz() 
-			- canToHz() 
+		- canFromHz() 
+		- canToHz() 
 	}
 
 	interface ToHz  {
@@ -543,23 +606,33 @@ namespace horizontalapi {
 "horizontalapi.FromHz" <|.. "horizontalapi.ConnChall"
 "horizontalapi.FromHz" <|.. "horizontalapi.ConnPoW"
 "horizontalapi.FromHz" <|.. "horizontalapi.ConnReq"
+"horizontalapi.FromHz" <|.. "horizontalapi.PowChall"
+"horizontalapi.FromHz" <|.. "horizontalapi.PowPoW"
+"horizontalapi.FromHz" <|.. "horizontalapi.PowReq"
 "horizontalapi.FromHz" <|.. "horizontalapi.Push"
 "horizontalapi.FromHz" <|.. "horizontalapi.Unregister"
 "horizontalapi.ToHz" <|.. "horizontalapi.Push"
 "horizontalapi.ToHz" <|.. "horizontalapi.ConnReq"
 "horizontalapi.ToHz" <|.. "horizontalapi.ConnChall"
 "horizontalapi.ToHz" <|.. "horizontalapi.ConnPoW"
+"horizontalapi.ToHz" <|.. "horizontalapi.PowReq"
+"horizontalapi.ToHz" <|.. "horizontalapi.PowChall"
+"horizontalapi.ToHz" <|.. "horizontalapi.PowPoW"
 
 "horizontalapi.HorizontalApi" o-- "horizontalapi.FromHz"
 "horizontalapi.HorizontalApi" o-- "horizontalapi.Conn"
 "horizontalapi.HorizontalApi" o-- "internal/packetcounter.Counter"
 
-"horizontalapi.Conn" <|.. "horizontalapi.NewConn"
+"horizontalapi.FromHz" <|.. "horizontalapi.NewConn"
 "horizontalapi.ConnectionId" <|.. "horizontalapi.Unregister"
 "horizontalapi.Conn" o-- "horizontalapi.ConnectionId"
 
 "horizontalapi.ConnPoW" o-- "horizontalapi.ConnectionId"
+"horizontalapi.ConnChall" o-- "horizontalapi.ConnectionId"
 "horizontalapi.ConnReq" o-- "horizontalapi.ConnectionId"
+"horizontalapi.PowPoW" o-- "horizontalapi.ConnectionId"
+"horizontalapi.PowChall" o-- "horizontalapi.ConnectionId"
+"horizontalapi.PowReq" o-- "horizontalapi.ConnectionId"
 "horizontalapi.Push" o-- "common.GossipType"
 "horizontalapi.Push" o-- "horizontalapi.ConnectionId"
 
