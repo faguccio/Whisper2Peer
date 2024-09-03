@@ -55,7 +55,9 @@ func (nm *notifyMap) AddChannelToType(gossip_type common.GossipType, new_channel
 	return nil
 }
 
-// remove from the notifyMap
+// remove the connection with id == unreg from the notifyMap
+//
+// returns a pointer to the removed connection (or nil if no connection with id unreg was found)
 func (nm *notifyMap) RemoveChannel(unreg common.ConnectionId) *common.Conn[common.RegisteredModule] {
 	var ret *common.Conn[common.RegisteredModule]
 	nm.Lock()

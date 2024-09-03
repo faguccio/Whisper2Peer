@@ -139,7 +139,11 @@ func (manager *ConnectionManager) unsafeFind(id horizontalapi.ConnectionId) goss
 	return gossipConnection{}
 }
 
-// Wrapper around unsafeRemove with locking for thread safety
+// Remove the connection with a specific ID, without locking resources
+//
+// (Wrapper around unsafeRemove with locking for thread safety)
+//
+// returns the gossip connection that was removed and nil (or the zero value of a gossipConnection and an error)
 func (manager *ConnectionManager) Remove(id horizontalapi.ConnectionId) (gossipConnection, error) {
 	manager.connMutex.Lock()
 	defer manager.connMutex.Unlock()
@@ -147,6 +151,8 @@ func (manager *ConnectionManager) Remove(id horizontalapi.ConnectionId) (gossipC
 }
 
 // Remove the connection with a specific ID, without locking resources
+//
+// returns the gossip connection that was removed and nil (or the zero value of a gossipConnection and an error)
 func (manager *ConnectionManager) unsafeRemove(id horizontalapi.ConnectionId) (gossipConnection, error) {
 	// Remove from ToBeProved if is there
 	peer, ok := manager.toBeProvedConnections[id]
