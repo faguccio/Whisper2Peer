@@ -57,6 +57,7 @@ type ToHz interface {
 	// add a function to the interface to avoid that arbitrary types can be
 	// passed (accidentally) as ToHz
 	canToHz()
+	// serves as some kind of predicate over the different types
 	isPow() bool
 }
 
