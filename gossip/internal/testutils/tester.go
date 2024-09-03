@@ -300,8 +300,6 @@ func (t *Tester) Teardown() error {
 	for _, p := range t.Peers {
 		p.close()
 	}
-	close(t.logChan)
-	close(t.busyChan)
 	for _, c := range t.closers {
 		c.Close()
 	}
