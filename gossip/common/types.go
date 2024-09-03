@@ -1,5 +1,7 @@
 package common
 
+import "context"
+
 // generic identifier used for a connection
 type ConnectionId string
 
@@ -7,6 +9,8 @@ type ConnectionId string
 type Conn[T any] struct {
 	Id   ConnectionId
 	Data T
+	Ctx context.Context
+	Cfunc context.CancelFunc
 }
 
 // This struct serves as collection of data needed to handle / communicate with

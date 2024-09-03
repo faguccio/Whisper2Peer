@@ -56,7 +56,8 @@ func (nm *notifyMap) AddChannelToType(gossip_type common.GossipType, new_channel
 }
 
 // remove from the notifyMap
-func (nm *notifyMap) RemoveChannel(unreg common.ConnectionId) {
+func (nm *notifyMap) RemoveChannel(unreg common.ConnectionId) *common.Conn[common.RegisteredModule] {
+	var ret *common.Conn[common.RegisteredModule]
 	nm.Lock()
 	defer nm.Unlock()
 	for k, l := range nm.data {
@@ -64,8 +65,10 @@ func (nm *notifyMap) RemoveChannel(unreg common.ConnectionId) {
 			if j.Id == unreg {
 				l[i] = l[len(l)-1]
 				nm.data[k] = l[:len(l)-1]
+				ret = j
 				break
 			}
 		}
 	}
+	return ret
 }
