@@ -22,13 +22,13 @@ type gossipConnection struct {
 // 3. To be proved ones: peers to which we have to give a PoW
 type ConnectionManager struct {
 	// Connection that this peer needs to prove
-	toBeProvedConnections map[horizontalapi.ConnectionId]gossipConnection
+	toBeProvedConnections map[horizontalapi.ConnectionId]*gossipConnection
 	// Array of peers channels, where messages can be sent (stored as slice for easing permutations)
 	openConnections []*gossipConnection
 	// Map of valid connection (for fast access). If a connection is present in the openConnections
 	openConnectionsMap map[horizontalapi.ConnectionId]*gossipConnection
 	// Map of invalid connection (for fast access) that needs to be validated
-	powInProgress map[horizontalapi.ConnectionId]gossipConnection
+	powInProgress map[horizontalapi.ConnectionId]*gossipConnection
 
 	// Mutex to synchronize between proving connections and validating connections
 	connMutex sync.RWMutex
@@ -40,20 +40,20 @@ type ConnectionManager struct {
 
 // Return a new instance of the Connection Manager.
 func NewConnectionManager(toBeProved []horizontalapi.Conn[chan<- horizontalapi.ToHz]) ConnectionManager {
-	toBeProvedMap := make(map[horizontalapi.ConnectionId]gossipConnection)
+	toBeProvedMap := make(map[horizontalapi.ConnectionId]*gossipConnection)
 	for _, conn := range toBeProved {
-		toBeProvedMap[conn.Id] = gossipConnection{connection: conn}
+		toBeProvedMap[conn.Id] = &gossipConnection{connection: conn}
 	}
 
 	return ConnectionManager{
 		toBeProvedConnections: toBeProvedMap,
 		openConnectionsMap:    make(map[horizontalapi.ConnectionId]*gossipConnection),
-		powInProgress:         make(map[horizontalapi.ConnectionId]gossipConnection),
+		powInProgress:         make(map[horizontalapi.ConnectionId]*gossipConnection),
 	}
 }
 
 // Perform a function f on every To Be Proved connection
-func (manager *ConnectionManager) ActionOnToBeProved(f func(x gossipConnection)) {
+func (manager *ConnectionManager) ActionOnToBeProved(f func(x *gossipConnection)) {
 	manager.connMutex.RLock()
 	defer manager.connMutex.RUnlock()
 
@@ -67,8 +67,8 @@ func (manager *ConnectionManager) ActionOnValid(f func(x *gossipConnection)) {
 	manager.connMutex.RLock()
 	defer manager.connMutex.RUnlock()
 
-	for i := 0; i < len(manager.openConnections); i++ {
-		f(manager.openConnections[i])
+	for _, conn := range manager.openConnections {
+		f(conn)
 	}
 }
 
@@ -89,7 +89,7 @@ func (manager *ConnectionManager) ActionOnPermutedValid(f func(x *gossipConnecti
 
 // Returns the connection with matching ID from the to be proved connections and a boolean indicating
 // the presence of the value
-func (manager *ConnectionManager) FindToBeProved(id horizontalapi.ConnectionId) (gossipConnection, bool) {
+func (manager *ConnectionManager) FindToBeProved(id horizontalapi.ConnectionId) (*gossipConnection, bool) {
 	manager.connMutex.RLock()
 	defer manager.connMutex.RUnlock()
 
@@ -99,7 +99,7 @@ func (manager *ConnectionManager) FindToBeProved(id horizontalapi.ConnectionId) 
 
 // Returns the connection with matching ID from the to be in progress connections and a boolean indicating
 // the presence of the value
-func (manager *ConnectionManager) FindInProgress(id horizontalapi.ConnectionId) (gossipConnection, bool) {
+func (manager *ConnectionManager) FindInProgress(id horizontalapi.ConnectionId) (*gossipConnection, bool) {
 	manager.connMutex.RLock()
 	defer manager.connMutex.RUnlock()
 
@@ -118,7 +118,7 @@ func (manager *ConnectionManager) FindValid(id horizontalapi.ConnectionId) (*gos
 }
 
 // Find the connection with matching ID, else return the zero value
-func (manager *ConnectionManager) unsafeFind(id horizontalapi.ConnectionId) gossipConnection {
+func (manager *ConnectionManager) unsafeFind(id horizontalapi.ConnectionId) *gossipConnection {
 	// Search in the ToBeProved
 	peer, ok := manager.toBeProvedConnections[id]
 	if ok {
@@ -132,12 +132,12 @@ func (manager *ConnectionManager) unsafeFind(id horizontalapi.ConnectionId) goss
 	}
 
 	// Search in the open (valid) connections
-	peerR, ok := manager.openConnectionsMap[id]
+	peer, ok = manager.openConnectionsMap[id]
 	if ok {
-		return *peerR
+		return peer
 	}
 
-	return gossipConnection{}
+	return &gossipConnection{}
 }
 
 // Remove the connection with a specific ID, without locking resources
@@ -145,7 +145,7 @@ func (manager *ConnectionManager) unsafeFind(id horizontalapi.ConnectionId) goss
 // (Wrapper around unsafeRemove with locking for thread safety)
 //
 // returns the gossip connection that was removed and nil (or the zero value of a gossipConnection and an error)
-func (manager *ConnectionManager) Remove(id horizontalapi.ConnectionId) (gossipConnection, error) {
+func (manager *ConnectionManager) Remove(id horizontalapi.ConnectionId) (*gossipConnection, error) {
 	manager.connMutex.Lock()
 	defer manager.connMutex.Unlock()
 	return manager.unsafeRemove(id)
@@ -154,7 +154,7 @@ func (manager *ConnectionManager) Remove(id horizontalapi.ConnectionId) (gossipC
 // Remove the connection with a specific ID, without locking resources
 //
 // returns the gossip connection that was removed and nil (or the zero value of a gossipConnection and an error)
-func (manager *ConnectionManager) unsafeRemove(id horizontalapi.ConnectionId) (gossipConnection, error) {
+func (manager *ConnectionManager) unsafeRemove(id horizontalapi.ConnectionId) (*gossipConnection, error) {
 	// Remove from ToBeProved if is there
 	peer, ok := manager.toBeProvedConnections[id]
 	if ok {
@@ -170,7 +170,7 @@ func (manager *ConnectionManager) unsafeRemove(id horizontalapi.ConnectionId) (g
 	}
 
 	// Remove it from openConnectionMap and Slice
-	peer2, ok := manager.openConnectionsMap[id]
+	peer, ok = manager.openConnectionsMap[id]
 	if ok {
 		delete(manager.openConnectionsMap, id)
 
@@ -179,12 +179,12 @@ func (manager *ConnectionManager) unsafeRemove(id horizontalapi.ConnectionId) (g
 			if conn.connection.Id == id {
 				manager.openConnections[i] = manager.openConnections[len(manager.openConnections)-1]
 				manager.openConnections = manager.openConnections[:len(manager.openConnections)-1]
-				return *peer2, nil
+				return peer, nil
 			}
 		}
 	}
 
-	return gossipConnection{}, errors.New("No element found when removing connection")
+	return &gossipConnection{}, errors.New("No element found when removing connection")
 }
 
 // Move a connection from weather it was and make it valid with the current timestamp
@@ -192,18 +192,21 @@ func (manager *ConnectionManager) MakeValid(id horizontalapi.ConnectionId, times
 	manager.connMutex.Lock()
 	defer manager.connMutex.Unlock()
 
-	peer := manager.unsafeFind(id)
-	manager.unsafeRemove(id)
-
-	peer.timestamp = timestamp
-
-	manager.openConnections = append(manager.openConnections, &peer)
-	manager.openConnectionsMap[id] = &peer
-
+	peer, ok := manager.openConnectionsMap[id]
+	if ok {
+		// If it is present in the openConnections, just update the value
+		peer.timestamp = timestamp
+	} else {
+		// Otherwise remove it from where it was and append it to the valid connections
+		peer, _ := manager.unsafeRemove(id)
+		manager.openConnections = append(manager.openConnections, peer)
+		peer.timestamp = timestamp
+		manager.openConnectionsMap[id] = peer
+	}
 }
 
 // Add a gossip connection to the In Progress ones
-func (manager *ConnectionManager) AddInProgress(peer gossipConnection) {
+func (manager *ConnectionManager) AddInProgress(peer *gossipConnection) {
 	manager.connMutex.Lock()
 	defer manager.connMutex.Unlock()
 

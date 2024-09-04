@@ -85,7 +85,7 @@ func NewDummy(strategy Strategy, fromHz <-chan horizontalapi.FromHz, connManager
 func (dummy *dummyStrat) Listen() {
 	go func() {
 		// Sending out initial challenges requests
-		dummy.connManager.ActionOnToBeProved(func(x gossipConnection) {
+		dummy.connManager.ActionOnToBeProved(func(x *gossipConnection) {
 			req := horizontalapi.ConnReq{}
 			x.connection.Data <- req
 		})
@@ -306,7 +306,7 @@ func (dummy *dummyStrat) Listen() {
 					conn := gossipConnection{
 						connection: horizontalapi.Conn[chan<- horizontalapi.ToHz](msg),
 					}
-					dummy.connManager.AddInProgress(conn)
+					dummy.connManager.AddInProgress(&conn)
 				}
 
 				// Message from the vertical API
