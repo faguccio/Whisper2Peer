@@ -1,87 +1,92 @@
 @startuml
 
-top to bottom direction
+left to right direction
 
 namespace verticalapi {
-namespace types {
-    class GossipAnnounce << (S,Aquamarine) >> {
-        + Ga common.GossipAnnounce
-        + MessageHeader MessageHeader
+	namespace types {
+		class GossipAnnounce << (S,Aquamarine) >> {
+			+ Ga common.GossipAnnounce
+				+ MessageHeader MessageHeader
 
-        - isVertType() 
+				- isVertType() 
 
-        + Unmarshal(buf []byte) (int, error)
-        + CalcSize() int
+				+ Unmarshal(buf []byte) (int, error)
+				+ Marshal(buf []byte) ([]byte, error)
+				+ CalcSize() int
 
-    }
-    class GossipNotification << (S,Aquamarine) >> {
-        + Gn common.GossipNotification
-        + MessageHeader MessageHeader
+		}
+		class GossipNotification << (S,Aquamarine) >> {
+			+ Gn common.GossipNotification
+				+ MessageHeader MessageHeader
 
-        - isVertType() 
+				- isVertType() 
 
-        + Marshal(buf []byte) ([]byte, error)
-        + CalcSize() int
+				+ Unmarshal(buf []byte) (int, error)
+				+ Marshal(buf []byte) ([]byte, error)
+				+ CalcSize() int
 
-    }
-    class GossipNotify << (S,Aquamarine) >> {
-        + Gn common.GossipNotify
-        + MessageHeader MessageHeader
+		}
+		class GossipNotify << (S,Aquamarine) >> {
+			+ Gn common.GossipNotify
+				+ MessageHeader MessageHeader
 
-        - isVertType() 
+				- isVertType() 
 
-        + Unmarshal(buf []byte) (int, error)
-        + CalcSize() int
+				+ Unmarshal(buf []byte) (int, error)
+				+ Marshal(buf []byte) ([]byte, error)
+				+ CalcSize() int
 
-    }
-    class GossipValidation << (S,Aquamarine) >> {
-        + Gv common.GossipValidation
-        + MessageHeader MessageHeader
+		}
+		class GossipValidation << (S,Aquamarine) >> {
+			+ Gv common.GossipValidation
+				+ MessageHeader MessageHeader
 
-        - isVertType() 
+				- isVertType() 
 
-        + Unmarshal(buf []byte) (int, error)
-        + CalcSize() int
+				+ Unmarshal(buf []byte) (int, error)
+				+ Marshal(buf []byte) ([]byte, error)
+				+ CalcSize() int
 
-    }
-    class MessageHeader << (S,Aquamarine) >> {
-        + Size uint16
-        + Type MessageType
+		}
+		class MessageHeader << (S,Aquamarine) >> {
+			+ Size uint16
+				+ Type MessageType
 
-        + Unmarshal(buf []byte) (int, error)
-        + Marshal(buf []byte) error
-        + CalcSize() int
-        + RecalcSize(e VertType) 
+				+ Unmarshal(buf []byte) (int, error)
+				+ Marshal(buf []byte) error
+				+ CalcSize() int
+				+ RecalcSize(e VertType) 
 
-    }
-    interface VertType  {
-        - isVertType() 
+		}
+		interface VertType  {
+			- isVertType() 
 
-        + CalcSize() int
+				+ CalcSize() int
 
-    }
-    class MessageType << (T, #FF7700) >>  {
-    }
-	note right
-		alias for uint16
-	end note
+		}
+		class MessageType << (T, #FF7700) >>  {
+		}
+		note right
+			alias for uint16
+		end note
 	}
-    class VerticalApi << (S,Aquamarine) >> {
-        - cancel context.CancelFunc
-        - ctx context.Context
-        - ln net.Listener
-        - conns <font color=blue>map</font>[net.Conn]<font color=blue>struct</font>{}
-        - vertToMainChan <font color=blue>chan</font> common.FromVert
-        - log *slog.Logger
-        - wg sync.WaitGroup
+	class VerticalApi << (S,Aquamarine) >> {
+		- cancel context.CancelFunc
+			- ctx context.Context
+			- ln net.Listener
+			- conns <font color=blue>map</font>[net.Conn]<font color=blue>struct</font>{}
+		- connsMutex sync.Mutex
+			- vertToMainChan <font color=blue>chan</font> common.FromVert
+			- log *slog.Logger
+			- wg sync.WaitGroup
 
-        - handleConnection(conn net.Conn, regMod common.Conn[common.RegisteredModule]) 
-        - writeToConnection(conn net.Conn, cData common.Conn[<font color=blue>chan</font> common.ToVert]) 
+			- handleConnection(conn net.Conn, regMod common.Conn[common.RegisteredModule]) 
+			- writeToConnection(conn net.Conn, cData common.Conn[<-<font color=blue>chan</font> common.ToVert]) 
 
-        + Listen(addr string) error
-        + Close() error
+			+ Listen(addr string, initFinished <font color=blue>chan</font> <font color=blue>struct</font>{}) error
+			+ Close() error
 
-    }
+	}
 }
 
 "verticalapi.types.VertType" <|.. "verticalapi.types.GossipAnnounce"
@@ -89,329 +94,718 @@ namespace types {
 "verticalapi.types.VertType" <|.. "verticalapi.types.GossipNotify"
 "verticalapi.types.VertType" <|.. "verticalapi.types.GossipValidation"
 
-"verticalapi.VerticalApi" o-- "common.FromVert"
-
 "verticalapi.types.GossipAnnounce" o-- "common.GossipAnnounce"
 "verticalapi.types.GossipAnnounce" o-- "verticalapi.types.MessageHeader"
-
 "verticalapi.types.GossipNotification" o-- "common.GossipNotification"
 "verticalapi.types.GossipNotification" o-- "verticalapi.types.MessageHeader"
-
 "verticalapi.types.GossipNotify" o-- "common.GossipNotify"
 "verticalapi.types.GossipNotify" o-- "verticalapi.types.MessageHeader"
-
 "verticalapi.types.GossipValidation" o-- "common.GossipValidation"
 "verticalapi.types.GossipValidation" o-- "verticalapi.types.MessageHeader"
-
 "verticalapi.types.MessageHeader" o-- "verticalapi.types.MessageType"
 
-"common.ConnectionId" <|.. "common.GossipUnRegister"
-"horizontalapi.Conn" <|.. "horizontalapi.NewConn"
-"horizontalapi.ConnectionId" <|.. "horizontalapi.Unregister"
+"verticalapi.VerticalApi" o-- "common.FromVert"
 
-namespace main {
-    class Main << (S,Aquamarine) >> {
-        - log *slog.Logger
-        - mlog *slog.Logger
-        - args internal/args.Args
-        - typeStorage notifyMap
-        - vertToMain <font color=blue>chan</font> common.FromVert
-        - strategyChannels strats.StrategyChannels
+namespace internal/args {
+	top to bottom direction
 
-        - run() 
-        - handleModuleUnregister(msg common.GossipUnRegister) 
-        - handleTypeRegistration(msg common.GossipRegister) 
-        - handleGossipValidation(msg common.GossipValidation) 
-        - handleGossipAnnounce(msg common.GossipAnnounce) error
-        - handleNotification(msg common.GossipNotification) error
+	class Args << (S,Aquamarine) >> {
+		+ Degree uint
+			+ Cache_size uint
+			+ GossipTimer uint
+			+ Hz_addr string
+			+ Vert_addr string
+			+ Peer_addrs []string
 
-    }
-    class notifyMap << (S,Aquamarine) >> {
-        - data <font color=blue>map</font>[common.GossipType][]*common.Conn[common.RegisteredModule]
-
-        + Load(gossip_type common.GossipType) []*common.Conn[common.RegisteredModule]
-        + AddChannelToType(gossip_type common.GossipType, new_channel *common.Conn[common.RegisteredModule]) error
-        + RemoveChannel(unreg common.ConnectionId) 
-
-    }
-}
-
-"main.Main" o-- "internal/args.Args"
-"main.Main" o-- "main.notifyMap"
-"main.Main" o-- "common.FromVert"
-"main.Main" o-- "strats.StrategyChannels"
-
-"main.notifyMap" o-- "common.Conn"
-"main.notifyMap" o-- "common.RegisteredModule"
-
-namespace strats {
-    class Strategy << (S,Aquamarine) >> {
-        - cancel context.CancelFunc
-        - ctx context.Context
-        - hz *horizontalAPI.HorizontalApi
-        - strategyChannels StrategyChannels
-        - log *slog.Logger
-        - stratArgs internal/args.Args
-
-        + Close() 
-
-    }
-    class StrategyChannels << (S,Aquamarine) >> {
-        + FromStrat <font color=blue>chan</font> common.FromStrat
-        + ToStrat <font color=blue>chan</font> common.ToStrat
-
-    }
-    interface StrategyCloser  {
-        + Close() 
-        + Listen() 
-
-    }
-    class dummyStrat << (S,Aquamarine) >> {
-        - rootStrat Strategy
-        - fromHz <font color=blue>chan</font> horizontalAPI.FromHz
-        - hzConnection <font color=blue>chan</font> horizontalAPI.NewConn
-        - openConnections []horizontalAPI.Conn[<font color=blue>chan</font> horizontalapi.ToHz]
-        - invalidMessages *internal/ringbuffer.Ringbuffer[*storedMessage]
-        - validMessages *internal/ringbuffer.Ringbuffer[*storedMessage]
-        - sentMessages *internal/ringbuffer.Ringbuffer[*storedMessage]
-
-        + Listen() 
-        + Close() 
-
-    }
-    class storedMessage << (S,Aquamarine) >> {
-        - counter int
-        - message horizontalAPI.Push
-
-    }
-}
-
-"strats.StrategyCloser" <|.. "strats.dummyStrat"
-
-"strats.StrategyChannels" o-- "common.FromStrat"
-"strats.StrategyChannels" o-- "common.ToStrat"
-
-"strats.storedMessage" o-- "horizontalapi.Push"
-
-"strats.Strategy" o-- "horizontalapi.HorizontalApi"
-"strats.Strategy" o-- "strats.StrategyChannels"
-"strats.Strategy" o-- "internal/args.Args"
-
-"strats.dummyStrat" o-- "horizontalapi.FromHz"
-"strats.dummyStrat" o-- "horizontalapi.ToHz"
-"strats.dummyStrat" o-- "horizontalapi.NewConn"
-"strats.dummyStrat" o-- "horizontalapi.Conn"
-"strats.dummyStrat" o-d- "internal/ringbuffer.Ringbuffer"
-"strats.dummyStrat" o-- "strats.storedMessage"
-
-namespace horizontalapi {
-    class Conn<any constrains T> << (S,Aquamarine) >> {
-        + Id ConnectionId
-        + Data T
-
-    }
-    interface FromHz  {
-        - canFromHz() 
-
-    }
-    class HorizontalApi << (S,Aquamarine) >> {
-        - cancel context.CancelFunc
-        - ctx context.Context
-        - ln net.Listener
-        - conns <font color=blue>map</font>[net.Conn]<font color=blue>struct</font>{}
-        - fromHzChan <font color=blue>chan</font> FromHz
-        - log *slog.Logger
-        - wg sync.WaitGroup
-
-        - handleConnection(conn net.Conn, connData Conn[<font color=blue>chan</font> ToHz]) 
-        - writeToConnection(conn net.Conn, c Conn[<font color=blue>chan</font> ToHz]) 
-
-        + Listen(addr string, newConn <font color=blue>chan</font> NewConn) error
-        + AddNeighbors(dialer *net.Dialer, addrs ...string) ([]Conn[<font color=blue>chan</font> ToHz], error)
-        + Close() error
-
-    }
-    class Push << (S,Aquamarine) >> {
-        + TTL uint8
-        + GossipType common.GossipType
-        + MessageID uint16
-        + Payload []byte
-
-        - canFromHz() 
-        - canToHz() 
-
-    }
-    interface ToHz  {
-        - canToHz() 
-
-    }
-    class horizontalapi.ConnectionId << (T, #FF7700) >>  {
-    }
-	note right
-		alias for string
-	end note
-    class horizontalapi.NewConn << (T, #FF7700) >>  {
-    }
-	note left
-		alias for Conn[<font color=blue>chan</font> ToHz]
-	end note
-    class horizontalapi.Unregister << (T, #FF7700) >>  {
-        - canFromHz() 
-
-    }
-	note right
-		alias for ConnectionId
-	end note
-}
-
-"horizontalapi.FromHz" <|.. "horizontalapi.Push"
-"horizontalapi.FromHz" <|.. "horizontalapi.Unregister"
-
-"horizontalapi.ToHz" <|.. "horizontalapi.Push"
-
-"horizontalapi.Conn" o-- "horizontalapi.ConnectionId"
-
-"horizontalapi.Push" o-- "common.GossipType"
-
-"horizontalapi.HorizontalApi" o-- "horizontalapi.FromHz"
-"horizontalapi.HorizontalApi" o-r- "horizontalapi.Conn"
-
-
-namespace internal/ringbuffer {
-    class Ringbuffer<comparable constrains T> << (S,Aquamarine) >> {
-        - data *ring.Ring
-        - len uint
-        - cap uint
-
-        + Insert(v T) 
-        + Remove(v T) error
-        + Do(f <font color=blue>func</font>(T) ) 
-        + Filter(f <font color=blue>func</font>(T) bool) []T
-        + FindFirst(f <font color=blue>func</font>(T) bool) (T, error)
-
-    }
+	}
 }
 
 namespace common {
-    class Conn<any constrains T> << (S,Aquamarine) >> {
-        + Id ConnectionId
-        + Data T
+	top to bottom direction
 
-    }
-    interface FromStrat  {
-        - isFromStrat() 
+	class GossipType << (T, #FF7700) >>  {
+	}
+	note left
+		alias for uint16
+	end note
 
-    }
-    interface FromVert  {
-        - isFromVert() 
+	class Conn<any constrains T> << (S,Aquamarine) >> {
+		+ Id ConnectionId
+		+ Data T
+		+ Ctx context.Context
+		+ Cfunc context.CancelFunc
+	}
 
-    }
-    class GossipAnnounce << (S,Aquamarine) >> {
-        + TTL uint8
-        + Reserved uint8
-        + DataType GossipType
-        + Data []byte
+	interface FromStrat  {
+		- isFromStrat() 
+	}
 
-        - isFromVert() 
-        - isToStrat() 
+	interface FromVert  {
+		- isFromVert() 
+	}
 
-    }
-    class GossipNotification << (S,Aquamarine) >> {
-        + MessageId uint16
-        + DataType GossipType
-        + Data []byte
+	class GossipAnnounce << (S,Aquamarine) >> {
+		+ TTL uint8
+			+ Reserved uint8
+			+ DataType GossipType
+			+ Data []byte
 
-        - isToVert() 
-        - isFromStrat() 
+			- isFromVert() 
+			- isToStrat() 
+	}
 
-    }
-    class GossipNotify << (S,Aquamarine) >> {
-        + Reserved uint16
-        + DataType GossipType
+	class GossipNotification << (S,Aquamarine) >> {
+		+ MessageId uint16
+			+ DataType GossipType
+			+ Data []byte
 
-    }
-    class GossipRegister << (S,Aquamarine) >> {
-        + Data GossipNotify
-        + Module *Conn[RegisteredModule]
+			- isToVert() 
+			- isFromStrat() 
+	}
 
-        - isFromVert() 
+	class GossipNotify << (S,Aquamarine) >> {
+		+ Reserved uint16
+			+ DataType GossipType
+	}
 
-    }
-    class GossipUnRegister << (S,Aquamarine) >> {
-        - isFromVert() 
+	class GossipRegister << (S,Aquamarine) >> {
+		+ Data GossipNotify
+			+ Module *Conn[common.RegisteredModule]
 
-    }
-    class GossipValidation << (S,Aquamarine) >> {
-        + MessageId uint16
-        + Bitfield uint16
-        + Valid bool
+			- isFromVert() 
+	}
 
-        - isFromVert() 
-        - isToStrat() 
+	class GossipUnRegister << (S,Aquamarine) >> {
+		- isFromVert() 
+	}
+	note right
+		alias for ConnectionId
+	end note
 
-        + SetValid(v bool) 
+	class GossipValidation << (S,Aquamarine) >> {
+		+ MessageId uint16
+			+ Bitfield uint16
+			+ Valid bool
 
-    }
-    class RegisteredModule << (S,Aquamarine) >> {
-        + MainToVert <font color=blue>chan</font> ToVert
+			- isFromVert() 
+			- isToStrat() 
 
-    }
-    interface ToStrat  {
-        - isToStrat() 
+			+ SetValid(v bool) 
+	}
 
-    }
-    interface ToVert  {
-        - isToVert() 
+	class RegisteredModule << (S,Aquamarine) >> {
+		+ MainToVert <font color=blue>chan</font> ToVert
+	}
 
-    }
-    class common.ConnectionId << (T, #FF7700) >>  {
-    }
+	interface ToStrat  {
+		- isToStrat() 
+	}
+
+	interface ToVert  {
+		- isToVert() 
+	}
+
+	class ConnectionId << (T, #FF7700) >>  {
+	}
 	note right
 		alias for string
 	end note
-    class common.GossipType << (T, #FF7700) >>  {
-    }
-	note bottom
-		alias for uint16
-	end note
-    class common.GossipUnRegister << (T, #FF7700) >>  {
-    }
 }
+
+"common.FromStrat" <|.. "common.GossipNotification"
+
+"common.ToVert" <|.. "common.GossipNotification"
 
 "common.FromVert" <|.. "common.GossipAnnounce"
 "common.FromVert" <|.. "common.GossipRegister"
 "common.FromVert" <|.. "common.GossipUnRegister"
 "common.FromVert" <|.. "common.GossipValidation"
+
 "common.ToStrat" <|.. "common.GossipAnnounce"
 "common.ToStrat" <|.. "common.GossipValidation"
-"common.ToVert" <|.. "common.GossipNotification"
-"common.FromStrat" <|.. "common.GossipNotification"
 
 "common.Conn" o-- "common.ConnectionId"
-
 "common.GossipAnnounce" o-- "common.GossipType"
-
 "common.GossipNotification" o-- "common.GossipType"
-
 "common.GossipNotify" o-- "common.GossipType"
-
 "common.GossipRegister" o-- "common.Conn"
-"common.GossipRegister" o-- "common.GossipNotify"
 "common.GossipRegister" o-- "common.RegisteredModule"
-
+"common.GossipRegister" o-- "common.GossipNotify"
 "common.RegisteredModule" o-- "common.ToVert"
 
+"common.ConnectionId" <|.. "common.GossipUnRegister"
 
-namespace internal/args {
-    class Args << (S,Aquamarine) >> {
-        + Degree uint
-        + Cache_size uint
-        + GossipTimer uint
-        + Hz_addr string
-        + Vert_addr string
-        + Peer_addrs []string
+namespace gossip {
+	top to bottom direction
 
-    }
+	class Main << (S,Aquamarine) >> {
+		- log *slog.Logger
+			- mlog *slog.Logger
+			- args internal/args.Args
+			- typeStorage notifyMap
+			- vertToMain <font color=blue>chan</font> common.FromVert
+			- strategyChannels strats.StrategyChannels
+			- cancel context.CancelFunc
+			- wg sync.WaitGroup
+
+			- handleModuleUnregister(msg common.GossipUnRegister) 
+			- handleTypeRegistration(msg common.GossipRegister) 
+			- handleGossipValidation(msg common.GossipValidation) 
+			- handleGossipAnnounce(msg common.GossipAnnounce) error
+			- handleNotification(msg common.GossipNotification) error
+
+			+ Run(initFinished <font color=blue>chan</font> error) 
+			+ Close() error
+
+	}
+	class UserArgs << (S,Aquamarine) >> {
+		+ Degree *uint
+			+ Cache_size *uint
+			+ GossipTimer *uint
+			+ Hz_addr *string
+			+ Vert_addr *string
+			+ Peer_addrs []string
+			+ ConfigFile *string
+
+			+ Merge(arg internal/args.Args) internal/args.Args
+
+	}
+	class notifyMap << (S,Aquamarine) >> {
+		- data <font color=blue>map</font>[common.GossipType][]*common.Conn[common.RegisteredModule]
+
+		+ Load(gossip_type common.GossipType) []*common.Conn[common.RegisteredModule]
+		+ AddChannelToType(gossip_type common.GossipType, new_channel *common.Conn[common.RegisteredModule]) error
+		+ RemoveChannel(unreg common.ConnectionId) *common.Conn[common.RegisteredModule]
+
+	}
 }
+
+"gossip.Main" o-- "internal/args.Args"
+"gossip.Main" o-- "gossip.notifyMap"
+"gossip.Main" o-- "common.FromVert"
+"gossip.Main" o-- "strats.StrategyChannels"
+
+"gossip.notifyMap" o-- "common.Conn"
+"gossip.notifyMap" o-- "common.RegisteredModule"
+"gossip.notifyMap" o-- "common.GossipType"
+
+namespace internal/packetcounter {
+	top to bottom direction
+
+	class Counter << (S,Aquamarine) >> {
+		- t time.Time
+			- cnt uint
+			- do <font color=blue>func</font>(time.Time, uint) 
+			- granularity time.Duration
+			- mutex sync.Mutex
+
+			+ Add(i uint) 
+			+ Finalize() 
+	}
+}
+
+
+
+namespace pow {
+	top to bottom direction
+
+	interface POWMarshaller  {
+		+ Marshal( []byte) ([]byte, error)
+			+ Nonce() T
+			+ SetNonce( T) 
+			+ AddToNonce( T) 
+			+ StripPrefixLen() uint
+			+ PrefixLen() uint
+			+ WriteNonce( io.Writer) 
+			+ Clone() POWMarshaller
+
+	}
+}
+
+
+
+namespace internal/ringbuffer {
+	top to bottom direction
+
+	class Ringbuffer<comparable constrains T> << (S,Aquamarine) >> {
+		- data *ring.Ring
+			- len uint
+			- cap uint
+
+			+ Insert(v T) 
+			+ Remove(v T) error
+			+ Do(f <font color=blue>func</font>(T) ) 
+			+ Filter(f <font color=blue>func</font>(T) bool) []T
+			+ FindFirst(f <font color=blue>func</font>(T) bool) (T, error)
+			+ ExtractToSlice() []T
+
+	}
+}
+
+
+
+namespace strats {
+	top to bottom direction
+
+	class gossipConnection << (S,Aquamarine) >> {
+		- connection horizontalapi.Conn[chan<- horizontalapi.ToHz]
+		- timestamp  time.Time
+	}
+
+	class ConnectionManager << (S,Aquamarine) >> {
+		- toBeProvedConnections map[horizontalapi.ConnectionId]gossipConnection
+		- openConnections []gossipConnection
+		- openConnectionsMap map[horizontalapi.ConnectionId]gossipConnection
+		- powInProgress map[horizontalapi.ConnectionId]gossipConnection
+		- connMutex sync.RWMutex
+
+		+ ActionOnToBeProved(f <font color=blue>func</font>(x gossipConnection))
+		+ ActionOnValid(f <font color=blue>func</font>(x gossipConnection))
+		+ ActionOnPermutedValid(f func(x gossipConnection), max int)
+		+ FindToBeProved(id horizontalapi.ConnectionId) (gossipConnection, bool)
+		+ FindInProgress(id horizontalapi.ConnectionId) (gossipConnection, bool)
+		+ FindValid(id horizontalapi.ConnectionId) (gossipConnection, bool)
+		+ Remove(id horizontalapi.ConnectionId) (gossipConnection, error)
+		+ MakeValid(id horizontalapi.ConnectionId, timestamp time.Time)
+		+ AddInProgress(peer gossipConnection)
+		+ CullConnections(f func(x gossipConnection) bool)
+		- unsafeFind(id horizontalapi.ConnectionId) gossipConnection
+		- unsafeRemove(id horizontalapi.ConnectionId) (gossipConnection, error)
+	}
+
+	class connCookie << (S,Aquamarine) >> {
+		- chall []byte
+		- timestamp time.Time
+		- dest horizontalapi.ConnectionId
+
+		+ Marshal() []byte
+		+ Unmarshal(buf []byte)
+		+ CreateCookie(aead cipher.AEAD) []byte
+	}
+
+	class Strategy << (S,Aquamarine) >> {
+		- cancel context.CancelFunc
+			- ctx context.Context
+			- hz *horizontalAPI.HorizontalApi
+			- strategyChannels StrategyChannels
+			- log *slog.Logger
+			- stratArgs internal/args.Args
+
+			+ Close() 
+
+	}
+	class StrategyChannels << (S,Aquamarine) >> {
+		+ FromStrat <font color=blue>chan</font> common.FromStrat
+			+ ToStrat <font color=blue>chan</font> common.ToStrat
+
+	}
+	interface StrategyCloser  {
+		+ Close() 
+			+ Listen() 
+
+	}
+	class dummyStrat << (S,Aquamarine) >> {
+		- rootStrat Strategy
+		- fromHz <font color=blue>chan</font> horizontalAPI.FromHz
+		- connManager *ConnectionManager
+		- invalidMessages *internal/ringbuffer.Ringbuffer[storedMessage]
+		- validMessages *internal/ringbuffer.Ringbuffer[storedMessage]
+		- sentMessages *internal/ringbuffer.Ringbuffer[storedMessage]
+		- cipher cipher.AEAD
+
+		+ Listen() 
+		+ Close() 
+	}
+
+	class powMarsh << (S,Aquamarine) >> {
+		+ Marshal(buf []byte) ([]byte, error)
+			+ Nonce() uint64
+			+ SetNonce(n uint64) 
+			+ AddToNonce(n uint64) 
+			+ StripPrefixLen() uint
+			+ PrefixLen() uint
+			+ WriteNonce(w io.Writer) 
+			+ Clone() pow.POWMarshaller
+	}
+
+	class storedMessage << (S,Aquamarine) >> {
+		- counter int
+			- message horizontalAPI.Push
+	}
+
+	class connCookie << (S,Aquamarine) >> {
+		- chall []byte
+			- timestamp time.Time
+			- dest horizontalAPI.ConnectionId
+
+			- createCookie(aead cipher.AEAD) []byte
+
+			+ Marshal() []byte
+			+ Unmarshal(buf []byte) 
+	}
+
+	class strats.powMarsh << (T, #FF7700) >>  {
+	}
+	note left
+		alias for horizontalapi.ConnPoW
+	end note
+}
+
+"strats.StrategyCloser" <|.. "strats.dummyStrat"
+"pow.POWMarshaller" <|.. "strats.powMarsh"
+"horizontalapi.ConnPoW" <|.. "strats.powMarsh"
+
+"strats.storedMessage" o-- "horizontalapi.Push"
+
+"strats.StrategyChannels" o-- "common.FromStrat"
+"strats.StrategyChannels" o-- "common.ToStrat"
+
+"strats.dummyStrat" o-- "strats.Strategy"
+"strats.dummyStrat" o-- "strats.ConnectionManager"
+"strats.dummyStrat" o-- "horizontalapi.FromHz"
+"strats.dummyStrat" o-- "horizontalapi.NewConn"
+"strats.dummyStrat" o-- "horizontalapi.ToHz"
+"strats.dummyStrat" o-- "strats.storedMessage"
+"strats.dummyStrat" o-- "internal/ringbuffer.Ringbuffer"
+
+"strats.Strategy" o-- "horizontalapi.HorizontalApi"
+"strats.Strategy" o-- "strats.StrategyChannels"
+"strats.Strategy" o-- "internal/args.Args"
+
+"strats.gossipConnection" o-- "horizontalapi.ToHz"
+"strats.gossipConnection" o-- "horizontalapi.Conn"
+
+"strats.ConnectionManager" o-- "horizontalapi.ConnectionId"
+"strats.ConnectionManager" o-- "strats.gossipConnection"
+
+"strats.connCookie" o-- "horizontalapi.ConnectionId"
+
+namespace horizontalapi {
+	top to bottom direction
+
+	class Conn<any constrains T> << (S,Aquamarine) >> {
+		+ Id ConnectionId
+		+ Data T
+		+ Ctx context.Context
+		+ Cfunc context.CancelFunc
+	}
+
+	class ConnChall << (S,Aquamarine) >> {
+		+ Id ConnectionId
+		+ Cookie []byte
+
+		- canFromHz() 
+		- canToHz() 
+		- isPow() bool
+	}
+
+	class ConnPoW << (S,Aquamarine) >> {
+		+ Id ConnectionId
+		+ PowNonce uint64
+		+ Cookie []byte
+
+		- canFromHz() 
+		- canToHz() 
+		- isPow() bool
+	}
+
+	class ConnReq << (S,Aquamarine) >> {
+		+ Id ConnectionId
+
+		- canFromHz() 
+		- canToHz() 
+		- isPow() bool
+	}
+
+	class PowChall << (S,Aquamarine) >> {
+		+ Id ConnectionId
+		+ Cookie []byte
+
+		- canFromHz() 
+		- canToHz() 
+		- isPow() bool
+	}
+
+	class PowPoW << (S,Aquamarine) >> {
+		+ Id ConnectionId
+		+ PowNonce uint64
+		+ Cookie []byte
+
+		- canFromHz() 
+		- canToHz() 
+		- isPow() bool
+	}
+
+	class PowReq << (S,Aquamarine) >> {
+		+ Id ConnectionId
+
+		- canFromHz() 
+		- canToHz() 
+		- isPow() bool
+	}
+
+	interface FromHz  {
+		- canFromHz() 
+	}
+
+	class Push << (S,Aquamarine) >> {
+		+ Id ConnectionId
+		+ TTL uint8
+		+ GossipType common.GossipType
+		+ MessageID uint16
+		+ Payload []byte
+
+		- canFromHz() 
+		- canToHz() 
+		- isPow() bool
+	}
+
+	interface ToHz  {
+		- canToHz() 
+		- isPow() bool
+
+	}
+
+	class Unregister << (S,Aquamarine) >> {
+		- canFromHz() 
+
+	}
+
+	class horizontalapi.ConnectionId << (T, #FF7700) >>  {
+	}
+	note right
+		alias for string/IP-Addr
+	end note
+
+	class horizontalapi.NewConn << (T, #FF7700) >>  {
+	}
+	note left
+		alias for Conn[<font color=blue>chan</font> ToHz]
+	end note
+
+	class horizontalapi.Unregister << (T, #FF7700) >>  {
+	}
+	note right
+		alias for ConnectionId
+	end note
+
+	class HorizontalApi << (S,Aquamarine) >> {
+		- cancel context.CancelFunc
+			- ctx context.Context
+			- ln net.Listener
+			- conns <font color=blue>map</font>[net.Conn]<font color=blue>struct</font>{}
+		- connsMutex sync.Mutex
+			- fromHzChan <font color=blue>chan</font> FromHz
+			- log *slog.Logger
+			- wg sync.WaitGroup
+			- packetcounter *internal/packetcounter.Counter
+			- packetcounterNonPow *internal/packetcounter.Counter
+
+			- handleConnection(conn net.Conn, connData Conn) 
+			- writeToConnection(conn net.Conn, c Conn) 
+
+			+ Listen(addr string, newConn <font color=blue>chan</font> NewConn, initFinished <font color=blue>chan</font> <font color=blue>struct</font>{}) error
+			+ AddNeighbors(dialer *net.Dialer, addrs ...string) ([]Conn, error)
+			+ Close() error
+
+	}
+}
+
+"horizontalapi.FromHz" <|.. "horizontalapi.ConnChall"
+"horizontalapi.FromHz" <|.. "horizontalapi.ConnPoW"
+"horizontalapi.FromHz" <|.. "horizontalapi.ConnReq"
+"horizontalapi.FromHz" <|.. "horizontalapi.PowChall"
+"horizontalapi.FromHz" <|.. "horizontalapi.PowPoW"
+"horizontalapi.FromHz" <|.. "horizontalapi.PowReq"
+"horizontalapi.FromHz" <|.. "horizontalapi.Push"
+"horizontalapi.FromHz" <|.. "horizontalapi.Unregister"
+"horizontalapi.ToHz" <|.. "horizontalapi.Push"
+"horizontalapi.ToHz" <|.. "horizontalapi.ConnReq"
+"horizontalapi.ToHz" <|.. "horizontalapi.ConnChall"
+"horizontalapi.ToHz" <|.. "horizontalapi.ConnPoW"
+"horizontalapi.ToHz" <|.. "horizontalapi.PowReq"
+"horizontalapi.ToHz" <|.. "horizontalapi.PowChall"
+"horizontalapi.ToHz" <|.. "horizontalapi.PowPoW"
+
+"horizontalapi.HorizontalApi" o-- "horizontalapi.FromHz"
+"horizontalapi.HorizontalApi" o-- "internal/packetcounter.Counter"
+
+"horizontalapi.FromHz" <|.. "horizontalapi.NewConn"
+"horizontalapi.ConnectionId" <|.. "horizontalapi.Unregister"
+"horizontalapi.Conn" o-- "horizontalapi.ConnectionId"
+
+"horizontalapi.ConnPoW" o-- "horizontalapi.ConnectionId"
+"horizontalapi.ConnChall" o-- "horizontalapi.ConnectionId"
+"horizontalapi.ConnReq" o-- "horizontalapi.ConnectionId"
+"horizontalapi.PowPoW" o-- "horizontalapi.ConnectionId"
+"horizontalapi.PowChall" o-- "horizontalapi.ConnectionId"
+"horizontalapi.PowReq" o-- "horizontalapi.ConnectionId"
+"horizontalapi.Push" o-- "common.GossipType"
+"horizontalapi.Push" o-- "horizontalapi.ConnectionId"
+
+' namespace internal/testlog {
+' 	class TestHandler << (S,Aquamarine) >> {
+' 		- handler slog.Handler
+' 			- level slog.Level
+' 
+' 			+ Enabled(ctx context.Context, level slog.Level) bool
+' 			+ Handle(ctx context.Context, r slog.Record) error
+' 			+ WithAttrs(attrs []slog.Attr) slog.Handler
+' 			+ WithGroup(name string) slog.Handler
+' 
+' 	}
+' }
+
+' namespace internal/testutils {
+' 	class Event << (S,Aquamarine) >> {
+' 		+ Time time.Time
+' 			+ Level int
+' 			+ Msg string
+' 			+ Id common.ConnectionId
+' 			+ MsgId uint16
+' 			+ MsgType common.GossipType
+' 			+ Cnt uint
+' 			+ TimeBucket time.Time
+' 
+' 	}
+' 	class Graph << (S,Aquamarine) >> {
+' 		+ Nodes []node
+' 			+ Edges [][]uint
+' 
+' 			+ CalcDistances(start uint) <font color=blue>map</font>[uint]uint
+' 
+' 	}
+' 	class Tester << (S,Aquamarine) >> {
+' 		- logChan <font color=blue>chan</font> Event
+' 			- busyChan <font color=blue>chan</font> common.GossipType
+' 			- closers []io.Closer
+' 			- state testState
+' 			- tmin time.Time
+' 			- tmax time.Time
+' 			- durSec float64
+' 			- distanceBook distanceBook
+' 			- cfunc context.CancelFunc
+' 
+' 			+ G Graph
+' 			+ Peers <font color=blue>map</font>[uint]*peer
+' 			+ PeersLut <font color=blue>map</font>[common.ConnectionId]uint
+' 			+ Events []Event
+' 
+' 			+ Startup(startIp string) error
+' 			+ RegisterAllPeersForType(gtype common.GossipType) error
+' 			+ WaitUntilSilent(ctx context.Context, all bool, gtype common.GossipType, interval time.Duration) error
+' 			+ Teardown() error
+' 			+ ProcessReachedWhen(gtype common.GossipType, any bool) (data.ReachedWhenAll, error)
+' 			+ ProcessReachedDistCnt(startNode uint, gtype common.GossipType, all bool) (data.ReachedDistCntAll, <font color=blue>map</font>[uint]uint, error)
+' 			+ ProcessGraphDistCnt(startNode uint) (data.CntDistancesAll, error)
+' 			+ ProcessSentPackets(gtype common.GossipType, all bool) (data.SentPacketsCntAll, error)
+' 
+' 	}
+' 	class distanceBook << (S,Aquamarine) >> {
+' 		- valid bool
+' 			- startNode uint
+' 			- nodeToDist <font color=blue>map</font>[uint]uint
+' 			- distOrd []uint
+' 			- distMaxCnt <font color=blue>map</font>[uint]uint
+' 
+' 			- processingSetupForDistance(genDistances <font color=blue>func</font>(uint) <font color=blue>map</font>[uint]uint, startNode uint) <font color=blue>map</font>[uint]uint
+' 
+' 	}
+' 	interface marshaler  {
+' 		+ Marshal(buf []byte) ([]byte, error)
+' 
+' 	}
+' 	class node << (S,Aquamarine) >> {
+' 		+ Degree *uint
+' 			+ Cache_size *uint
+' 			+ GossipTimer *uint
+' 
+' 			+ UnmarshalJSON(data []byte) error
+' 
+' 	}
+' 	class peer << (S,Aquamarine) >> {
+' 		- idx uint
+' 			- id common.ConnectionId
+' 			- a internal/args.Args
+' 			- conn net.Conn
+' 			- dialer *net.Dialer
+' 
+' 			- close() 
+' 			- connect() error
+' 			- markAllValid() 
+' 
+' 			+ String() string
+' 			+ SendMsg(v marshaler) error
+' 
+' 	}
+' 	class testState << (S,Aquamarine) >> {
+' 		+ String() string
+' 
+' 	}
+' 	class internal/testutils.testState << (T, #FF7700) >>  {
+' 	}
+' 	class todo_bookkeeping << (S,Aquamarine) >> {
+' 		- node uint
+' 			- dist uint
+' 
+' 	}
+' }
+' 
+' "internal/testutils.Event" o-- "common.ConnectionId"
+' "internal/testutils.Event" o-- "common.GossipType"
+' "internal/testutils.Event" o-- "time.Time"
+' "internal/testutils.Graph" o-- "internal/testutils.node"
+' "internal/testutils.Tester" o-- "common.ConnectionId"
+' "internal/testutils.Tester" o-- "internal/testutils.Event"
+' "internal/testutils.Tester" o-- "internal/testutils.Graph"
+' "internal/testutils.Tester" o-- "internal/testutils.peer"
+' 
+' "internal/testutils.marshaler" <|-- "verticalapi.types.GossipAnnounce"
+' "internal/testutils.marshaler" <|-- "verticalapi.types.GossipNotify"
+' "internal/testutils.marshaler" <|-- "verticalapi.types.GossipNotification"
+' "internal/testutils.marshaler" <|-- "verticalapi.types.GossipValidation"
+' 
+' "internal/testutils.marshaler" <|-- "strats.powMarsh"
+
+' namespace data {
+' 	class CntDistances << (S,Aquamarine) >> {
+' 		+ Distance uint
+' 			+ Cnt uint
+' 
+' 	}
+' 	class ReachedDistCnt << (S,Aquamarine) >> {
+' 		+ TimeUnixSec float64
+' 			+ Distance uint
+' 			+ CntReachedSameDistance uint
+' 
+' 	}
+' 	class ReachedWhen << (S,Aquamarine) >> {
+' 		+ TimeUnixSec float64
+' 			+ TimePercent float64
+' 
+' 	}
+' 	class ReachedWhenAll << (S,Aquamarine) >> {
+' 		+ WriteCss(fn string) error
+' 
+' 	}
+' 	class SentPacketsCnt << (S,Aquamarine) >> {
+' 		+ TimeUnixSec float64
+' 			+ Cnt uint
+' 
+' 	}
+' 	class data.CntDistancesAll << (T, #FF7700) >>  {
+' 	}
+' 	class data.ReachedDistCntAll << (T, #FF7700) >>  {
+' 	}
+' 	class data.ReachedWhenAll << (T, #FF7700) >>  {
+' 	}
+' 	class data.SentPacketsCntAll << (T, #FF7700) >>  {
+' 	}
+' }
+' 
+' "data.<font color=blue>map</font>[uint]ReachedWhen" #.. "data.ReachedWhenAll"
+' "data.[]CntDistances" #.. "data.CntDistancesAll"
+' "data.[]ReachedDistCnt" #.. "data.ReachedDistCntAll"
+' "data.[]SentPacketsCnt" #.. "data.SentPacketsCntAll"
 
 @enduml
