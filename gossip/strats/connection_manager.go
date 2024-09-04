@@ -198,7 +198,10 @@ func (manager *ConnectionManager) MakeValid(id horizontalapi.ConnectionId, times
 		peer.timestamp = timestamp
 	} else {
 		// Otherwise remove it from where it was and append it to the valid connections
-		peer, _ := manager.unsafeRemove(id)
+		peer, err := manager.unsafeRemove(id)
+		if err != nil {
+			return
+		}
 		manager.openConnections = append(manager.openConnections, peer)
 		peer.timestamp = timestamp
 		manager.openConnectionsMap[id] = peer
