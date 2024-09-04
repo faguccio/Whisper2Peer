@@ -85,7 +85,7 @@ func NewDummy(strategy Strategy, fromHz <-chan horizontalapi.FromHz, connManager
 func (dummy *dummyStrat) Listen() {
 	go func() {
 		// Sending out initial challenges requests
-		dummy.connManager.ActionOnToBeProved(func(x gossipConnection) {
+		dummy.connManager.ActionOnToBeProved(func(x *gossipConnection) {
 			req := horizontalapi.ConnReq{}
 			x.connection.Data <- req
 		})
@@ -244,13 +244,12 @@ func (dummy *dummyStrat) Listen() {
 						continue
 					}
 
-					// if too little time has passed from last PoW request, this might be a
-					// DoS attack, but I will be lenient and just skip it
-					// diff := time.Now().Sub(peer.timestamp)
-					// if diff < POW_REQUEST_TIME/2 {
-					// 	dummy.rootStrat.log.Debug("Too many pow request, this one was rejected", "connection ID", msg.Id, "diff", diff)
-					// 	continue
-					// }
+					// Check if the there was a Req sent
+					if !peer.sentPowReq {
+						dummy.rootStrat.log.Debug("PowChall received but no PowReq was sent, possible DoS", "id", msg.Id)
+						dummy.connManager.Remove(msg.Id)
+						continue
+					}
 
 					go func() {
 						nonce := ComputePoW(msg.Cookie)
@@ -259,6 +258,7 @@ func (dummy *dummyStrat) Listen() {
 						case <-peer.connection.Ctx.Done():
 						// connection was already closed in the meantime
 						default:
+							peer.sentPowReq = false
 							peer.connection.Data <- pow
 						}
 					}()
@@ -306,7 +306,7 @@ func (dummy *dummyStrat) Listen() {
 					conn := gossipConnection{
 						connection: horizontalapi.Conn[chan<- horizontalapi.ToHz](msg),
 					}
-					dummy.connManager.AddInProgress(conn)
+					dummy.connManager.AddInProgress(&conn)
 				}
 
 				// Message from the vertical API
@@ -341,7 +341,7 @@ func (dummy *dummyStrat) Listen() {
 			case <-ticker.C:
 				validMessages := dummy.validMessages.ExtractToSlice()
 
-				dummy.connManager.ActionOnPermutedValid(func(peer gossipConnection) {
+				dummy.connManager.ActionOnPermutedValid(func(peer *gossipConnection) {
 					for _, msg := range validMessages {
 						peer.connection.Data <- msg.message
 						dummy.rootStrat.log.Debug("HZ Message sent:", "dst", peer.connection.Id, "Message", msg)
@@ -357,8 +357,9 @@ func (dummy *dummyStrat) Listen() {
 				}, int(dummy.rootStrat.stratArgs.Degree))
 
 			case <-renewalTicker.C:
-				dummy.connManager.ActionOnValid(func(x gossipConnection) {
+				dummy.connManager.ActionOnValid(func(x *gossipConnection) {
 					req := horizontalapi.PowReq{}
+					x.sentPowReq = true
 					x.connection.Data <- req
 				})
 
@@ -374,7 +375,7 @@ func (dummy *dummyStrat) Listen() {
 }
 
 // Returns weather the connection is valid or not
-func isConnectionInvalid(peer gossipConnection) bool {
+func isConnectionInvalid(peer *gossipConnection) bool {
 	diff := time.Now().Sub(peer.timestamp)
 	return !(diff < POW_TIMEOUT)
 }
