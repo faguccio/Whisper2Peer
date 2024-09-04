@@ -93,6 +93,7 @@ func TestHandleConnection(test *testing.T) {
 			ctx, cfunc := context.WithCancel(context.Background())
 			defer cfunc()
 			// start the handler
+			vert.wg.Add(1)
 			go vert.handleConnection(cVert, common.Conn[common.RegisteredModule]{Data: regMod, Ctx: ctx, Cfunc: cfunc})
 
 			// write the message to the socket
@@ -174,6 +175,7 @@ func TestWriteToConnection(test *testing.T) {
 		mainToVert := make(chan common.ToVert, 1)
 		ctx, cfunc := context.WithCancel(context.Background())
 		defer cfunc()
+		vert.wg.Add(1)
 		go vert.writeToConnection(cVert, common.Conn[<-chan common.ToVert]{Data: mainToVert, Ctx: ctx, Cfunc: cfunc})
 
 		// send a message to the handler which shall be sent on the network
