@@ -131,47 +131,49 @@ Those modules create threads that communicate with message passing, as seen agai
 
 \subsection{Logical structure}
 Using UML class diagrams is the standard way of modeling the logical structure of a project (at least with object orientation).
-It quickly shows how classes are connected\,/\,coupled to each other and what data a class stores.
+It quickly shows how classes are connected\,/\,coupled to each other, and what data a class stores.
 
 The UML class diagram for the packages of our project can be seen in \cref{fig:classDia}.
-The \PumlCircle{Struct}{S} marks a struct/class, the \PumlCircle{Interface}{I} marks interfaces and the orange \PumlCircle{Type}{T} marks a type.
+The \PumlCircle{Struct}{S} marks a struct/class,
+the \PumlCircle{Interface}{I} marks interfaces, and
+the \PumlCircle{Type}{T} marks a type.
 Types (as marked with \PumlCircle{Type}{T}) usually are simple type aliases for an existing class (or a built-in type of golang).
-Note that for a better overview, this diagram is mostly structured like \cref{fig:overview} with the vertical API on the left and the horizontal API on the right.
-Also the diagram is already complex enough with just the classes for the application itself.
-Thus, we refrained from also adding some classes solely used for (end-to-end) testing (and benchmarking).
-For more information on that part of our project please refer to \cref{sec:testing}.
+Note that for a better overview, this diagram is primarily structured like \cref{fig:overview} with the vertical API on the left and the horizontal API on the right.
+Also, the diagram is already complex enough with just the classes for the application itself.
+Thus, we refrained from adding some classes only used for (end-to-end) testing (and benchmarking).
+For more information on that part of our project, please refer to \cref{sec:testing}.
 
-In our case most of the communication is not done by function calls but by message passing.
-Thus, there are fewer functions defined on our classes than one might expect, and the present ones are more general like \lstinline{Listen} or \lstinline{Run}.
-To gain a deeper understanding about the internal communication please refer to \cref{sec:msgpassing}.
+In our case, most communication is not done by function calls but by message passing.
+Thus, fewer functions are defined on our classes than expected, and the present ones are more general, like \lstinline{Listen} or \lstinline{Run}.
+To gain a deeper understanding of the internal communication, please refer to \cref{sec:msgpassing}.
 Still, getting a rough overview of what class implements which interface is also useful for the message passing. \label{sumtypes}
-For message passing we need to focus on the interfaces starting with \texttt{To*} and \texttt{From*}.
+For message passing, we need to focus on the interfaces starting with \texttt{To*} and \texttt{From*}.
 As sum-types\,/\,unions are not natively supported by golang, our workaround is to send objects implementing the respective interface on each channel.
 When receiving on such a channel, we can safely \texttt{switch} over the object's type and handle the respective message.
-We use the tool \emph{go-sumtype}\footnote{\url{https://github.com/BurntSushi/go-sumtype}} to check if the \texttt{switch} statements really handle all cases needed (actually this only works in a specific scenario but for more on this refer to the documentation of that tool).
+We use the tool \emph{go-sumtype}\footnote{\url{https://github.com/BurntSushi/go-sumtype}} to check if the \texttt{switch} statements handle all cases needed (actually, this only works in a specific scenario, but for more on this refer to the documentation of that tool).
 
-In \cref{sec:structureNetworking} we will go more into detail regarding the networking part.
+In \cref{sec:structureNetworking}, we will go into more detail regarding the networking part.
 For now, it is only important that while we implement de- and serialization on the vertical API ourselves, we use capnproto\footnote{\url{https://github.com/capnproto/go-capnp}} on the horizontal API for this task.
 The respective logic in both cases is contained in the respective \texttt{types} subpackage.
 Since the capnproto code is generated automatically (and contains some capnproto internals), we omit the \texttt{horizontalAPI/types} package while including the \texttt{verticalAPI/types} package in the diagram.
 
-Also note that golang does not have the concept of constructors for a class.
+Also, note that golang does not have the concept of constructors for a class.
 Therefore, data needed\,/\,used for initialization of the classes is not visible in the class diagram.
-In most cases the constructor is pretty straight forward.
+In most cases, the constructor is pretty straightforward.
 The \texttt{strategy} package is an exception to this.
-Here there is only one generic constructor \texttt{New} which returns an object which implements the \texttt{StrategyCloser} interface (at the moment this is only the \texttt{dummyStrat}).
-Which strategy is to be used is decided by the generic constructor based on the arguments.
+Here, there is only one generic constructor \texttt{New}, which returns an object that implements the \texttt{StrategyCloser} interface (at the moment, this is only the \texttt{dummyStrat}).
+The generic constructor decides which strategy to use based on the arguments.
 
 One additional special case might be the \texttt{common} package.
-First this was contained in the \texttt{verticalAPI/types} package but as we progressed, we figured it would be a good idea to extract the definition of some message types we use throughout the whole module.
-This way we avoid the necessity to include the \texttt{verticalAPI/types} package everywhere.
-During further development a few additional definitions were added to this package with the same reasoning.
+First, this was contained in the \texttt{verticalAPI/types} package, but as we progressed, we figured it would be a good idea to extract the definition of some message types we use throughout the whole module.
+This way, we avoid the necessity to include the \texttt{verticalAPI/types} package everywhere.
+During further development, a few additional definitions were added to this package with the same reasoning.
 
-Also a bit confusing on first sight might be the \texttt{internal/packetcounter} package.
-This is used to collect some statistics and is used for (end-to-end) testing (and benchmarking).
+Also, a bit confusing at first sight might be the \texttt{internal/packetcounter} package.
+This is used to collect statistics and for (end-to-end) testing (and benchmarking).
 
-Note: The way we split the application into modules you can also think of the modules (shown in \cref{fig:overview}) as layers.
-In this view, the layers from bottom up would be \texttt{horizontalAPI}, \texttt{strategy}, \texttt{gossip}, \texttt{verticalAPI}.
+Note: The way we split the application into modules, you can also think of the modules (shown in \cref{fig:overview}) as layers.
+In this view, the layers from the bottom up would be \texttt{horizontalAPI}, \texttt{strategy}, \texttt{gossip}, \texttt{verticalAPI}.
 
 \begin{landscape}
 	\pagestyle{empty}
