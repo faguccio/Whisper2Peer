@@ -75,17 +75,17 @@
 \thispagestyle{tumarticle}
 
 \section{Introduction}
-In this document we will introduce the overall design of our module \textbf{Whisper2Peer}.
-We will first quickly describe how our application is build, tested and run.
-Then we will show the module architecture from a logical standpoint and the different threads used in the process.
-Since we are using golang, our threads are actually goroutines.
-Note that for simplicity we are using the both terms \emph{goroutine} and \emph{thread} interchangeable.
+This document will introduce the overall design of our module \textbf{Whisper2Peer}.
+First, we will describe how our application is built, tested, and run.
+Then, we will show the module architecture logically and the different threads used in the process.
+Since we are using golang, our threads are goroutines.
+Note that we use the terms \emph{goroutine} and \emph{thread} interchangeably for simplicity.
 We will give sample scenarios to understand how messages are processed and travel the program.
-We will also show our own abstractions over the networking layer.
+We will also show our abstractions over the networking layer.
 
 % TODO(pull) change needed if pull is implemented
-After that, we will cover the concrete gossip strategy we implemented including the different parameters used by the strategy.
-Later we will discuss the security measure we implemented, as well as the peer-to-peer protocol we put in place.
+After that, we will cover the concrete gossip strategy we implemented, including the different parameters used in the strategy.
+Later, we will discuss the security measure we implemented and the peer-to-peer protocol we put in place.
 Finally, we will explore what next steps would make sense when continuing to work on this project and how the workload was distributed between the team members.
 
 \section{How to run/build}
