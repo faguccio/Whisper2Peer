@@ -43,6 +43,8 @@
 	},
 }
 
+% TODO main -> gossip
+% was renamed when adding the testing binary and the reorganization in this step
 \input{listingsSetup}
 
 \definecolor{Type}{HTML}{FF7700}
@@ -55,13 +57,17 @@
 \newcommand{\cf}{\mbox{c.\,f.}\xspace}
 \newcommand{\tos}{$\to$\xspace}
 
-% TODO thread ~ goroutine
+% default for positioning floats
+\makeatletter
+\renewcommand*{\fps@figure}{htp}
+\renewcommand*{\fps@table}{htp}
+\makeatother
 
 % Set document title. If no language is supplied, the document language is
 % assumed.
-\title{P2Psec Project -- Midterm Report}
+\title{P2Psec Project -- Documentation}
 \author{Fabio Gaiba, Lukas Heindl}
-\date{July 2nd, 2024}
+\date{September 9th, 2024}
 
 \begin{document}
 
