@@ -392,7 +392,51 @@ This way we do not need to come up with \eg a messageType field on our own and a
 \end{table}
 
 \section{Testing} \label{sec:testing}
-\Todo{Lukas: benchmarking + testing, explain how the tester works}
+Testing can be split into multiple categories.
+In this project we make use of unit testing and end-to-end testing.
+Both kinds of tests are written in files suffixed with \texttt{\_test.go}.
+Therefore, if you use \lstinline{go test} to run the tests, both kinds of tests are executed.
+
+You will find the files containing the unit tests placed right aside the files containing the code they test.
+Unit testing itself is quite straight forward and will not be covered in more detail in this documentation.
+
+For the end-to-end testing we came up with a more complex setup which relies on a \texttt{Tester} class (see \texttt{internal/testutils/}) for the most part.
+You will find the specification of the test cases in \texttt{gossip/main/main\_test.go}.
+But now let us focus on the \texttt{Tester} class used in the process.
+
+The basic idea for end-to-end testing is to bring up multiple instances of our application, one for each node in a network.
+The topology of the network is defined beforehand in a json file.
+Afterwards, we can instruct one instance to spread information in the network and we can observe how the nodes in the network handle this.
+
+In order to do so, we create multiple goroutines, one for each node, and launch our application with the respective configuration in each of these goroutines.
+To observe the process, we setup each instance so that it outputs its logs in json format and also only outputs log statements with a magic log level (only used for this kind of testing).
+We can then parse the redirected json log output in the testing-routine and collect it for later use.
+Additionally, for each node we open a TCP connection for the vertical API so that we can control the node just like in a real world scenario.
+
+All this functionality is implemented in the \texttt{Tester} class.
+\texttt{NewTesterFromJSON} parses the json file defining the topology,
+\texttt{Startup} starts the application multiple times and opens the vertical API connections and
+\texttt{Teardown} closes all the connections and terminates all instances.
+Having all these functionalities collected in one class has the advantage that we can use it for multiple different test cases.
+
+For ease of use we also added some more functions to the \texttt{Tester} class.
+One example is registering a certain \emph{gossipType} on all nodes so that all nodes participate in spreading the information.
+Another example is waiting until no more messages are sent (for a certain duration) on the horizontal connections (except for PoW messages).
+The latter is particularly usefull when waiting until information was spread before calling \texttt{Teardown}.
+
+To write all this in golang has the big andvantage that we can simply reuse the struct definitions of our project.
+This is particularly usefull when sending messages on the vertical API.
+Also this makes it easier to integrate the tests in the golang way of running tests.
+
+The goal was to provide a layer of abstraction on top of the whole management of the nodes so that the actual testcase is just a simple playbook what should happen.
+Therefore, if you have a look at the end-to-end tests, they read very script-like.
+
+The \texttt{Tester} was also designed in order to use it also for some benchmarks.
+In this case the approach of using a certain log level comes in handy as it allows to place various hooks in the codebase which later can be used during benchmarking.
+We already started having a look at \eg which node receives the information when and how many packets are sent at which point in time.
+For this reason you will already find some code regarding the analysis of the gathered data in the \texttt{Tester} class.
+But as there is randomness is involved in the gossip strategy, coming up with good metrics is quite hard.
+This is why in the end, we did not perform extended benchmarking providing us with results we can present at this point.
 
 \section{Future Work} \label{sec:future}
 \Todo{outdated!!}
