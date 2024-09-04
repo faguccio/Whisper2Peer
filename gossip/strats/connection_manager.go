@@ -11,6 +11,7 @@ import (
 type gossipConnection struct {
 	connection horizontalapi.Conn[chan<- horizontalapi.ToHz]
 	timestamp  time.Time
+	sentPowReq bool
 }
 
 // This object is used to manage the connection used by the gossip strategy
@@ -23,9 +24,9 @@ type ConnectionManager struct {
 	// Connection that this peer needs to prove
 	toBeProvedConnections map[horizontalapi.ConnectionId]gossipConnection
 	// Array of peers channels, where messages can be sent (stored as slice for easing permutations)
-	openConnections []gossipConnection
+	openConnections []*gossipConnection
 	// Map of valid connection (for fast access). If a connection is present in the openConnections
-	openConnectionsMap map[horizontalapi.ConnectionId]gossipConnection
+	openConnectionsMap map[horizontalapi.ConnectionId]*gossipConnection
 	// Map of invalid connection (for fast access) that needs to be validated
 	powInProgress map[horizontalapi.ConnectionId]gossipConnection
 
@@ -46,7 +47,7 @@ func NewConnectionManager(toBeProved []horizontalapi.Conn[chan<- horizontalapi.T
 
 	return ConnectionManager{
 		toBeProvedConnections: toBeProvedMap,
-		openConnectionsMap:    make(map[horizontalapi.ConnectionId]gossipConnection),
+		openConnectionsMap:    make(map[horizontalapi.ConnectionId]*gossipConnection),
 		powInProgress:         make(map[horizontalapi.ConnectionId]gossipConnection),
 	}
 }
@@ -62,18 +63,18 @@ func (manager *ConnectionManager) ActionOnToBeProved(f func(x gossipConnection))
 }
 
 // Perform an function f on every valid (open) connection
-func (manager *ConnectionManager) ActionOnValid(f func(x gossipConnection)) {
+func (manager *ConnectionManager) ActionOnValid(f func(x *gossipConnection)) {
 	manager.connMutex.RLock()
 	defer manager.connMutex.RUnlock()
 
-	for _, conn := range manager.openConnections {
-		f(conn)
+	for i := 0; i < len(manager.openConnections); i++ {
+		f(manager.openConnections[i])
 	}
 }
 
 // Function which perform a function f on a permutation of the valid connections.
 // Max is the number of elements we want to perform the action on
-func (manager *ConnectionManager) ActionOnPermutedValid(f func(x gossipConnection), max int) {
+func (manager *ConnectionManager) ActionOnPermutedValid(f func(x *gossipConnection), max int) {
 	manager.connMutex.RLock()
 	defer manager.connMutex.RUnlock()
 
@@ -108,7 +109,7 @@ func (manager *ConnectionManager) FindInProgress(id horizontalapi.ConnectionId) 
 
 // Returns the connection with matching ID from the to valid (open) connections and a boolean indicating
 // the presence of the value
-func (manager *ConnectionManager) FindValid(id horizontalapi.ConnectionId) (gossipConnection, bool) {
+func (manager *ConnectionManager) FindValid(id horizontalapi.ConnectionId) (*gossipConnection, bool) {
 	manager.connMutex.RLock()
 	defer manager.connMutex.RUnlock()
 
@@ -131,9 +132,9 @@ func (manager *ConnectionManager) unsafeFind(id horizontalapi.ConnectionId) goss
 	}
 
 	// Search in the open (valid) connections
-	peer, ok = manager.openConnectionsMap[id]
+	peerR, ok := manager.openConnectionsMap[id]
 	if ok {
-		return peer
+		return *peerR
 	}
 
 	return gossipConnection{}
@@ -169,7 +170,7 @@ func (manager *ConnectionManager) unsafeRemove(id horizontalapi.ConnectionId) (g
 	}
 
 	// Remove it from openConnectionMap and Slice
-	peer, ok = manager.openConnectionsMap[id]
+	peer2, ok := manager.openConnectionsMap[id]
 	if ok {
 		delete(manager.openConnectionsMap, id)
 
@@ -178,7 +179,7 @@ func (manager *ConnectionManager) unsafeRemove(id horizontalapi.ConnectionId) (g
 			if conn.connection.Id == id {
 				manager.openConnections[i] = manager.openConnections[len(manager.openConnections)-1]
 				manager.openConnections = manager.openConnections[:len(manager.openConnections)-1]
-				return peer, nil
+				return *peer2, nil
 			}
 		}
 	}
@@ -196,8 +197,8 @@ func (manager *ConnectionManager) MakeValid(id horizontalapi.ConnectionId, times
 
 	peer.timestamp = timestamp
 
-	manager.openConnections = append(manager.openConnections, peer)
-	manager.openConnectionsMap[id] = peer
+	manager.openConnections = append(manager.openConnections, &peer)
+	manager.openConnectionsMap[id] = &peer
 
 }
 
@@ -210,7 +211,7 @@ func (manager *ConnectionManager) AddInProgress(peer gossipConnection) {
 }
 
 // Remove all valid connection on which f return true
-func (manager *ConnectionManager) CullConnections(f func(x gossipConnection) bool) {
+func (manager *ConnectionManager) CullConnections(f func(x *gossipConnection) bool) {
 	manager.connMutex.Lock()
 	defer manager.connMutex.Unlock()
 
