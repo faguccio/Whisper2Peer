@@ -233,8 +233,6 @@ namespace common {
 "common.GossipRegister" o-- "common.GossipNotify"
 "common.RegisteredModule" o-- "common.ToVert"
 
-"common.ConnectionId" <|.. "common.GossipUnRegister"
-
 namespace gossip {
 	top to bottom direction
 
@@ -453,7 +451,6 @@ namespace strats {
 
 "strats.StrategyCloser" <|.. "strats.dummyStrat"
 "pow.POWMarshaller" <|.. "strats.powMarsh"
-"horizontalapi.ConnPoW" <|.. "strats.powMarsh"
 
 "strats.storedMessage" o-- "horizontalapi.Push"
 
@@ -463,8 +460,6 @@ namespace strats {
 "strats.dummyStrat" o-- "strats.Strategy"
 "strats.dummyStrat" o-- "strats.ConnectionManager"
 "strats.dummyStrat" o-- "horizontalapi.FromHz"
-"strats.dummyStrat" o-- "horizontalapi.NewConn"
-"strats.dummyStrat" o-- "horizontalapi.ToHz"
 "strats.dummyStrat" o-- "strats.storedMessage"
 "strats.dummyStrat" o-- "internal/ringbuffer.Ringbuffer"
 
@@ -579,13 +574,13 @@ namespace horizontalapi {
 
 	class horizontalapi.NewConn << (T, #FF7700) >>  {
 	}
-	note left
+	note bottom
 		alias for Conn[<font color=blue>chan</font> ToHz]
 	end note
 
 	class horizontalapi.Unregister << (T, #FF7700) >>  {
 	}
-	note right
+	note bottom
 		alias for ConnectionId
 	end note
 
@@ -631,7 +626,6 @@ namespace horizontalapi {
 "horizontalapi.HorizontalApi" o-- "internal/packetcounter.Counter"
 
 "horizontalapi.FromHz" <|.. "horizontalapi.NewConn"
-"horizontalapi.ConnectionId" <|.. "horizontalapi.Unregister"
 "horizontalapi.Conn" o-- "horizontalapi.ConnectionId"
 
 "horizontalapi.ConnPoW" o-- "horizontalapi.ConnectionId"
