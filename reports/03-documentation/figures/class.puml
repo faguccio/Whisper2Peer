@@ -348,27 +348,28 @@ namespace strats {
 	class gossipConnection << (S,Aquamarine) >> {
 		- connection horizontalapi.Conn[chan<- horizontalapi.ToHz]
 		- timestamp  time.Time
+		- sentPowReq bool
 	}
 
 	class ConnectionManager << (S,Aquamarine) >> {
-		- toBeProvedConnections map[horizontalapi.ConnectionId]gossipConnection
-		- openConnections []gossipConnection
-		- openConnectionsMap map[horizontalapi.ConnectionId]gossipConnection
-		- powInProgress map[horizontalapi.ConnectionId]gossipConnection
+		- toBeProvedConnections map[horizontalapi.ConnectionId]*gossipConnection
+		- openConnections []*gossipConnection
+		- openConnectionsMap map[horizontalapi.ConnectionId]*gossipConnection
+		- powInProgress map[horizontalapi.ConnectionId]*gossipConnection
 		- connMutex sync.RWMutex
 
-		+ ActionOnToBeProved(f <font color=blue>func</font>(x gossipConnection))
-		+ ActionOnValid(f <font color=blue>func</font>(x gossipConnection))
-		+ ActionOnPermutedValid(f func(x gossipConnection), max int)
-		+ FindToBeProved(id horizontalapi.ConnectionId) (gossipConnection, bool)
-		+ FindInProgress(id horizontalapi.ConnectionId) (gossipConnection, bool)
-		+ FindValid(id horizontalapi.ConnectionId) (gossipConnection, bool)
-		+ Remove(id horizontalapi.ConnectionId) (gossipConnection, error)
+		+ ActionOnToBeProved(f <font color=blue>func</font>(x *gossipConnection))
+		+ ActionOnValid(f <font color=blue>func</font>(x *gossipConnection))
+		+ ActionOnPermutedValid(f func(x *gossipConnection), max int)
+		+ FindToBeProved(id horizontalapi.ConnectionId) (*gossipConnection, bool)
+		+ FindInProgress(id horizontalapi.ConnectionId) (*gossipConnection, bool)
+		+ FindValid(id horizontalapi.ConnectionId) (*gossipConnection, bool)
+		+ Remove(id horizontalapi.ConnectionId) (*gossipConnection, error)
 		+ MakeValid(id horizontalapi.ConnectionId, timestamp time.Time)
-		+ AddInProgress(peer gossipConnection)
-		+ CullConnections(f func(x gossipConnection) bool)
-		- unsafeFind(id horizontalapi.ConnectionId) gossipConnection
-		- unsafeRemove(id horizontalapi.ConnectionId) (gossipConnection, error)
+		+ AddInProgress(peer *gossipConnection)
+		+ CullConnections(f func(x *gossipConnection) bool)
+		- unsafeFind(id horizontalapi.ConnectionId) *gossipConnection
+		- unsafeRemove(id horizontalapi.ConnectionId) (*gossipConnection, error)
 	}
 
 	class connCookie << (S,Aquamarine) >> {
