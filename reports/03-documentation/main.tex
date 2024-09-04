@@ -335,34 +335,35 @@ Currently, the idea needs to be further explored, but multiple requests for PoW 
 
 \section{Specification of the peer-to-peer protocol} \label{sec:msgtypes}
 This module works with two protocols, one on the vertical API and one on the horizontal API.
-The one for the vertical API was already predetermined, its specification can be found in the \emph{specification.pdf} document (see moodle\footnote{\url{https://www.moodle.tum.de/mod/resource/view.php?id=3090766}}).
-For the other one we had the freedom to develop something on our own.
-To avoid having to write the de-\,/\,parsing ourselves, we chose to use capnproto.
-Capnproto is a data serialization format which comes with libraries in multiple different languages and a respective code generator for those languages.
-With capnproto you only specify what data (\enquote{name} and type) should be in the message.
+The one for the vertical API was already predetermined.
+Its specification can be found in the \emph{specification.pdf} document (see moodle\footnote{\url{https://www.moodle.tum.de/mod/resource/view.php?id=3090766}}).
+For the other one, we had the freedom to develop something independently.
+To avoid writing the de-\,/\,parsing ourselves, we chose to use capnproto.
+Capnproto is a data serialization format that comes with libraries in multiple different languages and a respective code generator for those languages.
+With capnproto, you only specify what data (\enquote{name} and type) should be in the message.
 The concrete message format is then the concern of capnproto.
 
 With this in mind, it makes no real sense to include the concrete format of the messages but only the names of the fields and their type.
 % TODO(pull)
-As of now er have seven message types on the horizontal API.
-The most important one is the \emph{Push} message type as it is actually used to spread information in the network.
+As of now, we have seven message types on the horizontal API.
+The most important one is the \emph{Push} message type, which is used to spread information in the network.
 Its fields and types can be seen in \cref{tab:push}.
 
-The six remaining message types can be split into two groups. One with the \emph{Conn} prefix and one with the \emph{Pow} prefix.
+The six remaining message types can be split into two groups, one with the \emph{Conn} prefix and one with the \emph{Pow} prefix.
 Both groups are of size three.
 Regarding the payload, both sets of message types are equal.
-We used different message types nonetheless since we use them in a slightly different context and want to be able to differentiate what message exactly was sent.
+We use different message types nonetheless since we use them in a slightly different context and want to be able to differentiate what message exactly was sent.
 Both sets of message types consist of
 a \emph{Req} message type (see \cref{tab:req}),
 a \emph{Chall} message type (see \cref{tab:chall}) and
 a \emph{Pow} message type (see \cref{tab:pow}).
 All of them are used for our security mechanism.
-For more information on this mechanism please refer to \cref{sec:security}.
+For more information on this mechanism, please refer to \cref{sec:security}.
 
-The actual message sent on the horizontal API is not a raw instance of the a message described above but a more generic message type which is a simple union of all message types that can be sent on the horizontal API.
-This approach makes is possible to add more message types as we go by simply adding more types to this union.
-The nice thing at this point is that capnproto handles the complete checking which message type was actually sent (resolving the union so to speak).
-This way we do not need to come up with \eg a messageType field on our own and allocate identifiers for the individual types.
+The actual message sent on the horizontal API is not a raw instance of the message described above but a more generic message type, which is a simple union of all message types that can be sent on the horizontal API.
+This approach makes it possible to add more message types as we go by simply adding more types to this union.
+The nice thing at this point is that capnproto handles the complete checking of which message type was sent (resolving the union, so to speak).
+This way, we do not need to come up with, \eg a messageType field on our own and allocate identifiers for the individual types.
 
 \begin{table}
 	\centering
