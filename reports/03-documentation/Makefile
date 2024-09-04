@@ -20,6 +20,7 @@ figures/class.svg: figures/class.puml
 	cd figures && plantuml -tsvg class.puml
 
 cont: $(FILES)
+	touch $(MAIN).tex
 	$(MAKE) OPT="--watch=inotifywait"
 
 count:
