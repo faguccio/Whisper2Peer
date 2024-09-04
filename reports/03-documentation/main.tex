@@ -98,19 +98,29 @@ If you need\,/\,want a more technical documentation for every function\,/\,struc
 For this, run \lstinline{godoc -http=:6060} in the \texttt{gossip/} folder and navigate to \url{http://localhost:6060/pkg/gossip/} in the Web-Browser.
 
 \section{Module Architecture}
-
-We decided to divide the project into four main packages. Those main packages are described in \cref{fig:overview}. The following is just a brief overview, each part will be discussed in more detail in the following subsections.
+We decided to divide the project into four main packages.
+Those main packages are described in \cref{fig:overview}.
+The following is just a brief overview.
+Each part will be discussed in more detail in the following subsections.
 
 \begin{itemize}
-	\item \textbf{Gossip}: is in charge of managing the whole module. It has to take and use the configuration parameters, orchestrate the other components and filter and relay messages. Moreover, in this package we define the data structure that holds in memory the registered \textit{Gossip Types}.
-	\item \textbf{Vertical API}: its main goal is to manage connection to other modules. It provides an abstraction over the networking part and manages under the hood the marshaling and un-marshaling of the messages.
-	\item \textbf{Horizontal API}: is very similar to the \texttt{Vertical API}, except it has to communicate with the peer's Gossip modules.
-	\item \textbf{Gossip-Strategy}: this package is in charge of instantiating a concrete strategy for disseminating the information between peers. It leverages the \texttt{Horizontal API} to communicate with peers, focusing just on how to handle the messages.
+	\item \textbf{Gossip}:
+		is in charge of managing the whole module.
+		It has to take and use the configuration parameters, orchestrate the other components, and filter and relay messages.
+		Moreover, in this package, we define the data structure that holds the registered \textit{Gossip Types} in memory.
+	\item \textbf{Vertical API}:
+		its main goal is to manage the connections to other modules.
+		It provides an abstraction over the networking part and manages the marshaling and un-marshaling of the messages under the hood.
+	\item \textbf{Horizontal API}:
+		is very similar to the \texttt{Vertical API}, except it has to communicate with the peer's Gossip modules.
+	\item \textbf{Gossip-Strategy}:
+		this package is in charge of instantiating a concrete strategy for disseminating the information between peers.
+		It leverages the \texttt{Horizontal API} to communicate with peers, focusing just on how to handle the messages.
 \end{itemize}
 
-In addition to these four main packages, there are also a \textbf{Common} package, holding common data types, an internal \textbf{Ringbuffer} package, defining a circular queue data structure used to store data to be spread in the network and a \textbf{PoW} package implementing (parallelized) solving of proof-of-work challenges.
+In addition to these four main packages, there is also a \textbf{Common} package, holding common data types, an internal \textbf{Ringbuffer} package, defining a circular queue data structure used to store data to be spread in the network and a \textbf{PoW} package implementing (parallelized) solving of proof-of-work challenges.
 
-Those modules create threads which communicate with message passing, as can be seen again in \cref{fig:overview}. This design decision allows the program to be highly scalable due to the degree of parallelization.
+Those modules create threads that communicate with message passing, as seen again in \cref{fig:overview}. This design decision allows the program to be highly scalable due to the degree of parallelization.
 
 \begin{figure}
 	\centering
