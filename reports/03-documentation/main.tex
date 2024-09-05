@@ -280,7 +280,7 @@ The Main Strategy is the base component common to any Concrete Strategy. It inst
 
 \subsection{Connection Manager}
 
-The first aspect which is in common to any Strategy is the Connection Manager. This class is responsible for abstracting the management of connections and providing a clean interface for them. This is needed due to our security measures (\cref{sec:security}), as connections have to be validated through Proofs of Work. As a result, the connection state may change (e.g., a connection can become valid or invalid). These changes, which might occur concurrently, could easily lead to an invalid state.
+The first aspect which is in common to any Strategy is the Connection Manager. This class is responsible for abstracting the management of connections and providing a clean interface for them. This is needed due to our security measures (\cref{sec:security}), as connections have to be validated through Proofs of Work regularly. As a result, the connection state may change (e.g., a connection can become valid or invalid). These changes might occur concurrently, which could easily lead to an invalid state.
 
 Therefore, we decided to allow changes to the internal state of connections only through a carefully exposed interface. Some of the functionalities of the Connection Manager are finding a connection for a gived ConnectionID, removing a connection or making a connection valid upon receiving a PoW.
 
