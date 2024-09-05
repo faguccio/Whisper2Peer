@@ -78,7 +78,7 @@
 This document will introduce the overall design of our module \textbf{Whisper2Peer}.
 First, we will describe how our application is built, tested, and run.
 Then, we will show the module architecture logically and the different threads used in the process.
-Since we are using golang, our threads are goroutines.
+Since we are using golang, we implement threads by using goroutines.
 Note that we use the terms \emph{goroutine} and \emph{thread} interchangeably for simplicity.
 We will give sample scenarios to understand how messages are processed and travel the program.
 We will also show our abstractions over the networking layer.
@@ -162,7 +162,7 @@ Therefore, data needed\,/\,used for initialization of the classes is not visible
 In most cases, the constructor is pretty straightforward.
 The \texttt{strategy} package is an exception to this.
 Here, there is only one generic constructor \texttt{New}, which returns an object that implements the \texttt{StrategyCloser} interface (at the moment, this is only the \texttt{dummyStrat}).
-The generic constructor decides which strategy to use based on the arguments.
+If one would implement a second strategy, this generic constructor would decide which strategy to use based on the arguments.
 
 One additional special case might be the \texttt{common} package.
 First, this was contained in the \texttt{verticalAPI/types} package, but as we progressed, we figured it would be a good idea to extract the definition of some message types we use throughout the whole module.
@@ -423,7 +423,7 @@ The topology of the network is defined beforehand in a JSON file.
 Afterward, we can instruct one instance to spread information in the network, and we can observe how the nodes in the network handle this.
 
 In order to do so, we create multiple goroutines, one for each node, and launch our application with the respective configuration in each of these goroutines.
-To observe the process, we set up each instance to output its logs in JSON format and output log statements with a magic log level (only used for this kind of testing).
+To observe the process, we set up each instance to output its logs in JSON format and output log statements with a predefined log level (only used for this kind of testing).
 We can then parse the redirected JSON log output in the testing routine and collect it for later use.
 Additionally, for each node, we open a TCP connection for the vertical API to control the node, just like in a real-world scenario.
 
