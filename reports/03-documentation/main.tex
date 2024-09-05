@@ -353,7 +353,7 @@ From a security perspective, the Gossip module is mainly susceptible to \textit{
 
 The act of validating identity in our system involves solving a Proof of Work (PoW) challenge. Specifically, this means finding a nonce (a random or pseudo-random value) that, when appended to a given challenge, results in a hash output with a specified number ($n$) of leading zeros. This process is similar to the one of the registration challenge.
 
-The purpose of this PoW mechanism is to ensure that the client has invested computational effort in proving its legitimacy. Once the correct nonce is identified and appended to the challenge, any peer can verify such PoW: if the hash function generates an output that starts with the required number of leading zeros, the Proof of Work is considered valid.
+The purpose of this PoW mechanism is to ensure that the client has invested computational effort in proving its legitimacy. Once the correct nonce is identified and appended to the challenge, any peer can verify such PoW efficiently: if the hash function generates an output that starts with the required number of leading zeros, the Proof of Work is considered valid.
 
 This mechanism provides security by making it computationally expensive to forge identities or spam the system with invalid connections (\textit{Sybil Attacks}). 
 
