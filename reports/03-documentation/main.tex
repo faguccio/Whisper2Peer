@@ -301,7 +301,7 @@ Ultimately, the Gossip Strategy has to receive messages, notify the verticalAPI 
 	\item \textbf{Sent Messages}: messages that were sent to \textit{Degree} peers 
 \end{itemize}
 
-Those states are held in a \textbf{Ringbuffer}, a circular queue data structure which make it very easy discarding the oldest messages when enough (\textit{cache\_size}) messages are stored. 
+Those states are held in a \textbf{Ringbuffer}, a circular queue data structure which make it very easy discarding the oldest messages when the (\textit{cache\_size}) is exceeded. 
 
 \subsection{Push Strategy}
 The push strategy is straight forward.
