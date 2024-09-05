@@ -393,14 +393,25 @@ To better model the PoW, we decided upon 3 possible connection state:
 
 This states become handy when receiving and handling PoW messages, as we must verify that a message is coming from a connection in a specific state. For example, we only accept Challenges if the connection is a To Be Proved ones. Or we automatically drop PUSH messages if the connection is not a valid one (not present in the Open Connections).
 
+\subsection{Proof of Work methods}
+
+
+
 \subsubsection{Cookies}
 
-\subsubsection{Periodical Proofs of Work}
+When a peer is validating incoming connection, some information should be maintained. This can let an attacker opening a lot of connection, leave them half done (not providing the PoW) and increasing the memory load on the peer much like a TCP SYN Flood attack. To avoid keeping a state in memory, the sent challenge contains a cookie. 
 
-A node periodically asks the neighboring peers for a PoW. At the same time the node will be prompted by each of its neighbors for PoWs. This way, an attacker would have to compute such PoWs for each fake identity periodically. This limits the amount of Sybils an attacker can keep online in the network with limited resources.
+The cookie is composed of the Ip and Port of the peer which needs to ba validated, a timestamp of when the cookie was created and a Nonce, used by the encryption algorithm. The cookie is then encrypted using ChaCha20-Poly1305 \footnote{\url{https://en.wikipedia.org/wiki/ChaCha20-Poly1305}} and the nonce is also appended as plaintext. The used key is randomly generated at startup by the peer.
 
-Currently, the idea needs to be further explored, but multiple requests for PoW could be aggregated into a single PoW so that a node does not waste too many resources into multiple PoW. Still an attacker would need to compute one PoW for each fake identity. PoWs could also be preemptively asked to facilitate even more this aggregation (since there is no global synchronization) and also mitigate DoS of peers by flooding it with PoW requests. For the same reason peers should also limit the frequency a neighboring peer is allowed to send a PoW request.
+Upon reception of the PoW, the Cookie is decrypted and the content is inspected to check the validity. For example the timestamp should not be larger then a certain timeout value.
 
+\subsection{Periodical Proofs of Work}
+
+The PoW requires an attacker to put computational effort when opening a connection. But if this is done only once, the attacker con use the resource sequentially, adding Sybils to its control over time. To avoid this, we implemented Periodic Proofs of Work: a node periodically asks the neighboring peers for a PoW and at the same time the node will be prompted by each of its neighbors for PoWs. 
+
+We have previously thought about aggregating the received Challenges into a single PoW so that a node does not waste too many resources into multiple PoW. Otherwise we would penalize nodes that have many connections. At the same time, by aggregating, an attacker could open as many connection as he wants paying the same computational cost. In the end, we opted for providing PoW for each connection. This as an higher load on the peers but provide the best security against Sybils.
+
+The Periodic PoW is specular to the previously illustrated ones. There are two timers, one for requesting challenges to all Open Connections (valid ones) and one for closing connection which did not provide the Periodic PoW. The former must be shorter than the latter (at least half) as there is no synchronization between peers.  
 
 \section{Specification of the peer-to-peer protocol} \label{sec:msgtypes}
 This module works with two protocols, one on the vertical API and one on the horizontal API.
