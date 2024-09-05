@@ -344,19 +344,10 @@ When a message is received, it becomes invalid (stays in the invalid queue) unle
 \section{Security Measures} \label{sec:security}
 
 
-\begin{figure}
-	\centering
-	\input{figures/fsm_pow}
-	\caption{Finite state machine for connections types.}
-	\label{fig:fsm_msgs}
-\end{figure}
 
 \Todo{describe how PoW works (what fields are included) -- also how to adjust and make the challenge harder -- also parallelization}
-\Todo{go into detail why/how we use ChaCha to come up with a challenge in a \enquote{smart} way}
 
-Currently, as a node starts, it already has a list of the peer node to connect to. A peer accepts any new connection, which makes the system vulnerable to \textit{Sybil Attacks} and consequently \textit{Eclipse Attacks}. We plan to mitigate this problem by introducing an Identity Validation system based on a computational Proof of Work (PoW).
-
-From a security perspective, the Gossip module is mainly susceptible to \textit{Sybil Attacks} and consequently \textit{Eclipse Attacks}. This is because, when running, a peer is accepting any new connection and there is no central authority which can help with verifying the identity of other entities. To provide Identity Validation we opted to a computation based Proof of Work. This way we limit the amount of Identity which can be under the control of an attacker the the computational resources that such attacker has. 
+From a security perspective, the Gossip module is mainly susceptible to \textit{Sybil Attacks} and consequently \textit{Eclipse Attacks}. This is because, when running, a peer is accepting any new connection and there is no central authority which can help with verifying the identity of other entities. To provide Identity Validation we opted for a computation based Proof of Work. This way we limit the amount of Identity which can be under the control of an attacker to the computational resources that such attacker has. 
 
 \subsection{Identity Validation}
 
@@ -387,21 +378,28 @@ To better model the PoW, we decided upon 3 possible connection state:
 
 \begin{enumerate}
 	\item \texttt{To Be Proved Connections}: peers to which a PoW needs to be sent
-	\item \texttt{In Progress Connections}: peers which needs to send us a PoW
+	\item \texttt{In Progress Connections}: peers which need to send us a PoW
 	\item \texttt{Open Connections}: peers that were validated (or we validated us against)
 \end{enumerate}
 
 This states become handy when receiving and handling PoW messages, as we must verify that a message is coming from a connection in a specific state. For example, we only accept Challenges if the connection is a To Be Proved ones. Or we automatically drop PUSH messages if the connection is not a valid one (not present in the Open Connections).
 
-\subsection{Proof of Work methods}
+\subsubsection{Proof of Work methods}
 
-
+\Todo{Describe how we compute the pow, with parallelization and the magic trick}
 
 \subsubsection{Cookies}
 
+\begin{table}
+	\centering
+	\input{figures/cookie}
+	\caption{Cookies content}
+	\label{tab:cookie}
+\end{table}
+
 When a peer is validating incoming connection, some information should be maintained. This can let an attacker opening a lot of connection, leave them half done (not providing the PoW) and increasing the memory load on the peer much like a TCP SYN Flood attack. To avoid keeping a state in memory, the sent challenge contains a cookie. 
 
-The cookie is composed of the Ip and Port of the peer which needs to ba validated, a timestamp of when the cookie was created and a Nonce, used by the encryption algorithm. The cookie is then encrypted using ChaCha20-Poly1305 \footnote{\url{https://en.wikipedia.org/wiki/ChaCha20-Poly1305}} and the nonce is also appended as plaintext. The used key is randomly generated at startup by the peer.
+The cookie content is shown in \cref{tab:cookie}. It is composed of the Ip and Port of the peer which needs to ba validated, a timestamp of when the cookie was created and a Nonce, used by the encryption algorithm. The cookie is then encrypted using ChaCha20-Poly1305 \footnote{\url{https://en.wikipedia.org/wiki/ChaCha20-Poly1305}} and the nonce is also appended as plaintext. The used key is randomly generated at startup by the peer.
 
 Upon reception of the PoW, the Cookie is decrypted and the content is inspected to check the validity. For example the timestamp should not be larger then a certain timeout value.
 
