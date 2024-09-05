@@ -301,18 +301,20 @@ Ultimately, the Gossip Strategy has to receive messages, notify the verticalAPI 
 	\item \textbf{Sent Messages}: messages that were sent to \textit{Degree} peers 
 \end{itemize}
 
-Those states are held in a \textbf{Ringbuffer}, a circular queue data structure which make it very easy discarding the oldest messages when the (\textit{cache\_size}) is exceeded. 
+Those states are held in a \textbf{Ringbuffer}, a circular queue data structure which make it very easy discarding the oldest messages when the \textit{cache\_size} is exceeded. The Sent Message Queue is necessary because we can avoid loops inside the network: if an incoming message is present there, it can be automatically dropped so no loop can happen.
 
 \subsection{Push Strategy}
 The push strategy is straight forward.
-Every peer pushes new updates to a random subset of its neighbors.
+Every peer pushes new updates to a random subset of its neighbors. 
 
+\begin{center}
 \begin{minipage}{0.50\linewidth}
 	\begin{lstlisting}[
 		language=pseudo,
 		morekeywords={[3]{main,hz}},
 		morekeywords={[4]{msg,degree,cache\_size}},
-		caption={Pseudo code of the push gossip strategy}
+		caption={Pseudo code of the push gossip strategy},
+		label={lst:code}
 	]
 		on push from hz(msg):
 			if msg is new (unseen) (not in any of the three caches):
@@ -335,10 +337,13 @@ Every peer pushes new updates to a random subset of its neighbors.
 				move msg from valid to sent messages
 	\end{lstlisting}
 \end{minipage}
+\end{center}
+
+The logic is shown in the pseudocode \ref{lst:code}. Here is a more detailed explenation.
 
 When a message is received, it becomes invalid (stays in the invalid queue) unless it was already present in cache (in that case, it is immediately dropped). Such message is sent to the main module, which will interact with the \texttt{Vertical API} for notifying the client. If a \texttt{GOSSIP VALIDATION} message arrives, this means that a recently received message (now stored in the Invalid Queue) can be moved to the Valid Queue and can start to be sent to neighbors. If \texttt{ttl} was one, instead of being relayed to other peers the message is put in the Sent Queue, as there is no need to further spread the information. Messages received through a \texttt{GOSSIP ANNOUNCE} are automatically deemed Valid.
 
-\texttt{Gossip Rounds} are triggered periodically. When the Gossip Round starts, a random subset of peers of size \textit{Degree} is chosen (via a random permutation). Then, each message in the Valid Queue is sent to each chosen peer. Every stored message has a counter, which is increased by one everytime it is sent. Once the counter reach \textit{cache\_size} neighbors, the message is moved to the Sent Queue.
+\texttt{Gossip Rounds} are triggered periodically. When the Gossip Round starts, a random subset of peers of size \textit{Degree} is chosen (via a random permutation). Then, each message in the Valid Queue is sent to each chosen peer. Every stored message has a counter, which is increased by one every time it is sent. Once the counter reach \textit{Degree} neighbors, the message is moved to the Sent Queue. This counter is just an heuristic: on average the message should reach all peers but it is not guaranteed. 
 
 
 \section{Security Measures} \label{sec:security}
