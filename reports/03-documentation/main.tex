@@ -338,7 +338,7 @@ Every peer pushes new updates to a random subset of its neighbors.
 
 When a message is received, it becomes invalid (stays in the invalid queue) unless it was already present in cache (in that case, it is immediately dropped). Such message is sent to the main module, which will interact with the \texttt{Vertical API} for notifying the client. If a \texttt{GOSSIP VALIDATION} message arrives, this means that a recently received message (now stored in the Invalid Queue) can be moved to the Valid Queue and can start to be sent to neighbors. If \texttt{ttl} was one, instead of being relayed to other peers the message is put in the Sent Queue, as there is no need to further spread the information. Messages received through a \texttt{GOSSIP ANNOUNCE} are automatically deemed Valid.
 
-\texttt{Gossip Rounds} are triggered periodically. When the Gossip Round start, a random subset of peers of size \textit{Degree} is chosen (via a random permutation). Then, each message in the Valid Queue is sent to each chosen peer. Every stored message as a counter, increased by one for each send. Once the counter reach \textit{cache\_size} neighbors, the message is moved to the Sent Queue.
+\texttt{Gossip Rounds} are triggered periodically. When the Gossip Round starts, a random subset of peers of size \textit{Degree} is chosen (via a random permutation). Then, each message in the Valid Queue is sent to each chosen peer. Every stored message has a counter, which is increased by one everytime it is sent. Once the counter reach \textit{cache\_size} neighbors, the message is moved to the Sent Queue.
 
 
 \section{Security Measures} \label{sec:security}
