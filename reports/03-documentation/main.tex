@@ -275,7 +275,7 @@ Also note how this use of one thread per read\,/\,write on the connection combin
 
 The spreading of information in the network is done by the Gossip Strategy module. Since the actual way of spreading the messages could be done in many different ways (strategies), we decided to split the logic between a \textbf{Main Strategy} and a \textbf{Concrete Strategy}. There is also a class \textbf{Connection Manager} which has the task of managing the connection to the peers. 
 
-The Main Strategy is the base component common to any Concrete Strategy. It instantiate the horizontalAPI, create the Connection Manager object and finally the Concrete Strategy. On the other hand, a Concrete Strategy  has the job of processing incoming messages and sending its own. The whole sake of this separation is providing modularity. Our implementation offer just one strategy, the Push Strategy, but having the redundant code extracted in a common Base Class would ease in the implementation of a new strategy. That is the reason of having a Main Strategy and a Connection Manager.
+The Main Strategy is the base component common to any Concrete Strategy. It instantiates the horizontalAPI, creates the Connection Manager object and finally the Concrete Strategy. On the other hand, a Concrete Strategy  has the job of processing incoming messages and sending its own. The whole sake of this separation is providing modularity. Our implementation offers just one strategy, the Push Strategy, but having the redundant code extracted in a common Base Class would ease in the implementation of a new strategy. That is the reason of having a Main Strategy and a Connection Manager.
 
 
 \subsection{Connection Manager}
