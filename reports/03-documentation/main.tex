@@ -382,7 +382,7 @@ To better model the PoW, we decided upon 3 possible connection state:
 	\item \texttt{Open Connections}: peers that were validated (or we validated us against)
 \end{enumerate}
 
-This states become handy when receiving and handling PoW messages, as we must verify that a message is coming from a connection in a specific state. For example, we only accept Challenges if the connection is a To Be Proved ones. Or we automatically drop PUSH messages if the connection is not a valid one (not present in the Open Connections).
+These states become handy when receiving and handling PoW messages, as we must verify that a message is coming from a connection in a specific state. For example, we only accept Challenges if the connection is a To Be Proved ones. Or we automatically drop PUSH messages if the connection is not a valid one (not present in the Open Connections).
 
 \subsubsection{Proof of Work methods}
 
