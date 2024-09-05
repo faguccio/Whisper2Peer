@@ -233,8 +233,6 @@ namespace common {
 "common.GossipRegister" o-- "common.GossipNotify"
 "common.RegisteredModule" o-- "common.ToVert"
 
-"common.ConnectionId" <|.. "common.GossipUnRegister"
-
 namespace gossip {
 	top to bottom direction
 
@@ -350,27 +348,28 @@ namespace strats {
 	class gossipConnection << (S,Aquamarine) >> {
 		- connection horizontalapi.Conn[chan<- horizontalapi.ToHz]
 		- timestamp  time.Time
+		- sentPowReq bool
 	}
 
 	class ConnectionManager << (S,Aquamarine) >> {
-		- toBeProvedConnections map[horizontalapi.ConnectionId]gossipConnection
-		- openConnections []gossipConnection
-		- openConnectionsMap map[horizontalapi.ConnectionId]gossipConnection
-		- powInProgress map[horizontalapi.ConnectionId]gossipConnection
+		- toBeProvedConnections map[horizontalapi.ConnectionId]*gossipConnection
+		- openConnections []*gossipConnection
+		- openConnectionsMap map[horizontalapi.ConnectionId]*gossipConnection
+		- powInProgress map[horizontalapi.ConnectionId]*gossipConnection
 		- connMutex sync.RWMutex
 
-		+ ActionOnToBeProved(f <font color=blue>func</font>(x gossipConnection))
-		+ ActionOnValid(f <font color=blue>func</font>(x gossipConnection))
-		+ ActionOnPermutedValid(f func(x gossipConnection), max int)
-		+ FindToBeProved(id horizontalapi.ConnectionId) (gossipConnection, bool)
-		+ FindInProgress(id horizontalapi.ConnectionId) (gossipConnection, bool)
-		+ FindValid(id horizontalapi.ConnectionId) (gossipConnection, bool)
-		+ Remove(id horizontalapi.ConnectionId) (gossipConnection, error)
+		+ ActionOnToBeProved(f <font color=blue>func</font>(x *gossipConnection))
+		+ ActionOnValid(f <font color=blue>func</font>(x *gossipConnection))
+		+ ActionOnPermutedValid(f func(x *gossipConnection), max int)
+		+ FindToBeProved(id horizontalapi.ConnectionId) (*gossipConnection, bool)
+		+ FindInProgress(id horizontalapi.ConnectionId) (*gossipConnection, bool)
+		+ FindValid(id horizontalapi.ConnectionId) (*gossipConnection, bool)
+		+ Remove(id horizontalapi.ConnectionId) (*gossipConnection, error)
 		+ MakeValid(id horizontalapi.ConnectionId, timestamp time.Time)
-		+ AddInProgress(peer gossipConnection)
-		+ CullConnections(f func(x gossipConnection) bool)
-		- unsafeFind(id horizontalapi.ConnectionId) gossipConnection
-		- unsafeRemove(id horizontalapi.ConnectionId) (gossipConnection, error)
+		+ AddInProgress(peer *gossipConnection)
+		+ CullConnections(f func(x *gossipConnection) bool)
+		- unsafeFind(id horizontalapi.ConnectionId) *gossipConnection
+		- unsafeRemove(id horizontalapi.ConnectionId) (*gossipConnection, error)
 	}
 
 	class connCookie << (S,Aquamarine) >> {
@@ -453,7 +452,6 @@ namespace strats {
 
 "strats.StrategyCloser" <|.. "strats.dummyStrat"
 "pow.POWMarshaller" <|.. "strats.powMarsh"
-"horizontalapi.ConnPoW" <|.. "strats.powMarsh"
 
 "strats.storedMessage" o-- "horizontalapi.Push"
 
@@ -463,8 +461,6 @@ namespace strats {
 "strats.dummyStrat" o-- "strats.Strategy"
 "strats.dummyStrat" o-- "strats.ConnectionManager"
 "strats.dummyStrat" o-- "horizontalapi.FromHz"
-"strats.dummyStrat" o-- "horizontalapi.NewConn"
-"strats.dummyStrat" o-- "horizontalapi.ToHz"
 "strats.dummyStrat" o-- "strats.storedMessage"
 "strats.dummyStrat" o-- "internal/ringbuffer.Ringbuffer"
 
@@ -579,13 +575,13 @@ namespace horizontalapi {
 
 	class horizontalapi.NewConn << (T, #FF7700) >>  {
 	}
-	note left
+	note bottom
 		alias for Conn[<font color=blue>chan</font> ToHz]
 	end note
 
 	class horizontalapi.Unregister << (T, #FF7700) >>  {
 	}
-	note right
+	note bottom
 		alias for ConnectionId
 	end note
 
@@ -631,7 +627,6 @@ namespace horizontalapi {
 "horizontalapi.HorizontalApi" o-- "internal/packetcounter.Counter"
 
 "horizontalapi.FromHz" <|.. "horizontalapi.NewConn"
-"horizontalapi.ConnectionId" <|.. "horizontalapi.Unregister"
 "horizontalapi.Conn" o-- "horizontalapi.ConnectionId"
 
 "horizontalapi.ConnPoW" o-- "horizontalapi.ConnectionId"
