@@ -1,0 +1,23 @@
+\begin{tikzpicture}
+	\begin{axis}[
+		font            = {\small},
+		line width      = {0.2pt},
+		width           = {.5\linewidth},
+		legend style    = {at={(xticklabel cs:0.5)},yshift=-4ex,anchor=north},
+		% legend columns  = -1,
+		grid            = major,
+		grid style      = {gray!30},
+		axis lines      = middle,
+		axis line style = {->,> = {Stealth[scale=1.75]}},
+		x label style   = {at={(xticklabel cs:0.5)},anchor=north},
+		y label style   = {at={(yticklabel cs:1)},yshift=3ex,anchor=south west},
+		xmin = 0,
+		xlabel = {Time [s]},
+		ylabel = {cnt Packets},
+		ybar,
+		enlargelimits=true,
+		]
+		\addplot+[] table[x=TimeUnixSec,y=Cnt,col sep=comma] {figures/packets_sent.csv};
+		\addlegendentry{Packets sent over time}
+	\end{axis}
+\end{tikzpicture}

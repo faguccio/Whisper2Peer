@@ -23,12 +23,14 @@
 \usepackage{cleveref}
 
 \usepackage{tikz}
+\usepackage{pgfplots}
 \usepackage{messagepassing}
 \ifdefined\oobcolor\oobcolor{gray}\fi
 \ifdefined\oobcolour\oobcolour{gray}\fi
 
+\newlength\mySkip
 \usepackage{bytefield}
-\usetikzlibrary{arrows.meta,calc,fit,positioning,decorations.pathmorphing,automata,shapes}
+\usetikzlibrary{arrows,arrows.meta,calc,fit,positioning,decorations.pathmorphing,automata,shapes}
 \tikzset{
 	>={Stealth[scale=0.7]},
 	every edge/.style={>={Stealth[scale=0.7]},draw,},
@@ -379,7 +381,15 @@ The Proof of Work happens through the exchange of Horizontal messages. To explai
 	\item $I \to R$ send the Proof of Work. If valid, the Identity is validated
 \end{enumerate}
 
-
+\begin{figure}
+	\centering
+	\input{figures/seq_pow}
+	\caption{
+		Sequence Diagram of the PoW protocol on connection establishment.
+		The \textcolor{TUMBlue}{blue labels} refer to the state the connection currently is in from the point of view of the respective peer.
+	}
+	\label{fig:seqPow}
+\end{figure}
 \subsubsection{Connection Types}
 
 To better model the PoW, we decided upon 3 possible connection state:
@@ -392,9 +402,16 @@ To better model the PoW, we decided upon 3 possible connection state:
 
 These states become handy when receiving and handling PoW messages, as we must verify that a message is coming from a connection in a specific state. For example, we only accept Challenges if the connection is a To Be Proved ones. Or we automatically drop PUSH messages if the connection is not a valid one (not present in the Open Connections).
 
-\subsubsection{Proof of Work methods}
+\subsubsection{Solving the Proof of Work}
+For the proof-of-work we are using a scheme similar to the one used in the registration challenge.
+So the peer is required to return a nonce which leeds the hash digest of a structure (containing the nonce) to fulfill a certain predicate.
+Usually the prodicate is that the digest needs to start with a null byte.
+The generic solver we wrote for this can be used to solve the proof-of-work for any structure and also with an arbitrary predicate.
+The only caveat is, the nonce needs to be located at the end of the structure.
+The reason behind this caveat is that the generic solver makes use of the \href{https://en.wikipedia.org/wiki/Merkle\%E2\%80\%93Damg\%C3\%A5rd\_construction}{Merkle-Damg\aa rd Construction} quite similar to the \href{https://en.wikipedia.org/wiki/Length\_extension\_attack}{length extension attack} to speed up the calculation by reusing the internal state of the hash function.
+Additionally, we made the solver to work with multiple workers running in parallel.
 
-\Todo{Describe how we compute the pow, with parallelization and the magic trick}
+In our case, the hash digest of the proof-of-work is calculated over the complete cookie (see \cref{fig:cookie}) followed by the nonce which solves the proof-of-work.
 
 \subsubsection{Cookies}
 
@@ -537,6 +554,29 @@ We already started looking at, \eg which node receives the information when and 
 For this reason, you will already find some code regarding analyzing of the gathered data in the \texttt{Tester} class.
 However, as randomness is involved in the gossip strategy, coming up with good metrics is quite challenging.
 This is why, in the end, we did not perform extended benchmarking, providing us with results we can present at this point.
+\Cref{fig:reachedWhen} and \cref{fig:packetsOverTime} show two visualizations of the data we currently collect from one test run.
+
+\begin{figure}
+	\centering
+	\input{figures/packetsOverTime}
+	\caption{
+		Example plot of benchmarking data.
+		Shows how many packets are sent over time in the complete network.
+		In this test, only one information message with TTL~3 was inserted to the network leading to multiple push messages and proof-of-work messages.
+	}
+	\label{fig:packetsOverTime}
+\end{figure}
+
+\begin{figure}
+	\centering
+	\includegraphics[width=1\linewidth]{figures/reached_circo.pdf}
+	\caption{
+		Example figure with benchmarking data.
+		Shows color coded when which peer received the information.
+		In this test, one announcement was sent to node~1 with TTL~3.
+	}
+	\label{fig:reachedWhen}
+\end{figure}
 
 \section{Future Work} \label{sec:future}
 \Todo{outdated!!}

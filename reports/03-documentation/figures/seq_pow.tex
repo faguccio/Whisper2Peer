@@ -1,0 +1,48 @@
+\setlength\mySkip{2ex}
+\begin{tikzpicture}[
+	auto,>=stealth',
+	status/.style={TUMBlue,},
+	statusR/.style={status,below right},
+	statusI/.style={status,below left},
+	thick,
+	]
+
+	\node (i) {Initiator};
+	\node[right=3cm of i] (r) {Responder};
+
+	\node[fit=(i) (r),inner sep=0pt] (tmp) {};
+	\coordinate[yshift=-3ex] (tmp) at (tmp.south);
+
+	\draw[<->] (tmp -| i) -- node[above,scale=1,midway]{Connection Establishment} (tmp -| r);
+	\node[statusR] (sR) at (tmp -| r) {in progress};
+	\node[statusI] (sI) at (tmp -| i) {to be proved};
+
+	\node[fit=(sR.south) (sI.south),inner sep=0pt] (tmp) {};
+	\coordinate[yshift=-\mySkip] (tmp) at (tmp.south);
+
+	\draw[->] (tmp -| i) -- node[above,scale=1,midway]{ConnReq} (tmp -| r);
+	\node[statusR] (sR) at (tmp -| r) {in progress};
+	\node[statusI] (sI) at (tmp -| i) {to be proved};
+
+	\node[fit=(sR.south) (sI.south),inner sep=0pt] (tmp) {};
+	\coordinate[yshift=-\mySkip] (tmp) at (tmp.south);
+
+	\draw[<-] (tmp -| i) -- node[above,scale=1,midway]{ConnChall} (tmp -| r);
+	\node[statusR] (sR) at (tmp -| r) {in progress};
+	\node[statusI] (sI) at (tmp -| i) {to be proved};
+
+	\node[fit=(sR.south) (sI.south),inner sep=0pt] (tmp) {};
+	\coordinate[yshift=-\mySkip] (tmp) at (tmp.south);
+
+	\draw[->] (tmp -| i) -- node[above,scale=1,midway]{ConnPoW} (tmp -| r);
+	\node[statusR] (sR) at (tmp -| r) {open connection};
+	\node[statusI] (sI) at (tmp -| i) {open connection};
+
+	\node[fit=(sR.south) (sI.south),inner sep=0pt] (tmp) {};
+	\coordinate[yshift=-\mySkip] (tmp) at (tmp.south);
+
+	\draw (i.south) -- (i.south |- tmp);
+	\draw (r.south) -- (r.south |- tmp);
+
+\end{tikzpicture}
+
