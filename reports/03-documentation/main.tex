@@ -307,7 +307,8 @@ Those states are held in a \textbf{Ringbuffer}, a circular queue data structure 
 The push strategy is straight forward.
 Every peer pushes new updates to a random subset of its neighbors. 
 
-\begin{center}
+\begin{figure}
+	\centering
 \begin{minipage}{0.50\linewidth}
 	\begin{lstlisting}[
 		language=pseudo,
@@ -337,7 +338,7 @@ Every peer pushes new updates to a random subset of its neighbors.
 				move msg from valid to sent messages
 	\end{lstlisting}
 \end{minipage}
-\end{center}
+\end{figure}
 
 The logic is shown in the pseudocode \ref{lst:code}. Here is a more detailed explenation.
 
