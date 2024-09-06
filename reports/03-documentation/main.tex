@@ -341,7 +341,9 @@ Every peer pushes new updates to a random subset of its neighbors.
 
 The logic is shown in the pseudocode \ref{lst:code}. Here is a more detailed explenation.
 
-When a message is received, it becomes invalid (stays in the invalid queue) unless it was already present in cache (in that case, it is immediately dropped). Such message is sent to the main module, which will interact with the \texttt{Vertical API} for notifying the client. If a \texttt{GOSSIP VALIDATION} message arrives, this means that a recently received message (now stored in the Invalid Queue) can be moved to the Valid Queue and can start to be sent to neighbors. If \texttt{ttl} was one, instead of being relayed to other peers the message is put in the Sent Queue, as there is no need to further spread the information. Messages received through a \texttt{GOSSIP ANNOUNCE} are automatically deemed Valid.
+When a message is received, it becomes invalid (stays in the invalid queue) unless it was already present in cache (in that case, it is immediately dropped). Such message is sent to the main module, which will interact with the \texttt{Vertical API} for notifying the client. Unless some modules signals to the Gossip Strategy that the message is valid, it stays in the Invalid Queue.
+
+If a \texttt{GOSSIP VALIDATION} message arrives, this means that a recently received message (now stored in the Invalid Queue) can be moved to the Valid Queue and can start to be sent to neighbors. If \texttt{ttl} was one, instead of being relayed to other peers, the message is put in the Sent Queue, as there is no need to further spread the information. Messages received through a \texttt{GOSSIP ANNOUNCE} are automatically deemed Valid.
 
 \texttt{Gossip Rounds} are triggered periodically. When the Gossip Round starts, a random subset of peers of size \textit{Degree} is chosen (via a random permutation). Then, each message in the Valid Queue is sent to each chosen peer. Every stored message has a counter, which is increased by one every time it is sent. Once the counter reach \textit{Degree} neighbors, the message is moved to the Sent Queue. This counter is just an heuristic: on average the message should reach all peers but it is not guaranteed. 
 
@@ -368,12 +370,12 @@ In our project, $n$ is set to 8 bits, meaning the hash must start with 8 leading
 
 \subsection{PoW Protocol Design}
 
-The Proof of Work happens through the exchange of Horizontal messages. To explain how we designed the Identity Validation protocol, let's go through an example. Peer $A$ is up, and peer $B$ is instructed to connect to peer $A$:
+The Proof of Work happens through the exchange of Horizontal messages. To explain how we designed the Identity Validation protocol, let's go through an example. Peer $R$ (receiver) is up, and peer $I$ (initiator) is instructed to connect to peer $R$:
 
 \begin{enumerate}
-	\item $B \to A$ send a request. The message only purpose is to instruct $A$ of creating and providing a challenge
-	\item $A \to B$ send a challenge. 
-	\item $B \to A$ send the Proof of Work. If valid, the Identity is validated
+	\item $I \to R$ send a request. The message only purpose is to instruct $A$ of creating and providing a challenge
+	\item $R \to I$ send a challenge. 
+	\item $I \to R$ send the Proof of Work. If valid, the Identity is validated
 \end{enumerate}
 
 
