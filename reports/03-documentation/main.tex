@@ -23,6 +23,7 @@
 \usepackage{cleveref}
 
 \usepackage{tikz}
+\usepackage{pgfplots}
 \usepackage{messagepassing}
 \ifdefined\oobcolor\oobcolor{gray}\fi
 \ifdefined\oobcolour\oobcolour{gray}\fi
@@ -544,6 +545,17 @@ We already started looking at, \eg which node receives the information when and 
 For this reason, you will already find some code regarding analyzing of the gathered data in the \texttt{Tester} class.
 However, as randomness is involved in the gossip strategy, coming up with good metrics is quite challenging.
 This is why, in the end, we did not perform extended benchmarking, providing us with results we can present at this point.
+
+\begin{figure}
+	\centering
+	\input{figures/packetsOverTime}
+\end{figure}
+
+\begin{figure}
+	\centering
+	\includegraphics[width=1\linewidth]{figures/reached_circo.pdf}
+\end{figure}
+
 
 \section{Future Work} \label{sec:future}
 \Todo{outdated!!}
