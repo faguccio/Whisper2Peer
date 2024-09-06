@@ -389,10 +389,14 @@ The Proof of Work happens through the exchange of Horizontal messages. To explai
 To better model the PoW, we decided upon 3 possible connection state:
 
 \begin{enumerate}
-	\item \texttt{To Be Proved Connections}: peers to which a PoW needs to be sent
-	\item \texttt{In Progress Connections}: peers which need to send us a PoW
-	\item \texttt{Open Connections}: peers that were validated (or we validated us against)
+	\item \texttt{To Be Proved Connections}: peers to which a PoW needs to be sent. Those are supplied at startup.
+	\item \texttt{In Progress Connections}: peers which need to send us a PoW. Those are connection initiated by other peers.
+	\item \texttt{Open Connections}: peers that were validated (or we validated us against).
 \end{enumerate}
+
+For each To Be Proved connection, a peer will send a \texttt{ConnReq} message. Upon reception of \texttt{ConnChall} messages (the challenges), it will compute the PoW and send it as a \texttt{ConnPow} message. After that the connection will become a Open one (valid).
+
+From the other perspective, if \texttt{ConnReq} are coming from In Progress Connections, a peer will reply with challenges. When receiving a \texttt{ConnPoW} message, if the PoW is valid, the peer il make such connection Open (valid). 
 
 These states become handy when receiving and handling PoW messages, as we must verify that a message is coming from a connection in a specific state. For example, we only accept Challenges if the connection is a To Be Proved ones. Or we automatically drop PUSH messages if the connection is not a valid one (not present in the Open Connections).
 
