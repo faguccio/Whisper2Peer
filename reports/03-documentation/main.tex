@@ -270,8 +270,21 @@ Also note how this use of one thread per read\,/\,write on the connection combin
 
 
 \section{Gossip Strategies}
-\Todo{text here how to instanciate different ones and what the idea here is (also with the main/root strategy as kind of library)}
+\Todo{text here how to instantiate different ones and what the idea here is (also with the main/root strategy as kind of library)}
 \Todo{3 caches (of size cache size messages) and state machine should be a common scheme}
+
+The spreading of information in the network is done by the Gossip Strategy module. Since the actual way of spreading the messages could be done in many different ways (strategies), we decided to split the logic between a \textbf{Main Strategy} and a \textbf{Concrete Strategy}. There is also a class \textbf{Connection Manager} which has the task of managing the connection to the peers. 
+
+The Main Strategy is the base component common to any Concrete Strategy. It instantiates the horizontalAPI, creates the Connection Manager object and finally the Concrete Strategy. On the other hand, a Concrete Strategy  has the job of processing incoming messages and sending its own. The whole sake of this separation is providing modularity. Our implementation offers just one strategy, the Push Strategy, but having the redundant code extracted in a common Base Class would ease in the implementation of a new strategy. That is the reason of having a Main Strategy and a Connection Manager.
+
+
+\subsection{Connection Manager}
+
+The first aspect which is in common to any Strategy is the Connection Manager. This class is responsible for abstracting the management of connections and providing a clean interface for them. This is needed due to our security measures (\cref{sec:security}), as connections have to be validated through Proofs of Work regularly. As a result, the connection state may change (e.g., a connection can become valid or invalid). These changes might occur concurrently, which could easily lead to an invalid state.
+
+Therefore, we decided to allow changes to the internal state of connections only through a carefully exposed interface. Some of the functionalities of the Connection Manager are finding a connection for a gived ConnectionID, removing a connection or making a connection valid upon receiving a PoW.
+
+\subsection{Gossip Messages}
 
 \begin{figure}
 	\centering
@@ -280,16 +293,29 @@ Also note how this use of one thread per read\,/\,write on the connection combin
 	\label{fig:fsm_msgs}
 \end{figure}
 
+Ultimately, the Gossip Strategy has to receive messages, notify the verticalAPI and forward them to other peers. By specification, a received message has to be validated before it is spread to other peers. After being sent to \textit{Degree} peers, there is no need to keep sending the message. We decided to use 3 states to describe this behavior, as described in \cref{fig:fsm_msgs}: 
+
+\begin{itemize}
+	\item \textbf{Invalid Messages}: messages that were received, but still needs validation
+	\item \textbf{Valid Messages}: messages that were validated and are now being spread in the network
+	\item \textbf{Sent Messages}: messages that were sent to \textit{Degree} peers 
+\end{itemize}
+
+Those states are held in a \textbf{Ringbuffer}, a circular queue data structure which make it very easy discarding the oldest messages when the \textit{cache\_size} is exceeded. The Sent Message Queue is necessary because we can avoid loops inside the network: if an incoming message is present there, it can be automatically dropped so no loop can happen.
+
 \subsection{Push Strategy}
 The push strategy is straight forward.
-Every peer pushes new updates to a random subset of its neighbors.
+Every peer pushes new updates to a random subset of its neighbors. 
 
+\begin{figure}
+	\centering
 \begin{minipage}{0.50\linewidth}
 	\begin{lstlisting}[
 		language=pseudo,
 		morekeywords={[3]{main,hz}},
 		morekeywords={[4]{msg,degree,cache\_size}},
-		caption={Pseudo code of the push gossip strategy}
+		caption={Pseudo code of the push gossip strategy},
+		label={lst:code}
 	]
 		on push from hz(msg):
 			if msg is new (unseen) (not in any of the three caches):
@@ -312,26 +338,86 @@ Every peer pushes new updates to a random subset of its neighbors.
 				move msg from valid to sent messages
 	\end{lstlisting}
 \end{minipage}
+\end{figure}
+
+The logic is shown in the pseudocode \ref{lst:code}. Here is a more detailed explenation.
+
+When a message is received, it becomes invalid (stays in the invalid queue) unless it was already present in cache (in that case, it is immediately dropped). Such message is sent to the main module, which will interact with the \texttt{Vertical API} for notifying the client. Unless some modules signals to the Gossip Strategy that the message is valid, it stays in the Invalid Queue.
+
+If a \texttt{GOSSIP VALIDATION} message arrives, this means that a recently received message (now stored in the Invalid Queue) can be moved to the Valid Queue and can start to be sent to neighbors. If \texttt{ttl} was one, instead of being relayed to other peers, the message is put in the Sent Queue, as there is no need to further spread the information. Messages received through a \texttt{GOSSIP ANNOUNCE} are automatically deemed Valid.
+
+\texttt{Gossip Rounds} are triggered periodically. When the Gossip Round starts, a random subset of peers of size \textit{Degree} is chosen (via a random permutation). Then, each message in the Valid Queue is sent to each chosen peer. Every stored message has a counter, which is increased by one every time it is sent. Once the counter reach \textit{Degree} neighbors, the message is moved to the Sent Queue. This counter is just an heuristic: on average the message should reach all peers but it is not guaranteed. 
+
 
 \section{Security Measures} \label{sec:security}
-\Todo{will eventually be outdated}
-\Todo{describe how PoW works (what fields are included) -- also how to adjust and make the challenge harder -- also parallelization}
-\Todo{go into detail why/how we use ChaCha to come up with a challenge in a \enquote{smart} way}
 
-Currently, as a node starts, it already has a list of the peer node to connect to. A peer accepts any new connection, which makes the system vulnerable to \textit{Sybil Attacks} and consequently \textit{Eclipse Attacks}. We plan to mitigate this problem by introducing an Identity Validation system based on a computational Proof of Work (PoW).
+
+
+\Todo{describe how PoW works (what fields are included) -- also how to adjust and make the challenge harder -- also parallelization}
+
+From a security perspective, the Gossip module is mainly susceptible to \textit{Sybil Attacks} and consequently \textit{Eclipse Attacks}. This is because, when running, a peer is accepting any new connection and there is no central authority which can help with verifying the identity of other entities. To provide Identity Validation we opted for a computation based Proof of Work. This way we limit the amount of Identities which can be under the control of an attacker to the computational resources that such attacker has. 
 
 \subsection{Identity Validation}
 
-When a peer is asked to accept a new connection, it sends a challenge (random nonce) $r$. Based on $r$ and a variable local part $v$, the other peer computes a hash which should start with $n$ leading zeros, much like in the registration challenge for the project. $n$ can be a configuration parameter, meaning that nodes could choose how strong they want proof of work from newly connected nodes (and how strong PoWs are they willing to compute when trying to connect to a peer).
+The act of validating identity in our system involves solving a Proof of Work (PoW) challenge. Specifically, this means finding a nonce (a random or pseudo-random value) that, when appended to a given challenge, results in a hash output with a specified number ($n$) of leading zeros. This process is similar to the one of the registration challenge.
 
-This mitigates Sybil Attacks, since the attacker, in order to create multiple identities, has to perform multiple Proofs of Work. But the attacker can still share its resources by sequentially adding nodes. To counteract this possibility, the idea is to request PoW periodically. 
+The purpose of this PoW mechanism is to ensure that the client has invested computational effort in proving its legitimacy. Once the correct nonce is identified and appended to the challenge, any peer can verify such PoW efficiently: if the hash function generates an output that starts with the required number of leading zeros, the Proof of Work is considered valid.
+
+This mechanism provides security by making it computationally expensive to forge identities or spam the system with invalid connections (\textit{Sybil Attacks}). 
+
+The difficulty of the challenge, controlled by the number of leading zeros $n$ required in the hash, can be adjusted based on the desired level of security. Higher numbers of leading zeros require more computational work, making the system more secure but also more resource-intensive. But the difficulty can also be raised by putting a (small) time constrain for the computation of such PoW.
+
+In our project, $n$ is set to 8 bits, meaning the hash must start with 8 leading zeros. However, the optimal security parameters can only be determined by running the nodes in a real test environment. Various combinations of timeout lengths and the number of leading zeros may be suitable, depending on the specific circumstances.
+
+\subsection{PoW Protocol Design}
+
+The Proof of Work happens through the exchange of Horizontal messages. To explain how we designed the Identity Validation protocol, let's go through an example. Peer $R$ (receiver) is up, and peer $I$ (initiator) is instructed to connect to peer $R$:
+
+\begin{enumerate}
+	\item $I \to R$ send a request. The message only purpose is to instruct $A$ of creating and providing a challenge
+	\item $R \to I$ send a challenge. 
+	\item $I \to R$ send the Proof of Work. If valid, the Identity is validated
+\end{enumerate}
+
+
+\subsubsection{Connection Types}
+
+To better model the PoW, we decided upon 3 possible connection state:
+
+\begin{enumerate}
+	\item \texttt{To Be Proved Connections}: peers to which a PoW needs to be sent
+	\item \texttt{In Progress Connections}: peers which need to send us a PoW
+	\item \texttt{Open Connections}: peers that were validated (or we validated us against)
+\end{enumerate}
+
+These states become handy when receiving and handling PoW messages, as we must verify that a message is coming from a connection in a specific state. For example, we only accept Challenges if the connection is a To Be Proved ones. Or we automatically drop PUSH messages if the connection is not a valid one (not present in the Open Connections).
+
+\subsubsection{Proof of Work methods}
+
+\Todo{Describe how we compute the pow, with parallelization and the magic trick}
+
+\subsubsection{Cookies}
+
+\begin{table}
+	\centering
+	\input{figures/cookie}
+	\caption{Cookies content}
+	\label{tab:cookie}
+\end{table}
+
+When a peer is validating incoming connection, some information should be maintained. This can let an attacker opening a lot of connection, leave them half done (not providing the PoW) and increasing the memory load on the peer much like a TCP SYN Flood attack. To avoid keeping a state in memory, the sent challenge contains a cookie. 
+
+The cookie content is shown in \cref{tab:cookie}. It is composed of the Ip and Port of the peer which needs to ba validated, a timestamp of when the cookie was created and a Nonce, used by the encryption algorithm. The cookie is then encrypted using ChaCha20-Poly1305 \footnote{\url{https://en.wikipedia.org/wiki/ChaCha20-Poly1305}} and the nonce is also appended as plaintext. The used key is randomly generated at startup by the peer.
+
+Upon reception of the PoW, the Cookie is decrypted and the content is inspected to check the validity. For example the timestamp should not be larger then a certain timeout value.
 
 \subsection{Periodical Proofs of Work}
 
-A node periodically asks the neighboring peers for a PoW. At the same time the node will be prompted by each of its neighbors for PoWs. This way, an attacker would have to compute such PoWs for each fake identity periodically. This limits the amount of Sybils an attacker can keep online in the network with limited resources.
+The PoW requires an attacker to put computational effort when opening a connection. But if this is done only once, the attacker con use the resource sequentially, adding Sybils to its control over time. To avoid this, we implemented Periodic Proofs of Work: a node periodically asks the neighboring peers for a PoW and at the same time the node will be prompted by each of its neighbors for PoWs. 
 
-Currently, the idea needs to be further explored, but multiple requests for PoW could be aggregated into a single PoW so that a node does not waste too many resources into multiple PoW. Still an attacker would need to compute one PoW for each fake identity. PoWs could also be preemptively asked to facilitate even more this aggregation (since there is no global synchronization) and also mitigate DoS of peers by flooding it with PoW requests. For the same reason peers should also limit the frequency a neighboring peer is allowed to send a PoW request.
+We have previously thought about aggregating the received Challenges into a single PoW so that a node does not waste too many resources into multiple PoW. Otherwise we would penalize nodes that have many connections. At the same time, by aggregating, an attacker could open as many connection as he wants paying the same computational cost. In the end, we opted for providing PoW for each connection. This as an higher load on the peers but provide the best security against Sybils.
 
+The Periodic PoW is specular to the previously illustrated ones. There are two timers, one for requesting challenges to all Open Connections (valid ones) and one for closing connection which did not provide the Periodic PoW. The former must be shorter than the latter (at least half) as there is no synchronization between peers.  
 
 \section{Specification of the peer-to-peer protocol} \label{sec:msgtypes}
 This module works with two protocols, one on the vertical API and one on the horizontal API.
