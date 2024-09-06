@@ -411,7 +411,7 @@ The only caveat is, the nonce needs to be located at the end of the structure.
 The reason behind this caveat is that the generic solver makes use of the \href{https://en.wikipedia.org/wiki/Merkle\%E2\%80\%93Damg\%C3\%A5rd\_construction}{Merkle-Damg\aa rd Construction} quite similar to the \href{https://en.wikipedia.org/wiki/Length\_extension\_attack}{length extension attack} to speed up the calculation by reusing the internal state of the hash function.
 Additionally, we made the solver to work with multiple workers running in parallel.
 
-\Todo{add figure + note about the actual structure over which we calculate the pow? \cf powMarsh in strats/main.go}
+In our case, the hash digest of the proof-of-work is calculated over the complete cookie (see \cref{fig:cookie}) followed by the nonce which solves the proof-of-work.
 
 \subsubsection{Cookies}
 
