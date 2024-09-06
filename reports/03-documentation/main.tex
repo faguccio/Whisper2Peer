@@ -413,7 +413,7 @@ When a peer is validating an incoming connection, some information should be mai
 
 The cookie content is shown in \cref{fig:cookie}. It is composed of a clear text part and an encrypted one. The encrypted part contains a timestamp, the Nonce used by the encryption algorithm, and the destination address (Ip and Port number) of the peer which needs to ba validated. The clear text part just contains the Nonce for the encryption algorithm.
 
-ChaCha20-Poly1305 \footnote{\url{https://en.wikipedia.org/wiki/ChaCha20-Poly1305}} was chosen as the AEAD. Even though we don't use the Additional Data this could happen with further project expansion. The used key is randomly generated at startup by each peer.
+ChaCha20-Poly1305 \footnote{\url{https://en.wikipedia.org/wiki/ChaCha20-Poly1305}} was chosen as the encryption mechanism providing AEAD. Even though we don't use the Associated Data this still provides us with authenticated encryption. The used key is randomly generated at startup by each peer.
 
 Upon reception of the PoW, which contains the cookie and a Nonce for the pow computation \label{tab:pow}, the Cookie is decrypted. If the decryption fails, the connection is immediately dropped. Otherwise, the content of the cookie is inspected for additional checks. For example, the timestamp should not be larger than a certain timeout value, as we don't allow a peer to take arbitrary time to compute the PoW.
 
