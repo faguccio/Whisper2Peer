@@ -32,7 +32,7 @@ func (r *ReachedWhenAll) WriteCss(fn string) error {
 			fmt.Fprintf(f, `._%d>ellipse {
     fill: color-mix(in srgb, red %d%%, yellow);
 }
-`, nodeIdx, uint(reached.TimePercent*2-200))
+`, nodeIdx, uint(reached.TimePercent*2-100))
 		}
 	}
 
