@@ -490,7 +490,7 @@ To better model the PoW, we decided upon 3 possible connection state:
 These states become handy when receiving and handling PoW messages, as we must verify that a message is coming from a connection in a specific state. For example, we only accept Challenges if the connection is a To Be Proved ones. Or we automatically drop PUSH messages if the connection is not a valid one (not present in the Open Connections).
 
 \subsubsection{Solving the Proof of Work}
-For the proof-of-work we are using a schem similar to the one used in the registration challenge.
+For the proof-of-work we are using a scheme similar to the one used in the registration challenge.
 So the peer is required to return a nonce which leeds the hash digest of a structure (containing the nonce) to fulfill a certain predicate.
 Usually the prodicate is that the digest needs to start with a null byte.
 The generic solver we wrote for this can be used to solve the proof-of-work for any structure and also with an arbitrary predicate.
