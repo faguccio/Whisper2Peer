@@ -27,9 +27,8 @@ var (
 	POW_REQUEST_TIME = 2 * time.Second
 )
 
-// Some messages might use a counter of how many peers the message was relayed to
+// Struct containing the Push messages for future expansion
 type storedMessage struct {
-	counter int
 	message horizontalapi.Push
 }
 
@@ -125,7 +124,7 @@ func (dummy *dummyStrat) Listen() {
 					// If the message was not already received, move it to the invalidMessages
 					// and send a notification to vert API
 					if err1 != nil && err2 != nil && err3 != nil {
-						dummy.invalidMessages.Insert(&storedMessage{0, msg})
+						dummy.invalidMessages.Insert(&storedMessage{msg})
 						dummy.rootStrat.log.Log(context.Background(), common.LevelTest, "received", "msgId", notification.MessageId, "msgType", notification.DataType)
 						dummy.rootStrat.strategyChannels.FromStrat <- notification
 						dummy.rootStrat.log.Debug("HZ Message received:", "type", reflect.TypeOf(msg), "Message", msg)
@@ -316,7 +315,7 @@ func (dummy *dummyStrat) Listen() {
 					pushMsg := convertAnnounceToPush(x)
 					dummy.rootStrat.log.Log(context.Background(), common.LevelTest, "announce", "msgId", pushMsg.MessageID, "msgType", pushMsg.GossipType)
 					// We consider Announce messages automatically valid
-					dummy.validMessages.Insert(&storedMessage{0, pushMsg})
+					dummy.validMessages.Insert(&storedMessage{pushMsg})
 				case common.GossipValidation:
 					msg, err := findFirstMessage(dummy.invalidMessages, x.MessageId)
 					dummy.invalidMessages.Remove(msg)
@@ -341,20 +340,16 @@ func (dummy *dummyStrat) Listen() {
 			case <-ticker.C:
 				validMessages := dummy.validMessages.ExtractToSlice()
 
-				dummy.connManager.ActionOnPermutedValid(func(peer *gossipConnection) {
-					for _, msg := range validMessages {
+				// For each message in the valid queue, send it to peers and remove it
+				for _, msg := range validMessages {
+					dummy.connManager.ActionOnPermutedValid(func(peer *gossipConnection) {
 						peer.connection.Data <- msg.message
 						dummy.rootStrat.log.Debug("HZ Message sent:", "dst", peer.connection.Id, "Message", msg)
-						msg.counter++
+					}, int(dummy.rootStrat.stratArgs.Degree))
 
-						// If message was sent to args.Degree neighboughrs delete it from the set of messages
-						if msg.counter >= int(dummy.rootStrat.stratArgs.Degree) {
-							dummy.validMessages.Remove(msg)
-							dummy.sentMessages.Insert(msg)
-							break
-						}
-					}
-				}, int(dummy.rootStrat.stratArgs.Degree))
+					dummy.validMessages.Remove(msg)
+					dummy.sentMessages.Insert(msg)
+				}
 
 			case <-renewalTicker.C:
 				dummy.connManager.ActionOnValid(func(x *gossipConnection) {
