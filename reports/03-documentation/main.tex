@@ -409,7 +409,7 @@ These states become handy when receiving and handling PoW messages, as we must v
 	\label{fig:cookie}
 \end{table}
 
-When a peer is validating an incoming connection, some information should be maintained in memory. This can be leveraged by an attacker: he could open many connections, and leave them half done (not providing the PoW) thus increasing the memory load on the peer much like a TCP SYN Flood attack. To avoid this kind of attack, we opted for the use of cookies.
+When a peer is validating an incoming connection, some information should be maintained in memory. This can be leveraged by an attacker: he could open many connections, and leave them half done (not providing the PoW) thus increasing the memory load on the peer much like a TCP SYN Flood attack. To avoid this kind of attack, we opted for the use of cookies which avoids keeping state in memory at the responder.
 
 The cookie content is shown in \cref{fig:cookie}. It is composed of a clear text part and an encrypted one. The encrypted part contains a timestamp, the Nonce used by the encryption algorithm, and the destination address (Ip and Port number) of the peer which needs to ba validated. The clear text part just contains the Nonce for the encryption algorithm.
 
