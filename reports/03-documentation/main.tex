@@ -346,7 +346,7 @@ When a message is received, it becomes invalid (stays in the invalid queue) unle
 
 If a \texttt{GOSSIP VALIDATION} message arrives, this means that a recently received message (now stored in the Invalid Queue) can be moved to the Valid Queue and can start to be sent to neighbors. If \texttt{ttl} was one, instead of being relayed to other peers, the message is put in the Sent Queue, as there is no need to further spread the information. Messages received through a \texttt{GOSSIP ANNOUNCE} are automatically deemed Valid.
 
-\texttt{Gossip Rounds} are triggered periodically. When the Gossip Round starts, a random subset of peers of size \textit{Degree} is chosen (via a random permutation). Then, each message in the Valid Queue is sent to each chosen peer. Every stored message has a counter, which is increased by one every time it is sent. Once the counter reach \textit{Degree} neighbors, the message is moved to the Sent Queue. This counter is just an heuristic: on average the message should reach all peers but it is not guaranteed. 
+\texttt{Gossip Rounds} are triggered periodically. When the Gossip Round starts, a random subset of peers of size $\min(\text{Degree}, \text{\# neighbors})$ is chosen (via a random permutation). Then, each message in the Valid Queue is sent to each chosen peer. Every stored message has a counter, which is increased by one every time it is sent. Once the counter reach \textit{Degree} neighbors, the message is moved to the Sent Queue. This counter is just an heuristic: on average the message should reach all peers but it is not guaranteed. 
 
 
 \section{Security Measures} \label{sec:security}
@@ -402,24 +402,35 @@ These states become handy when receiving and handling PoW messages, as we must v
 	\centering
 	\input{figures/cookie}
 	\caption{Cookies content}
-	\label{tab:cookie}
+	\label{fig:cookie}
 \end{table}
 
-When a peer is validating incoming connection, some information should be maintained. This can let an attacker opening a lot of connection, leave them half done (not providing the PoW) and increasing the memory load on the peer much like a TCP SYN Flood attack. To avoid keeping a state in memory, the sent challenge contains a cookie. 
+When a peer is validating an incoming connection, some information should be maintained in memory. This can be leveraged by an attacker: he could open many connections, and leave them half done (not providing the PoW) thus increasing the memory load on the peer much like a TCP SYN Flood attack. To avoid this kind of attack, we opted for the use of cookies.
 
-The cookie content is shown in \cref{tab:cookie}. It is composed of the Ip and Port of the peer which needs to ba validated, a timestamp of when the cookie was created and a Nonce, used by the encryption algorithm. The cookie is then encrypted using ChaCha20-Poly1305 \footnote{\url{https://en.wikipedia.org/wiki/ChaCha20-Poly1305}} and the nonce is also appended as plaintext. The used key is randomly generated at startup by the peer.
+The cookie content is shown in \cref{fig:cookie}. It is composed of a clear text part and an encrypted one. The encrypted part contains a timestamp, the Nonce used by the encryption algorithm, and the destination address (Ip and Port number) of the peer which needs to ba validated. The clear text part just contains the Nonce for the encryption algorithm.
 
-Upon reception of the PoW, the Cookie is decrypted and the content is inspected to check the validity. For example the timestamp should not be larger then a certain timeout value.
+ChaCha20-Poly1305 \footnote{\url{https://en.wikipedia.org/wiki/ChaCha20-Poly1305}} was chosen as the AEAD. Even though we don't use the Additional Data this could happen with further project expansion. The used key is randomly generated at startup by each peer.
+
+Upon reception of the PoW, which contains the cookie and a Nonce for the pow computation \label{tab:pow}, the Cookie is decrypted. If the decryption fails, the connection is immediately dropped. Otherwise, the content of the cookie is inspected for additional checks. For example, the timestamp should not be larger than a certain timeout value, as we don't allow a peer to take arbitrary time to compute the PoW.
 
 \subsection{Periodical Proofs of Work}
 
-The PoW requires an attacker to put computational effort when opening a connection. But if this is done only once, the attacker con use the resource sequentially, adding Sybils to its control over time. To avoid this, we implemented Periodic Proofs of Work: a node periodically asks the neighboring peers for a PoW and at the same time the node will be prompted by each of its neighbors for PoWs. 
+The PoW requires an attacker to put in computational effort when opening a connection. But if this is done only once, the attacker can use the resource sequentially, adding Sybils under its control over time. To mitigate this, we implemented Periodic Proofs of Work. A node periodically asks the neighboring peers for a PoW and at the same time, the node will be prompted by each of its neighbors for PoWs. 
 
-We have previously thought about aggregating the received Challenges into a single PoW so that a node does not waste too many resources into multiple PoW. Otherwise we would penalize nodes that have many connections. At the same time, by aggregating, an attacker could open as many connection as he wants paying the same computational cost. In the end, we opted for providing PoW for each connection. This as an higher load on the peers but provide the best security against Sybils.
+We have previously thought about aggregating the received Challenges into a single PoW so that a node does not waste too many resources in multiple PoWs. Otherwise, we would penalize nodes that have many connections. At the same time, by aggregating, an attacker could open as many connections as he wants paying the same computational cost. In the end, we opted for providing PoW for each connection. This has a higher load on the peers but provides the best security against Sybils.
 
-The Periodic PoW is specular to the previously illustrated ones. There are two timers, one for requesting challenges to all Open Connections (valid ones) and one for closing connection which did not provide the Periodic PoW. The former must be shorter than the latter (at least half) as there is no synchronization between peers.  
+The Periodic PoW is specular to the previously illustrated ones. There are two timers, one for requesting challenges to all Open Connections (valid ones) and one for closing connections which did not provide the Periodic PoW. The former must be shorter than the latter (at least half) as there is no synchronization between peers.  
+
+\subsubsection{DoS Protection}
+
+One of the caveats of the Proof of Work is that there must be some mechanism which controls when a PoW is calculated. If none is in place, an attacker can ask for an indefinite amount of PoWs, effectively performing a DoS attack on the target peer. 
+
+During connection establishment this is done by accepting challenges only from peers we want to connect to. For the Periodic Proof of Work it is not possible anymore since all messages originate from the same class of connections (valid ones).
+
+To prevent DoS attacks, we keep track of sent requests: a Challenge is accepted only if a request was previously sent. In this case it is not really needed to use cookies, as the Open (valid) connections have been proved, and the risk of a Flood type of attack is way smaller.
 
 \section{Specification of the peer-to-peer protocol} \label{sec:msgtypes}
+
 This module works with two protocols, one on the vertical API and one on the horizontal API.
 The one for the vertical API was already predetermined.
 Its specification can be found in the \emph{specification.pdf} document (see moodle\footnote{\url{https://www.moodle.tum.de/mod/resource/view.php?id=3090766}}).
