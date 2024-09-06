@@ -293,12 +293,14 @@ Therefore, we decided to allow changes to the internal state of connections only
 	\label{fig:fsm_msgs}
 \end{figure}
 
-Ultimately, the Gossip Strategy has to receive messages, notify the verticalAPI and forward them to other peers. By specification, a received message has to be validated before it is spread to other peers. After being sent to \textit{Degree} peers, there is no need to keep sending the message. We decided to use 3 states to describe this behavior, as described in \cref{fig:fsm_msgs}: 
+Ultimately, the Gossip Strategy has to receive messages, notify the verticalAPI and forward them to other peers. By specification, a received message has to be validated before it can be spread to other peers. Only then, the module can start relaying the message. After being sent to \textit{Degree} peers, there is no need to keep sending the message. 
+
+We decided to use 3 states to describe this behavior, as described in \cref{fig:fsm_msgs}: 
 
 \begin{itemize}
-	\item \textbf{Invalid Messages}: messages that were received, but still needs validation
-	\item \textbf{Valid Messages}: messages that were validated and are now being spread in the network
-	\item \textbf{Sent Messages}: messages that were sent to \textit{Degree} peers 
+	\item \textbf{Invalid Messages}: messages that are received for the first time. The client gets notified, but they still needs to be validated by it before they can be relayed. 
+	\item \textbf{Valid Messages}: messages received a validation from the client. Now they are being spread in to other peers.
+	\item \textbf{Sent Messages}: messages that were sent to \textit{Degree} peers. They are kept to avoid duplication (we could receive those messages due to a loop) and some advanced strategy could make use of them.
 \end{itemize}
 
 Those states are held in a \textbf{Ringbuffer}, a circular queue data structure which make it very easy discarding the oldest messages when the \textit{cache\_size} is exceeded. The Sent Message Queue is necessary because we can avoid loops inside the network: if an incoming message is present there, it can be automatically dropped so no loop can happen.
@@ -425,9 +427,9 @@ The Periodic PoW is specular to the previously illustrated ones. There are two t
 
 One of the caveats of the Proof of Work is that there must be some mechanism which controls when a PoW is calculated. If none is in place, an attacker can ask for an indefinite amount of PoWs, effectively performing a DoS attack on the target peer. 
 
-During connection establishment this is done by accepting challenges only from peers we want to connect to. For the Periodic Proof of Work it is not possible anymore since all messages originate from the same class of connections (valid ones).
+During connection establishment, this is done by accepting challenges only from peers we want to connect to. For the Periodic Proof of Work, it is not possible anymore since all messages originate from the same class of connections (valid ones).
 
-To prevent DoS attacks, we keep track of sent requests: a Challenge is accepted only if a request was previously sent. In this case it is not really needed to use cookies, as the Open (valid) connections have been proved, and the risk of a Flood type of attack is way smaller.
+To prevent DoS attacks, we keep track of sent requests: a Challenge is accepted only if a request was previously sent. In this case, it is not needed to use cookies, as the Open (valid) connections have been proved, and the risk of a Flood type of attack is way smaller.
 
 \section{Specification of the peer-to-peer protocol} \label{sec:msgtypes}
 
