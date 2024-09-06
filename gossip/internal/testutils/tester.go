@@ -130,7 +130,7 @@ func (t *Tester) Startup(startIp string) error {
 			for _, l := range t.testloggers {
 				l.Handler().Handle(context.Background(), slog.Record{
 					Time:    e.Time,
-					Message: fmt.Sprintf("%s: id: %v msgid: %v msgtype: %v", e.Msg, e.MsgId, e.MsgType),
+					Message: fmt.Sprintf("%s: id: %v msgid: %v msgtype: %v", e.Msg, e.Id, e.MsgId, e.MsgType),
 					Level:   slog.Level(e.Level),
 					PC:      0,
 				})
