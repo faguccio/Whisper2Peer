@@ -1,6 +1,14 @@
-\begin{tabularx}{.85\linewidth}{llX}
-	\toprule
-	ChaCha20 Nonce & IP and PORT & timestamp 
-	\\
-	\bottomrule
-\end{tabularx}
+\begin{bytefield}{32}
+    \bitheader{0,7,15, 23, 31} \\
+    \begin{rightwordgroup}{Cleartext}
+    \wordbox{3}{ChaCha20 Nonce} 
+    \end{rightwordgroup} \\
+
+    \begin{rightwordgroup}{Encrypted}
+    \wordbox{2}{timestamp} \\ 
+    \wordbox{3}{ChaCha20 Nonce} \\
+    \wordbox[lrt]{1}{Destination} \\
+    \skippedwords \\
+    \wordbox[lrb]{1}{} 
+    \end{rightwordgroup} \\
+\end{bytefield}
