@@ -392,9 +392,16 @@ To better model the PoW, we decided upon 3 possible connection state:
 
 These states become handy when receiving and handling PoW messages, as we must verify that a message is coming from a connection in a specific state. For example, we only accept Challenges if the connection is a To Be Proved ones. Or we automatically drop PUSH messages if the connection is not a valid one (not present in the Open Connections).
 
-\subsubsection{Proof of Work methods}
+\subsubsection{Solving the Proof of Work}
+For the proof-of-work we are using a schem similar to the one used in the registration challenge.
+So the peer is required to return a nonce which leeds the hash digest of a structure (containing the nonce) to fulfill a certain predicate.
+Usually the prodicate is that the digest needs to start with a null byte.
+The generic solver we wrote for this can be used to solve the proof-of-work for any structure and also with an arbitrary predicate.
+The only caveat is, the nonce needs to be located at the end of the structure.
+The reason behind this caveat is that the generic solver makes use of the \href{https://en.wikipedia.org/wiki/Merkle\%E2\%80\%93Damg\%C3\%A5rd\_construction}{Merkle-Damg\aa rd Construction} quite similar to the \href{https://en.wikipedia.org/wiki/Length\_extension\_attack}{length extension attack} to speed up the calculation by reusing the internal state of the hash function.
+Additionally, we made the solver to work with multiple workers running in parallel.
 
-\Todo{Describe how we compute the pow, with parallelization and the magic trick}
+\Todo{add figure + note about the actual structure over which we calculate the pow? \cf powMarsh in strats/main.go}
 
 \subsubsection{Cookies}
 
