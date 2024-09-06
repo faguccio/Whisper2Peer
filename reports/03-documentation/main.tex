@@ -299,7 +299,7 @@ We decided to use 3 states to describe this behavior, as described in \cref{fig:
 
 \begin{itemize}
 	\item \textbf{Invalid Messages}: messages that are received for the first time. The client gets notified, but they still needs to be validated by it before they can be relayed. 
-	\item \textbf{Valid Messages}: messages received a validation from the client. Now they are being spread in to other peers.
+	\item \textbf{Valid Messages}: messages that received a validation from the client. Now they are being spread in to other peers.
 	\item \textbf{Sent Messages}: messages that were sent to \textit{Degree} peers. They are kept to avoid duplication (we could receive those messages due to a loop) and some advanced strategy could make use of them.
 \end{itemize}
 
@@ -344,11 +344,13 @@ Every peer pushes new updates to a random subset of its neighbors.
 
 The logic is shown in the pseudocode \ref{lst:code}. Here is a more detailed explenation.
 
-When a message is received, it becomes invalid (stays in the invalid queue) unless it was already present in cache (in that case, it is immediately dropped). Such message is sent to the main module, which will interact with the \texttt{Vertical API} for notifying the client. Unless some modules signals to the Gossip Strategy that the message is valid, it stays in the Invalid Queue.
+When receiving a PUSH message, two things can happen: if the message is already stored somewhere, it is immediately dropped. Otherwise, the \texttt{Vertical API} is notified and the message is marked as Invalid. The \texttt{Vertical API} has the job of forwarding the message to the client. Unless some module signals to the Gossip Strategy that the message is valid, it stays in the Invalid Queue.
 
-If a \texttt{GOSSIP VALIDATION} message arrives, this means that a recently received message (now stored in the Invalid Queue) can be moved to the Valid Queue and can start to be sent to neighbors. If \texttt{ttl} was one, instead of being relayed to other peers, the message is put in the Sent Queue, as there is no need to further spread the information. Messages received through a \texttt{GOSSIP ANNOUNCE} are automatically deemed Valid.
+If a \texttt{GOSSIP VALIDATION} message arrives, the \texttt{Gossip Strategy} will be notified. This means that a recently received message (now stored in the Invalid Queue) can be moved to the Valid Queue. If \texttt{ttl} was one, instead of being marked as Valid, the message is put in the Sent Queue. This happens because being marked as Valid means that the message will be relayed to other peers. If \texttt{ttl} is 1, the message has reached its maximum time to live, so no further relaying.
 
-\texttt{Gossip Rounds} are triggered periodically. When the Gossip Round starts, a random subset of peers of size $\min(\text{Degree}, \text{\# neighbors})$ is chosen (via a random permutation). Then, each message in the Valid Queue is sent to each chosen peer. Every stored message has a counter, which is increased by one every time it is sent. Once the counter reach \textit{Degree} neighbors, the message is moved to the Sent Queue. This counter is just an heuristic: on average the message should reach all peers but it is not guaranteed. 
+Messages received through a \texttt{GOSSIP ANNOUNCE} are automatically deemed Valid. This is because there is no client to notify and no \texttt{GOSSIP VALIDATION} to receive.
+
+\texttt{Gossip Rounds} are triggered periodically. When the Gossip Round starts, a random subset of peers of size $\min(\text{Degree}, \text{\# neighbors})$ is chosen (via a random permutation). Then, each message in the Valid Queue is sent to each chosen peer. This way of relaying messages is just an heuristic: on average the message should reach all peers but it is not guaranteed. If the amount of connection a peer has is bigger than \textit{Degree}, some neighbors will not receive the PUSH message and there is no guarantee they will receive it later. But the specification says that a peer should exchange information with \textit{Degree} peers, so it is also responsibility of the users to choose an appropriate \textit{Degree} number.
 
 
 \section{Security Measures} \label{sec:security}
