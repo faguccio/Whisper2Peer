@@ -311,6 +311,9 @@ func (t *Tester) Teardown() error {
 		if e.Time.Before(t.tmin) {
 			t.tmin = e.Time
 		}
+		if !e.TimeBucket.IsZero() && e.TimeBucket.Before(t.tmin) {
+			t.tmin = e.Time
+		}
 	}
 	t.durSec = float64(t.tmax.UnixMilli()-t.tmin.UnixMilli()) / 1000
 
