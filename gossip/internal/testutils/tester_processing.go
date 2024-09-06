@@ -23,15 +23,31 @@ func (t *Tester) ProcessReachedWhen(gtype common.GossipType, any bool) (data.Rea
 		}
 		// calculate when the node received the message, as percantage of the test duration
 		tAbs := float64(e.Time.UnixMilli()-t.tmin.UnixMilli()) / 1000
-		tRel := (tAbs) / t.durSec
 		nodeIdx := t.PeersLut[e.Id]
 
 		if _, ok := ret[nodeIdx]; !ok {
 			ret[nodeIdx] = data.ReachedWhen{
 				TimeUnixSec: tAbs,
-				TimePercent: tRel * 100,
 			}
 		}
+	}
+
+	mi := 1000.0
+	ma := 0.0
+	for _, v := range ret {
+		if v.TimeUnixSec < mi {
+			mi = v.TimeUnixSec
+		}
+		if v.TimeUnixSec > ma {
+			ma = v.TimeUnixSec
+		}
+	}
+	dur := ma - mi
+
+	for k, v := range ret {
+		v.TimeUnixSec -= mi
+		v.TimePercent = v.TimeUnixSec / dur * 100
+		ret[k] = v
 	}
 
 	return ret, nil

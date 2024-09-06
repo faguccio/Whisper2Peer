@@ -65,6 +65,9 @@ func main() {
 		panic(err)
 	}
 
+	slog.Info("sleep to see more of the periodic proof-of-work")
+	time.Sleep(5 * time.Second)
+
 	slog.Info("wait for dissemination")
 	ctx, cfunc := context.WithTimeout(context.Background(), time.Minute)
 	defer cfunc()

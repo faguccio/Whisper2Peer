@@ -130,7 +130,7 @@ func (t *Tester) Startup(startIp string) error {
 			for _, l := range t.testloggers {
 				l.Handler().Handle(context.Background(), slog.Record{
 					Time:    e.Time,
-					Message: fmt.Sprintf("%s: id: %v msgid: %v msgtype: %v", e.Msg, e.MsgId, e.MsgType),
+					Message: fmt.Sprintf("%s: id: %v msgid: %v msgtype: %v", e.Msg, e.Id, e.MsgId, e.MsgType),
 					Level:   slog.Level(e.Level),
 					PC:      0,
 				})
@@ -310,6 +310,9 @@ func (t *Tester) Teardown() error {
 	for _, e := range t.Events {
 		if e.Time.Before(t.tmin) {
 			t.tmin = e.Time
+		}
+		if !e.TimeBucket.IsZero() && e.TimeBucket.Before(t.tmin) {
+			t.tmin = e.TimeBucket
 		}
 	}
 	t.durSec = float64(t.tmax.UnixMilli()-t.tmin.UnixMilli()) / 1000
