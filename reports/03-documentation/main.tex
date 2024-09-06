@@ -28,6 +28,7 @@
 \ifdefined\oobcolor\oobcolor{gray}\fi
 \ifdefined\oobcolour\oobcolour{gray}\fi
 
+\newlength\mySkip
 \usepackage{bytefield}
 \usetikzlibrary{arrows,arrows.meta,calc,fit,positioning,decorations.pathmorphing,automata,shapes}
 \tikzset{
@@ -380,103 +381,15 @@ The Proof of Work happens through the exchange of Horizontal messages. To explai
 	\item $I \to R$ send the Proof of Work. If valid, the Identity is validated
 \end{enumerate}
 
-\scalebox{0.9}{
-\newlength\mySkip
-\setlength\mySkip{2ex}
-\begin{tikzpicture}[
-	auto,>=stealth',
-	status/.style={TUMBlue,},
-	statusR/.style={status,below right},
-	statusI/.style={status,below left},
-	thick,
-	]
-
-	\node (i) {Initiator};
-	\node[right=3cm of i] (r) {Responder};
-
-	\node[fit=(i) (r),inner sep=0pt] (tmp) {};
-	\coordinate[yshift=-3ex] (tmp) at (tmp.south);
-
-	\draw[<->] (tmp -| i) -- node[above,scale=1,midway]{Connection Establishment} (tmp -| r);
-	\node[statusR] (sR) at (tmp -| r) {in progress};
-	\node[statusI] (sI) at (tmp -| i) {to be proved};
-
-	\node[fit=(sR.south) (sI.south),inner sep=0pt] (tmp) {};
-	\coordinate[yshift=-\mySkip] (tmp) at (tmp.south);
-
-	\draw[->] (tmp -| i) -- node[above,scale=1,midway]{ConnReq} (tmp -| r);
-	\node[statusR] (sR) at (tmp -| r) {in progress};
-	\node[statusI] (sI) at (tmp -| i) {to be proved};
-
-	\node[fit=(sR.south) (sI.south),inner sep=0pt] (tmp) {};
-	\coordinate[yshift=-\mySkip] (tmp) at (tmp.south);
-
-	\draw[<-] (tmp -| i) -- node[above,scale=1,midway]{ConnChall} (tmp -| r);
-	\node[statusR] (sR) at (tmp -| r) {in progress};
-	\node[statusI] (sI) at (tmp -| i) {to be proved};
-
-	\node[fit=(sR.south) (sI.south),inner sep=0pt] (tmp) {};
-	\coordinate[yshift=-\mySkip] (tmp) at (tmp.south);
-
-	\draw[->] (tmp -| i) -- node[above,scale=1,midway]{ConnPoW} (tmp -| r);
-	\node[statusR] (sR) at (tmp -| r) {open connection};
-	\node[statusI] (sI) at (tmp -| i) {open connection};
-
-	\node[fit=(sR.south) (sI.south),inner sep=0pt] (tmp) {};
-	\coordinate[yshift=-\mySkip] (tmp) at (tmp.south);
-
-	\draw (i.south) -- (i.south |- tmp);
-	\draw (r.south) -- (r.south |- tmp);
-
-\end{tikzpicture}
-\begin{tikzpicture}[
-	auto,>=stealth',
-	status/.style={TUMBlue,},
-	statusR/.style={status,below right},
-	statusI/.style={status,below left},
-	thick,
-	]
-
-	\node (i) {Initiator};
-	\node[right=2.5cm of i] (r) {Responder};
-
-	\node[fit=(i) (r),inner sep=0pt] (tmp) {};
-	\coordinate[yshift=-3ex] (tmp) at (tmp.south);
-
-	\draw[<->] (tmp -| i) -- node[above,scale=1,midway]{pow timed out at I} (tmp -| r);
-	\node[statusR] (sR) at (tmp -| r) {open connection};
-	\node[statusI] (sI) at (tmp -| i) {open connection};
-
-	\node[fit=(sR.south) (sI.south),inner sep=0pt] (tmp) {};
-	\coordinate[yshift=-\mySkip] (tmp) at (tmp.south);
-
-	\draw[->] (tmp -| i) -- node[above,scale=1,midway]{PowReq} (tmp -| r);
-	\node[statusR] (sR) at (tmp -| r) {open connection};
-	\node[statusI] (sI) at (tmp -| i) {open connection};
-
-	\node[fit=(sR.south) (sI.south),inner sep=0pt] (tmp) {};
-	\coordinate[yshift=-\mySkip] (tmp) at (tmp.south);
-
-	\draw[<-] (tmp -| i) -- node[above,scale=1,midway]{PowChall} (tmp -| r);
-	\node[statusR] (sR) at (tmp -| r) {open connection};
-	\node[statusI] (sI) at (tmp -| i) {open connection};
-
-	\node[fit=(sR.south) (sI.south),inner sep=0pt] (tmp) {};
-	\coordinate[yshift=-\mySkip] (tmp) at (tmp.south);
-
-	\draw[->] (tmp -| i) -- node[above,scale=1,midway]{PowPoW} (tmp -| r);
-	\node[statusR] (sR) at (tmp -| r) {open connection};
-	\node[statusI] (sI) at (tmp -| i) {open connection};
-
-	\node[fit=(sR.south) (sI.south),inner sep=0pt] (tmp) {};
-	\coordinate[yshift=-\mySkip] (tmp) at (tmp.south);
-
-	\draw (i.south) -- (i.south |- tmp);
-	\draw (r.south) -- (r.south |- tmp);
-
-\end{tikzpicture}
-}
-
+\begin{figure}
+	\centering
+	\input{figures/seq_pow}
+	\caption{
+		Sequence Diagram of the PoW protocol on connection establishment.
+		The \textcolor{TUMBlue}{blue labels} refer to the state the connection currently is in from the point of view of the respective peer.
+	}
+	\label{fig:seqPow}
+\end{figure}
 \subsubsection{Connection Types}
 
 To better model the PoW, we decided upon 3 possible connection state:
