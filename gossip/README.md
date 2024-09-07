@@ -23,7 +23,8 @@ for node in 0 1 2 3 ; do
 done
 ```
 
-> [!Note]
+> 📝 IP-Addrs in docker
+>
 > Docker will assign each node an IP Address. Since you might not know this in
 > advance you can also simply use the name you assigned to that container when
 > specifying the neighbors in the config file.
@@ -42,7 +43,8 @@ to run all the unit- and end-to-end tests (for all golang
 packages) we've written. Note that this will take some time because of the
 end-to-end tests.
 
-> [!Note]
+> 📝 Setup for running tests
+>
 > Since we already had all the tests (including the end-to-end tests ready
 > before the requirements changed that we should supply a dockerfile, our tests
 > do not run dockerized. For more information on our testing setup see our
