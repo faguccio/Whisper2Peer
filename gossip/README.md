@@ -17,6 +17,7 @@ Assumptions:
 # create a network to run the nodes in so that
 # the nodes can communicate with each other
 docker network create gossipNet
+# start the nodes 0 to 3 in the background
 for node in 0 1 2 3 ; do
     docker run --network gossipNet -d --name "node${node}" -v "$(pwd)/node${node}.ini":/config.ini -p $(( 7000+node )):7001 -p $(( 6000+node )):6001 gossip-3 -c /config.ini
 done
