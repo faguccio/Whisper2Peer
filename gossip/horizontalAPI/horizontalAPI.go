@@ -314,7 +314,7 @@ func (hz *HorizontalApi) AddNeighbors(dialer *net.Dialer, addrs ...string) ([]Co
 		ctx, cfunc := context.WithCancel(hz.ctx)
 
 		toHz := make(chan ToHz)
-		ret = append(ret, Conn[chan<- ToHz]{Data: toHz, Id: ConnectionId(a), Ctx: ctx, Cfunc: cfunc})
+		ret = append(ret, Conn[chan<- ToHz]{Data: toHz, Id: ConnectionId(conn.RemoteAddr().String()), Ctx: ctx, Cfunc: cfunc})
 
 		hz.wg.Add(2)
 		go hz.handleConnection(conn, Conn[chan<- ToHz]{Data: toHz, Id: ConnectionId(conn.RemoteAddr().String()), Ctx: ctx, Cfunc: cfunc})
