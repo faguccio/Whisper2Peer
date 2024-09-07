@@ -4,7 +4,6 @@ package strats
 import (
 	"context"
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"gossip/common"
 	horizontalapi "gossip/horizontalAPI"
@@ -13,7 +12,6 @@ import (
 	"io"
 	"net"
 	"slices"
-	"strings"
 
 	"log/slog"
 )
