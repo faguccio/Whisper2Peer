@@ -27,6 +27,10 @@ done
 > advance you can also simply use the name you assigned to that container when
 > specifying the neighbors in the config file.
 
+For an example on how to setup a simple dockerized two node network and use
+voidphone_pytest to send an announcement see our small
+[tutorial](tutorial/README.md).
+
 # How to run tests
 ## golang tests
 You can run
