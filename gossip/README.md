@@ -9,7 +9,7 @@ docker build -t gossip-3 .
 ## Start a container for each node
 
 Assumptions:
-- you want to bring up 3 nodes (change the for loop accordingly otherwise)
+- you want to bring up 4 nodes (change the for loop accordingly otherwise)
 - you have a config `.ini` file to configure each node which is named `node<nodeNr>.ini` and is placed in the current working directory.
 - note that your config should not configure the horizontal API (`6001`) as well as the vertical API (`7001`) to different ports (the dockerfile does not expose them otherwise)
 
