@@ -12,7 +12,6 @@ import (
 	"io"
 	"net"
 	"slices"
-	"strings"
 
 	"log/slog"
 )
@@ -62,7 +61,11 @@ func New(log *slog.Logger, args args.Args, stratChans StrategyChannels, initFini
 		log:              log.With("module", "strategy"),
 	}
 
-	openConnections, err := hz.AddNeighbors(&net.Dialer{LocalAddr: &net.TCPAddr{IP: net.ParseIP(strings.SplitN(args.Hz_addr, ":", 2)[0]), Port: 0}}, args.Peer_addrs...)
+	host, _, err := net.SplitHostPort(args.Hz_addr)
+	if err != nil {
+		return nil, err
+	}
+	openConnections, err := hz.AddNeighbors(&net.Dialer{LocalAddr: &net.TCPAddr{IP: net.ParseIP(host), Port: 0}}, args.Peer_addrs...)
 
 	hzInitFin := make(chan struct{}, 1)
 
