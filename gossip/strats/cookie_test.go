@@ -3,6 +3,7 @@ package strats
 import (
 	"crypto/rand"
 	horizontalapi "gossip/horizontalAPI"
+	pow "gossip/pow"
 	"reflect"
 	"testing"
 
@@ -39,6 +40,17 @@ func TestCookie(test *testing.T) {
 
 	if string(readCookie.dest) != string(cookie.dest) {
 		test.Fatalf("Read dest different from dest (%s, %s)", readCookie.dest, cookie.dest)
+	}
+
+	nonce := ComputePoW(payload)
+	mypow := powMarsh{PowNonce: nonce, Cookie: payload}
+
+	powValidity := pow.CheckProofOfWork(func(digest []byte) bool {
+		return pow.First8bits0(digest)
+	}, &mypow)
+
+	if !powValidity {
+		test.Fatalf("Computing or checking the proof of work leads to wrong result")
 	}
 
 }

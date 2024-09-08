@@ -117,29 +117,6 @@ func (manager *ConnectionManager) FindValid(id horizontalapi.ConnectionId) (*gos
 	return value, ok
 }
 
-// Find the connection with matching ID, else return the zero value
-func (manager *ConnectionManager) unsafeFind(id horizontalapi.ConnectionId) *gossipConnection {
-	// Search in the ToBeProved
-	peer, ok := manager.toBeProvedConnections[id]
-	if ok {
-		return peer
-	}
-
-	// Search in the In Progress connections
-	peer, ok = manager.powInProgress[id]
-	if ok {
-		return peer
-	}
-
-	// Search in the open (valid) connections
-	peer, ok = manager.openConnectionsMap[id]
-	if ok {
-		return peer
-	}
-
-	return &gossipConnection{}
-}
-
 // Remove the connection with a specific ID, without locking resources
 //
 // (Wrapper around unsafeRemove with locking for thread safety)
