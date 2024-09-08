@@ -44,6 +44,11 @@ done
 > advance you can also simply use the name you assigned to that container when
 > specifying the neighbors in the config file.
 
+> 📝 IPv6
+>
+> We tested ipv6 and it works. Just be aware that you need to specify the
+> address as `[ipv6]:port`
+
 For an example on how to setup a simple dockerized two node network and use
 voidphone_pytest to send an announcement see our small
 [tutorial](tutorial/README.md).
