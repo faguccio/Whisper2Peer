@@ -39,6 +39,8 @@ You can run
 ```bash
 make test
 ```
+
+If having a golang build environment was not possible, just add `RUN make test` in the `Dockerfile` after the `RUN make build`. This way it will be possible to observe the output of the test executed inside the container.
 to run all the unit- and end-to-end tests (for all golang
 packages) we've written. Note that this will take some time because of the
 end-to-end tests.
