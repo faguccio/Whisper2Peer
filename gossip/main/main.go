@@ -44,7 +44,7 @@ type UserArgs struct {
 	GossipTimer *uint    `ini:"gtimer" arg:"-t,--gtimer" help:"How often the gossip strategy should perform a strategy cycle, if applicable"`
 	Hz_addr     *string  `ini:"p2p address" arg:"-H,--haddr" help:"Address to listen for incoming peer connections, ip:port"`
 	Vert_addr   *string  `ini:"api address" arg:"-V,--vaddr" help:"Address to listen for incoming peer connections, ip:port"`
-	Peer_addrs  []string `ini:"hconns" arg:"positional" help:"List of horizontal peers to connect to, [ip]:port"`
+	Peer_addrs  []string `ini:"hconns" delim:" " arg:"positional" help:"List of horizontal peers to connect to, [ip]:port"`
 	ConfigFile  *string  `arg:"-c,--config_file" help:"Path to the configuration file (cli arguments always take predecence)"`
 	// Strategy string ``
 }

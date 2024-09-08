@@ -1,5 +1,20 @@
 # How to run/build (dockerized):
 
+## Config
+Configuration is done via the `gossip` section of a `ini` file.
+
+Currently we support the following parameters:
+- `degree`: Number of peers the current peer has to exchange information with
+- `cache_size`: Maximum number of data items to be held as part of the peer’s knowledge base. Older items will be removed to ensure space for newer items if the peer’s knowledge base exceeds this limit
+- `gtimer`: How often the gossip strategy should perform a strategy cycle, if applicable
+- `p2p address`: Address to listen for incoming peer connections, ip:port
+- `api address`: Address to listen for incoming peer connections, ip:port
+- `hconns`: List of horizontal peers to connect to, ip:port
+
+`hconns` is a bit special since `ini` natively does not support lists. But you
+can simply use `hconns = ip1:port ip2:port` (so separate the elements with
+one space)
+
 ## Build the docker image
 
 ```bash
