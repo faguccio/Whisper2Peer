@@ -645,7 +645,7 @@ We plan to implement at least the discussed proof-of-work based security measure
 As already outlined, we split our module in various different packages.
 This enabled us to distribute the packages and work independently of each other (apart from defining the communication\,/\,interface of course).
 
-Fabio focused on the developing the Strategy package, which was greatly written in peer programming, especially in the beginning when defining the whole interface. He also wrote the tests for the vertical API and developed the most part of the PoW security mechanism.
+Fabio focused on the developing the Strategy package, which was initially written in peer programming, especially when defining the whole interface. He implemented the Cookie and Gossip Connection. He also wrote the tests for the vertical API and developed the most part of the PoW security mechanism.
 
 Lukas worked on the horizontal API and the vertical API (from which the common package later was derived).
 Note that at least writing the de-\,/\,parsing of the vertical API was pretty straight forward because it is fairly similar to what we needed to do for the registration client.
@@ -655,6 +655,8 @@ While Fabio started working on the main package, Lukas later did some refactorin
 
 \section{Effort spent for the project}
 Both of us did not strictly measure the time spent on the project. We report here a rough estimation on weekly hours spent working on the project, since the creation and submission of the initial report.
+
+\todo{I (Fabio) counted 70 hours except today}
 
 \begin{itemize}
 	\item Fabio: 8-9 hours a week
