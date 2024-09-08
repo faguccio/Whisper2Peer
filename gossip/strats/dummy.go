@@ -112,7 +112,7 @@ func (dummy *dummyStrat) Listen() {
 					_, isValid := dummy.connManager.FindValid(msg.Id)
 
 					if !isValid {
-						dummy.rootStrat.log.Debug("PUSH message not processed because peer was not PoW valid", "Peer ID", msg.Id)
+						dummy.rootStrat.log.Warn("PUSH message not processed because peer was not PoW valid", "Peer ID", msg.Id)
 						continue
 					}
 
@@ -137,7 +137,7 @@ func (dummy *dummyStrat) Listen() {
 					peer, IsInProgress := dummy.connManager.FindInProgress(msg.Id)
 
 					if !IsInProgress {
-						dummy.rootStrat.log.Debug("ConnReq received from a connection not present in the inProgress connections", "ConnId", msg.Id)
+						dummy.rootStrat.log.Warn("ConnReq received from a connection not present in the inProgress connections", "ConnId", msg.Id)
 						continue
 					}
 
@@ -152,7 +152,7 @@ func (dummy *dummyStrat) Listen() {
 					// Checks weather the Chall is coming from a toBeProvedConnection
 					peer, isToBeProved := dummy.connManager.FindToBeProved(msg.Id)
 					if !isToBeProved {
-						dummy.rootStrat.log.Debug("ConnChall received from a not toBeProved connection", "ConnId", msg.Id)
+						dummy.rootStrat.log.Warn("ConnChall received from a not toBeProved connection", "ConnId", msg.Id)
 						dummy.connManager.Remove(msg.Id)
 						continue
 					}
@@ -173,7 +173,7 @@ func (dummy *dummyStrat) Listen() {
 				case horizontalapi.ConnPoW:
 					_, connValidty := dummy.connManager.FindInProgress(msg.Id)
 					if !connValidty {
-						dummy.rootStrat.log.Debug("ConnPow received was from a connection which is not actually in Progress", "ConnId", msg.Id)
+						dummy.rootStrat.log.Warn("ConnPow received was from a connection which is not actually in Progress", "ConnId", msg.Id)
 						dummy.connManager.Remove(msg.Id)
 						continue
 					}
@@ -182,7 +182,7 @@ func (dummy *dummyStrat) Listen() {
 					cookieRead, err := ReadCookie(dummy.cipher, mypow.Cookie)
 
 					if err != nil {
-						dummy.rootStrat.log.Debug("Failed to decrypt cookie, dropping connection", "ConnId", msg.Id)
+						dummy.rootStrat.log.Warn("Failed to decrypt cookie, dropping connection", "ConnId", msg.Id)
 						dummy.connManager.Remove(msg.Id)
 						continue
 					}
@@ -193,14 +193,14 @@ func (dummy *dummyStrat) Listen() {
 					}, &mypow)
 
 					if !powValidity {
-						dummy.rootStrat.log.Debug("Invalid pow, dropping connection", "ConnId", msg.Id)
+						dummy.rootStrat.log.Warn("Invalid pow, dropping connection", "ConnId", msg.Id)
 						dummy.connManager.Remove(msg.Id)
 						continue
 					}
 
 					// check if dest is valid
 					if cookieRead.dest != msg.Id {
-						dummy.rootStrat.log.Debug("Mismatched connectionId between received connPow and sender", "expected conn Id", cookieRead.dest, "ConnId", msg.Id)
+						dummy.rootStrat.log.Warn("Mismatched connectionId between received connPow and sender", "expected conn Id", cookieRead.dest, "ConnId", msg.Id)
 						dummy.connManager.Remove(msg.Id)
 						continue
 					}
@@ -209,7 +209,7 @@ func (dummy *dummyStrat) Listen() {
 					diff := time.Now().Sub(cookieRead.timestamp)
 
 					if diff > POW_TIMEOUT {
-						dummy.rootStrat.log.Debug("POW for accepting connection was given not within the time limit", "expected conn Id", cookieRead.dest, "ConnId", msg.Id)
+						dummy.rootStrat.log.Info("POW for accepting connection was given not within the time limit", "expected conn Id", cookieRead.dest, "ConnId", msg.Id)
 						dummy.connManager.Remove(msg.Id)
 						continue
 					}
@@ -222,7 +222,7 @@ func (dummy *dummyStrat) Listen() {
 
 					peer, isValid := dummy.connManager.FindValid(msg.Id)
 					if !isValid {
-						dummy.rootStrat.log.Debug("Id not found in the connection manager", "ConnId", msg.Id)
+						dummy.rootStrat.log.Warn("Id not found in the connection manager", "ConnId", msg.Id)
 						continue
 					}
 
@@ -238,14 +238,14 @@ func (dummy *dummyStrat) Listen() {
 					peer, isValid := dummy.connManager.FindValid(msg.Id)
 
 					if !isValid {
-						dummy.rootStrat.log.Debug("PowChall received from a not valid connection", "ConnId", msg.Id)
+						dummy.rootStrat.log.Warn("PowChall received from a not valid connection", "ConnId", msg.Id)
 						dummy.connManager.Remove(msg.Id)
 						continue
 					}
 
 					// Check if the there was a Req sent
 					if !peer.sentPowReq {
-						dummy.rootStrat.log.Debug("PowChall received but no PowReq was sent, possible DoS", "ConnId", msg.Id)
+						dummy.rootStrat.log.Warn("PowChall received but no PowReq was sent, possible DoS", "ConnId", msg.Id)
 						dummy.connManager.Remove(msg.Id)
 						continue
 					}
@@ -266,7 +266,7 @@ func (dummy *dummyStrat) Listen() {
 					// Checks weather the PoW is from an openConnection (renewal)
 					_, connValidty := dummy.connManager.FindValid(msg.Id)
 					if !connValidty {
-						dummy.rootStrat.log.Debug("PoWPoW received was from a connection which is not actually valid", "ConnId", msg.Id)
+						dummy.rootStrat.log.Warn("PoWPoW received was from a connection which is not actually valid", "ConnId", msg.Id)
 						dummy.connManager.Remove(msg.Id)
 						continue
 					}
@@ -275,7 +275,7 @@ func (dummy *dummyStrat) Listen() {
 					cookieRead, err := ReadCookie(dummy.cipher, mypow.Cookie)
 
 					if err != nil {
-						dummy.rootStrat.log.Debug("Failed to decrypt cookie, dropping connection", "ConnId", msg.Id)
+						dummy.rootStrat.log.Warn("Failed to decrypt cookie, dropping connection", "ConnId", msg.Id)
 						dummy.connManager.Remove(msg.Id)
 						continue
 					}
@@ -286,14 +286,14 @@ func (dummy *dummyStrat) Listen() {
 					}, &mypow)
 
 					if !powValidity {
-						dummy.rootStrat.log.Debug("Invalid pow, dropping connection", "ConnId", msg.Id)
+						dummy.rootStrat.log.Warn("Invalid pow, dropping connection", "ConnId", msg.Id)
 						dummy.connManager.Remove(msg.Id)
 						continue
 					}
 
 					// check if dest is valid
 					if cookieRead.dest != msg.Id {
-						dummy.rootStrat.log.Debug("Mismatched connectionId between received connPow and sender", "expected conn Id", cookieRead.dest, "ConnId", msg.Id)
+						dummy.rootStrat.log.Warn("Mismatched connectionId between received connPow and sender", "expected conn Id", cookieRead.dest, "ConnId", msg.Id)
 						dummy.connManager.Remove(msg.Id)
 						continue
 					}
