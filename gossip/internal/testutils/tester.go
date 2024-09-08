@@ -146,6 +146,11 @@ func (t *Tester) Startup(startIp string) error {
 	go func(logChan <-chan Event, busyChan chan<- common.GossipType) {
 		for e := range logChan {
 			for _, l := range t.testloggers {
+				select {
+				case <- ctx.Done():
+					return
+				default:
+				}
 				l.Handler().Handle(context.Background(), slog.Record{
 					Time:    e.Time,
 					Message: fmt.Sprintf("%s: id: %v msgid: %v msgtype: %v", e.Msg, e.Id, e.MsgId, e.MsgType),
@@ -312,6 +317,7 @@ func (t *Tester) WaitUntilSilent(ctx context.Context, all bool, gtype common.Gos
 // This includes closing all connections, pipes and channels needed during the
 // test.
 func (t *Tester) Teardown() error {
+	t.cfunc()
 	if t.state != TestStateRunning {
 		return errors.New("cannot teardown a not running test")
 	}
