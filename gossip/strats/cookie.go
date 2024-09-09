@@ -31,13 +31,15 @@ import (
 	"golang.org/x/crypto/chacha20poly1305"
 )
 
+// This struct represents the connection cookie.
 type connCookie struct {
+	// The cipher Nonce
 	chall     []byte
 	timestamp time.Time
 	dest      horizontalapi.ConnectionId
 }
 
-// Return a cookie object with provided destination
+// Return a new cookie object with provided destination (timestamp is set to now)
 func NewConnCookie(dest horizontalapi.ConnectionId) connCookie {
 	nonce := make([]byte, chacha20poly1305.NonceSizeX)
 	if _, err := rand.Read(nonce); err != nil {
@@ -51,6 +53,7 @@ func NewConnCookie(dest horizontalapi.ConnectionId) connCookie {
 	}
 }
 
+// This function will marshal the cookie object and return the resulting byte slice
 func (x *connCookie) Marshal() []byte {
 	timestamp := x.timestamp.UnixNano()
 	buf := make([]byte, len(x.chall)+binary.Size(timestamp)+len(x.dest))
@@ -69,6 +72,8 @@ func (x *connCookie) Marshal() []byte {
 	return buf
 }
 
+// This function takes a buffer (marshalled cookie) and will unmarshal the data
+// in the correct fields of the caller
 func (x *connCookie) Unmarshal(buf []byte) {
 	idx := 0
 
@@ -87,6 +92,7 @@ func (x *connCookie) Unmarshal(buf []byte) {
 	x.dest = horizontalapi.ConnectionId(string(dest))
 }
 
+// Marshall the cookie, encrypt it and add Nonce. Return the resulting byte slice
 func (x *connCookie) CreateCookie(aead cipher.AEAD) []byte {
 	payload := x.Marshal()
 
@@ -96,6 +102,9 @@ func (x *connCookie) CreateCookie(aead cipher.AEAD) []byte {
 	return cookie
 }
 
+// This function takes a byte slice (cookie) and return a nonce for the PoW
+//
+// The computed nonce will have the hash starting with 8 zeros
 func ComputePoW(cookie []byte) uint64 {
 	mypow := powMarsh{
 		PowNonce: 0,
@@ -109,6 +118,9 @@ func ComputePoW(cookie []byte) uint64 {
 	return nonce
 }
 
+// This function takes an the ChaCha20 cipher and a marshalled cookie. It will
+//
+// If the decryption fail it will return an error, other wise, the cookie object
 func ReadCookie(aead cipher.AEAD, cookie []byte) (*connCookie, error) {
 	cipherNonce := cookie[0:chacha20poly1305.NonceSizeX]
 	cookie = cookie[chacha20poly1305.NonceSizeX:]

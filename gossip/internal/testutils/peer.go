@@ -92,7 +92,6 @@ func (p *peer) markAllValid() {
 	var gn vtypes.GossipNotification
 
 	for {
-		// TODO code duplication with vertAPI -> maybe some refactoring later
 		buf = buf[0:msgHdr.CalcSize()]
 		// read the message header
 		nRead, err := io.ReadFull(p.conn, buf)

@@ -43,7 +43,6 @@ type GossipType uint16
 //go-sumtype:decl FromVert
 
 // "union" with the types the verticalAPI might send
-// TODO: this is not so nice since it somehow couples this module to the verticalAPI
 type FromVert interface {
 	isFromVert()
 }
@@ -51,7 +50,6 @@ type FromVert interface {
 //go-sumtype:decl ToVert
 
 // "union" with the types the verticalAPI needs to be able to receive
-// TODO: this is not so nice since it somehow couples this module to the verticalAPI
 type ToVert interface {
 	isToVert()
 }
@@ -59,7 +57,6 @@ type ToVert interface {
 //go-sumtype:decl ToStrat
 
 // "union" with the types the gossip strategy needs to be able to receive
-// TODO: this is not so nice since it somehow couples this module to the strats
 type ToStrat interface {
 	isToStrat()
 }
@@ -67,7 +64,6 @@ type ToStrat interface {
 //go-sumtype:decl FromStrat
 
 // "union" with the types the gossip strategy might send
-// TODO: this is not so nice since it somehow couples this module to the strats
 type FromStrat interface {
 	isFromStrat()
 }
