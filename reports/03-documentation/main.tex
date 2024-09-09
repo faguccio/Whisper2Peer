@@ -349,7 +349,7 @@ If a \texttt{GOSSIP VALIDATION} message arrives, the \texttt{Gossip Strategy} wi
 
 Messages received through a \texttt{GOSSIP ANNOUNCE} are automatically deemed Valid. This is because there is no client to notify and no \texttt{GOSSIP VALIDATION} to receive.
 
-\texttt{Gossip Rounds} are triggered periodically. When the Gossip Round starts, a random subset of peers of size $\min(\text{Degree}, \text{\# neighbors})$ is chosen (via a random permutation). Then, each message in the Valid Queue is sent to each chosen peer. This way of relaying messages is just an heuristic: on average the message should reach all peers within the \texttt{ttl} but it is not guaranteed. If the amount of connection a peer has is bigger than \textit{Degree}, some neighbors will not receive the PUSH message and there is no guarantee they will receive it later. But the specification says that a peer should exchange information with \textit{Degree} peers, so it is also responsibility of the users to choose an appropriate \textit{Degree} number. \label{gos:push_problem}
+\texttt{Gossip Rounds} are triggered periodically. When the Gossip Round starts, a random subset of peers of size $\min(\text{Degree}, \text{\# neighbors})$ is chosen (via a random permutation). Then, each message in the Valid Queue is sent to each chosen peer. This way of relaying messages is just an heuristic: on average the message should reach all peers within the \texttt{ttl} but it is not guaranteed. If the amount of connection a peer has is bigger than \textit{Degree}, some neighbors will not receive the PUSH message and there is no guarantee they will receive it later. But the specification says that a peer should exchange information with \textit{Degree} peers, so it is also responsibility of the users to choose an appropriate \textit{Degree} number.
 
 
 \section{Security Measures} \label{sec:security}
@@ -596,7 +596,7 @@ With this project, we built a solid architecture with significant attention to m
 
 \subsection{Pull Strategy}
 
-A PUSH only strategy has flaws, as seen in \cref{gos:push_problem}. It can happen that information does not reach all peers. We planned on adding a PULL protocol to increase the probability that all peers would eventually receive all messages. The general idea is made of 3 steps for a given peer:
+A PUSH only strategy has flaws. It can happen that information does not reach all peers. We planned on adding a PULL protocol to increase the probability that all peers would eventually receive all messages. The general idea is made of 3 steps for a given peer:
 
 \begin{enumerate}
     \item Choose a number of neighbors
