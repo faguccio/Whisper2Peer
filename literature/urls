@@ -13,7 +13,6 @@ https://dl-acm-org.eaccess.tum.edu/doi/pdf/10.1145/1317379.1317382
 https://dl.acm.org/doi/pdf/10.1145/43921.43922 # first use of gossip in distributed systems
 
 
-TODO: how do we represent the graph? Know neighbors? -- revisit networks and graphs lecture -- unstructured vs strucutred (tend to unstructured as we implement broadcast)
 
 on the security of gossip:
 https://arxiv.org/pdf/2212.05197v1

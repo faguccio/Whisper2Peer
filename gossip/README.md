@@ -72,7 +72,7 @@ end-to-end tests.
 > do not run dockerized. For more information on our testing setup see our
 > documentstion.
 > We explicitly asked if our approach (of not dockerizing our existing tests) is
-> ok on [moodle](TODO).
+> ok on [moodle](https://www.moodle.tum.de/mod/forum/discuss.php?d=509959).
 
 ## staticcheck
 We're using the tool `staticcheck` (install via `go install

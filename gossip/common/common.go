@@ -16,5 +16,5 @@
 * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-// Package common is used especially to define types used as internal representation
+// Package common is used mostly to define types used as internal representation
 package common
