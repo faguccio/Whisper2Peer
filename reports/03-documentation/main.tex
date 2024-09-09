@@ -103,7 +103,7 @@ The following is just a brief overview.
 Each part will be discussed in more detail in the following subsections.
 
 \begin{itemize}
-	\item \textbf{Gossip}:
+	\item \textbf{Gossip/Main}:
 		is in charge of managing the whole module.
 		It has to take and use the configuration parameters, orchestrate the other components, and filter and relay messages.
 		Moreover, in this package, we define the data structure that holds the registered \textit{Gossip Types} in memory.
@@ -457,7 +457,6 @@ With capnproto, you only specify what data (\enquote{name} and type) should be i
 The concrete message format is then the concern of capnproto.
 
 With this in mind, it makes no real sense to include the concrete format of the messages but only the names of the fields and their type.
-% TODO(pull)
 As of now, we have seven message types on the horizontal API.
 The most important one is the \emph{Push} message type, which is used to spread information in the network.
 Its fields and types can be seen in \cref{tab:push}.
