@@ -596,12 +596,12 @@ With this project, we built a solid architecture with significant attention to m
 
 \subsection{Pull Strategy}
 
-A PUSH only strategy has flaws. It can happen that information does not reach all peers. We planned on adding a PULL protocol to increase the probability that all peers would eventually receive all messages. The general idea is made of 3 steps for a given peer:
+A PUSH only strategy has flaws. It can happen that information does not reach all peers. We planned on adding a PULL protocol to increase the probability that all peers would eventually receive all messages. By adding, we mean integrating the already in place PUSH Strategy with PULL messages. The general idea is made of 3 steps for a given peer:
 
 \begin{enumerate}
     \item Choose a number of neighbors
-    \item Send a PULL message to those neighbors
-    \item Receive and merge the new messages
+    \item Send a PULL message (request) to those neighbors
+    \item Receive and merge the new messages, sent as a PULL response
 \end{enumerate}
 
 For the first step, how to choose a neighbor would be at random. Another possibility would be to select a neighbor that has not sent many PUSH messages, meaning that it might have stored messages that did not reach this peer.
