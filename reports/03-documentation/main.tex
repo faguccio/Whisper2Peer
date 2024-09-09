@@ -85,7 +85,6 @@ Note that we use the terms \emph{goroutine} and \emph{thread} interchangeably fo
 We will give sample scenarios to understand how messages are processed and travel the program.
 We will also show our abstractions over the networking layer.
 
-% TODO(pull) change needed if pull is implemented
 After that, we will cover the concrete gossip strategy we implemented, including the different parameters used in the strategy.
 Later, we will discuss the security measure we implemented and the peer-to-peer protocol we put in place.
 Finally, we will explore what next steps would make sense when continuing to work on this project and how the workload was distributed between the team members.
@@ -272,8 +271,6 @@ Also note how this use of one thread per read\,/\,write on the connection combin
 
 
 \section{Gossip Strategies}
-\Todo{text here how to instantiate different ones and what the idea here is (also with the main/root strategy as kind of library)}
-\Todo{3 caches (of size cache size messages) and state machine should be a common scheme}
 
 The spreading of information in the network is done by the Gossip Strategy module. Since the actual way of spreading the messages could be done in many different ways (strategies), we decided to split the logic between a \textbf{Main Strategy} and a \textbf{Concrete Strategy}. There is also a class \textbf{Connection Manager} which has the task of managing the connection to the peers. 
 
@@ -307,7 +304,7 @@ We decided to use 3 states to describe this behavior, as described in \cref{fig:
 
 Those states are held in a \textbf{Ringbuffer}, a circular queue data structure which make it very easy discarding the oldest messages when the \textit{cache\_size} is exceeded. The Sent Message Queue is necessary because we can avoid loops inside the network: if an incoming message is present there, it can be automatically dropped so no loop can happen.
 
-\subsection{Push Strategy}
+\subsection{Push Strategy} 
 The push strategy is straight forward.
 Every peer pushes new updates to a random subset of its neighbors. 
 
@@ -356,10 +353,6 @@ Messages received through a \texttt{GOSSIP ANNOUNCE} are automatically deemed Va
 
 
 \section{Security Measures} \label{sec:security}
-
-
-
-\Todo{describe how PoW works (what fields are included) -- also how to adjust and make the challenge harder -- also parallelization}
 
 From a security perspective, the Gossip module is mainly susceptible to \textit{Sybil Attacks} and consequently \textit{Eclipse Attacks}. This is because, when running, a peer is accepting any new connection and there is no central authority which can help with verifying the identity of other entities. To provide Identity Validation we opted for a computation based Proof of Work. This way we limit the amount of Identities which can be under the control of an attacker to the computational resources that such attacker has. 
 
@@ -438,7 +431,7 @@ ChaCha20-Poly1305 \footnote{\url{https://en.wikipedia.org/wiki/ChaCha20-Poly1305
 
 Upon reception of the PoW, which contains the cookie and a Nonce for the pow computation \label{tab:pow}, the Cookie is decrypted. If the decryption fails, the connection is immediately dropped. Otherwise, the content of the cookie is inspected for additional checks. For example, the timestamp should not be larger than a certain timeout value, as we don't allow a peer to take arbitrary time to compute the PoW.
 
-\subsection{Periodical Proofs of Work}
+\subsection{Periodical Proofs of Work} \label{sec:periodic}
 
 The PoW requires an attacker to put in computational effort when opening a connection. But if this is done only once, the attacker can use the resource sequentially, adding Sybils under its control over time. To mitigate this, we implemented Periodic Proofs of Work. A node periodically asks the neighboring peers for a PoW and at the same time, the node will be prompted by each of its neighbors for PoWs. 
 
@@ -598,11 +591,44 @@ This is why, in the end, we did not perform extended benchmarking, providing us 
 \end{figure}
 
 \section{Future Work} \label{sec:future}
-\Todo{outdated!!}
-\Todo{pull strategy?}
-\Todo{benchmaring (stubs are present)?}
-We already built a decent architecture which allows us to easily add new components or replace existing ones.
-We plan on adding at least a pull strategy, whether we still have time for a push-pull strategy remains unclear.
+
+With this project, we built a solid architecture with significant attention to modularity. Handling new Horizontal Messages or creating new Gossip Strategies is not only possible but foreseen by the architecture. For example, for writing a new Gossip Strategy, the Main Strategy can be leveraged, and the user can focus only on the logic of such Strategy. In this section, we will present features we would have implemented if we had given more time to focus on the project.
+
+\subsection{Pull Strategy}
+
+A PUSH only strategy has flaws. It can happen that information does not reach all peers. We planned on adding a PULL protocol to increase the probability that all peers would eventually receive all messages. By adding, we mean integrating the already in place PUSH Strategy with PULL messages. The general idea is made of 3 steps for a given peer:
+
+\begin{enumerate}
+    \item Choose a number of neighbors
+    \item Send a PULL message (request) to those neighbors
+    \item Receive and merge the new messages, sent as a PULL response
+\end{enumerate}
+
+For the first step, how to choose a neighbor would be at random. Another possibility would be to select a neighbor that has not sent many PUSH messages, meaning that it might have stored messages that did not reach this peer.
+
+For the second and the third, we had a few ideas in mind. A simple method would be for the responder (the neighbor) to send the $n$ most recent messages. A more complex strategy would have the initiator peer sending a list of message IDs it has in memory; the responder would compare the list with its own, looking for new messages not present, and then send those new messages to the Initiator.
+
+Ultimately, these ideas could have all been implemented and later evaluated with benchmarking \ref{fut:benchmarking}.
+
+\subsection{PUSH Proof of Work}
+
+A possible security flaw we have not addressed is the one about spamming. With the Periodic Proof of Work (\cref{sec:periodic}), we make sure that every identity is validated by possessing a certain amount of computing power. However, an attacker who owns one valid peer could still send an arbitrary number of PUSH messages.
+
+We have thought about limiting the global amount of PUSH messages by implementing a Proof of Work for each PUSH message. Since PUSH messages would come without a request (that would overly complicate the protocol), we thought about crafting unique payloads for PUSH messages on which to compute the PoW. Such payload would consist of:
+
+\begin{itemize}
+    \item The message, which is sent anyway
+    \item The destination IP and Port, so an attacker has to compute the PoW for each connection
+\end{itemize}
+
+This way of computing the PoW does not prove the freshness of the message: an attacker could pre-compute 100 different messages and then send them all at once. But at least it could not spam them over all neighbors.
+
+In the end, we did not explore this security measure as there is no real way of assessing whether messages are spam or legitimate. Moreover, it would greatly increase the load on peers as each PUSH message should have a PoW. It would be a tradeoff between performance and security.
+
+\subsection{Benchmarking} \label{fut:benchmarking}
+
+\Todo{outdated, replace with benchmarking}
+\Todo{benchmarking (stubs are present)?}
 
 Additionally, we plan to also add some end-to-end tests on a simple network for which we can determine which peers should receive the message being spread.
 Having an infrastructure for this end-to-end testing should also make it possible to do some sort of benchmarking with much larger networks.
@@ -619,7 +645,7 @@ We plan to implement at least the discussed proof-of-work based security measure
 As already outlined, we split our module in various different packages.
 This enabled us to distribute the packages and work independently of each other (apart from defining the communication\,/\,interface of course).
 
-Fabio focused on the developing the Strategy package, which was greatly written in peer programming, especially in the beginning when defining the whole interface. He also wrote the tests for the vertical API and developed the most part of the PoW security mechanism.
+Fabio focused on the developing the Strategy package, which was initially written in peer programming, especially when defining the whole interface. He implemented the Cookie and Gossip Connection. He also wrote the tests for the vertical API and developed the most part of the PoW security mechanism.
 
 Lukas worked on the horizontal API and the vertical API (from which the common package later was derived).
 Note that at least writing the de-\,/\,parsing of the vertical API was pretty straight forward because it is fairly similar to what we needed to do for the registration client.
@@ -630,12 +656,14 @@ While Fabio started working on the main package, Lukas later did some refactorin
 \section{Effort spent for the project}
 Both of us did not strictly measure the time spent on the project. We report here a rough estimation on weekly hours spent working on the project, since the creation and submission of the initial report.
 
+\todo{I (Fabio) counted 70 hours except today}
+
 \begin{itemize}
-	\item Fabio: 8-9 hours a week
+	\item Fabio: 7-8 hours a week
 	\item Lukas: 9-10 hours a week
 \end{itemize}
 
-We would also like to stress that this estimation is an average.
+We would like to point out that this estimation is an average.
 There were weeks where one member did slightly less and weeks when he did more.
 Moreover, it is not the case that those hours were spread equally across the week, but rather done in 3-4 hours long session (in a few occasion a bit more).
 Also, sometimes these were pair-programming sessions or sessions for planning where the architecture was planned (and almost no code was written).
