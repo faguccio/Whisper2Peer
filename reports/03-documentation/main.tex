@@ -608,7 +608,7 @@ For the first step, how to choose a neighbor would be at random. Another possibi
 
 For the second and the third, we had a few ideas in mind. A simple method would be for the responder (the neighbor) to send the $n$ most recent messages. A more complex strategy would have the initiator peer sending a list of message IDs it has in memory; the responder would compare the list with its own, looking for new messages not present, and then send those new messages to the Initiator.
 
-Ultimately, these ideas could have all been implemented and later evaluated with benchmarking \ref{fut:benchmarking}.
+Ultimately, these ideas could have all been implemented and later evaluated using benchmarking (see \cref{fut:benchmarking}).
 
 \subsection{PUSH Proof of Work}
 
@@ -626,20 +626,14 @@ This way of computing the PoW does not prove the freshness of the message: an at
 In the end, we did not explore this security measure as there is no real way of assessing whether messages are spam or legitimate. Moreover, it would greatly increase the load on peers as each PUSH message should have a PoW. It would be a tradeoff between performance and security.
 
 \subsection{Benchmarking} \label{fut:benchmarking}
-
-\Todo{outdated, replace with benchmarking}
-\Todo{benchmarking (stubs are present)?}
-
-Additionally, we plan to also add some end-to-end tests on a simple network for which we can determine which peers should receive the message being spread.
-Having an infrastructure for this end-to-end testing should also make it possible to do some sort of benchmarking with much larger networks.
-For this we plan on generate some networks in advance (using the models presented in the lecture which are implemented in the python library networkx\footnote{\url{https://networkx.org/}}).
-We can then use these predefined networks to setup the peers and spread one (or multiple) messages in the network.
-Based on the logging we can then evaluate which peer received which message at what point in time.
-Here it comes to our advantage that everything runs on the same host which implies the clocks are perfectly in sync.
-This benchmarking approach should allow us to perform some comparisons at least with different parameters, or if we implemented an additional strategy also compare the different strategies.
-
-For now we do not have the security mesaures presented in \cref{sec:security} in place.
-We plan to implement at least the discussed proof-of-work based security measure until the end of the project.
+Usually, benchmarking is used to evaluate the performance of an application.
+Also, benchmarking can be used to compare the performance of using different parameters.
+In this project, we already included some means to ease the writing of test scenarios and to retrieve \eg how many packets are sent or which nodes obtain knowledge of a certain information (see \cref{sec:testing}).
+For benchmarking, a large random topology shall probably be used, which cannot be configured by hand.
+In order to automatically generate such a configuration, we wrote a small python script using the networkx\footnote{\url{https://networkx.org/}} library.
+Despite all the progress made, proper benchmarking is still to be done.
+The biggest challenge here is deriving stable metrics with all the randomness involved.
+With stable we mean that the metric does not change significantly when rerunning the benchmark.
 
 \section{Workload distribution}
 As already outlined, we split our module in various different packages.
